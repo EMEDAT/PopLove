@@ -1,3 +1,4 @@
+// poplove\app\(tabs)\explore.tsx
 import { StyleSheet, Image, Platform } from 'react-native';
 
 import { Collapsible } from '@/components/Collapsible';

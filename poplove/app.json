@@ -3,39 +3,37 @@
     "name": "poplove",
     "slug": "poplove",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+    "scheme": "poplove",
+    "newArchEnabled": false,
     "plugins": [
-      "expo-router",
       [
-        "expo-splash-screen",
+        "expo-build-properties",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "35.0.0", 
+            "ndkVersion": "28.0.13004108",
+            "ndkPath": "C:\\Users\\USER\\AppData\\Local\\Android\\Sdk\\ndk\\28.0.13004108"
+          },
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true
+    "android": {
+      "package": "com.yourname.poplove",
+      "googleServicesFile": "./google-services.json"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.poplove",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f15a5669-821e-4a47-b075-ded96f9ee970"
+      }
     }
   }
 }
