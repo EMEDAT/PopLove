@@ -2,14 +2,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { collection, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
-import { auth, firestore } from '../lib/firebase';
+import { auth, firestore, serverTimestamp } from '../lib/firebase';
 
 class AuthService {
   // Sign in with email and password
   async signInWithEmail(email: string, password: string) {
     try {
-      const response = await auth().signInWithEmailAndPassword(email, password);
+      const response = await auth.signInWithEmailAndPassword(email, password);
       console.log('Sign in successful:', response.user.uid);
       return response;
     } catch (error: any) {
@@ -33,15 +32,15 @@ class AuthService {
   // Sign up with email and password
   async signUpWithEmail(email: string, password: string) {
     try {
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       
       if (userCredential.user) {
         try {
           // More defensive Firestore document creation
           const uid = userCredential.user.uid;
           
-          // Use modern Firestore API
-          await setDoc(doc(collection(firestore, 'users'), uid), {
+          // Create a user document
+          await firestore.collection('users').doc(uid).set({
             email: email,
             createdAt: serverTimestamp(),
             hasCompletedOnboarding: false,
@@ -66,10 +65,10 @@ class AuthService {
   // Sign out method
   async signOut() {
     try {
-      await auth().signOut();
+      await auth.signOut();
       console.log('Sign out successful');
       
-      // Optional: Clear local storage
+      // Optional: Clear any local storage or async storage
       await AsyncStorage.removeItem('onboardingCompleted');
     } catch (error: any) {
       console.error('Error signing out:', error);
@@ -98,7 +97,7 @@ class AuthService {
       
       // Try to delete the current user if it exists
       try {
-        const currentUser = auth().currentUser;
+        const currentUser = auth.currentUser;
         if (currentUser) {
           await currentUser.delete();
         }

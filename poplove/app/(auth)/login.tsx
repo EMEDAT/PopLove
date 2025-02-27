@@ -21,8 +21,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { auth } from '../../lib/firebase';
-import { GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { auth, firestore, serverTimestamp } from '../../lib/firebase';
+import firebase from '@react-native-firebase/auth';
 
 // Required for Google Auth
 WebBrowser.maybeCompleteAuthSession();
@@ -35,12 +35,11 @@ export default function LoginScreen() {
   const { signIn, error: authError } = useAuthContext();
   const [hasAppleAuth, setHasAppleAuth] = useState(false);
   
-  // Google Auth setup
-  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+  // Google Auth setup with correct properties
+  const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   // Check if Apple Authentication is available
@@ -55,11 +54,14 @@ export default function LoginScreen() {
 
   // Handle Google Auth response
   useEffect(() => {
-    if (googleResponse?.type === 'success') {
+    if (response?.type === 'success') {
       setLoading(true);
-      const { id_token } = googleResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth(), credential)
+      const { id_token } = response.params;
+      
+      // Create a credential from Google Auth response
+      const credential = firebase.GoogleAuthProvider.credential(id_token);
+      
+      auth.signInWithCredential(credential)
         .then((result) => {
           // Navigate to appropriate screen
           router.push('/(tabs)');
@@ -72,7 +74,7 @@ export default function LoginScreen() {
           setLoading(false);
         });
     }
-  }, [googleResponse]);
+  }, [response]);
 
   // Handle Apple Sign In
   const handleAppleSignIn = async () => {
@@ -85,12 +87,18 @@ export default function LoginScreen() {
         ],
       });
       
-      // Create a provider credential
-      const provider = new auth.AppleAuthProvider();
-      const authCredential = provider.credential(credential.identityToken || '');
+      // Use Apple authentication
+      const { identityToken } = credential;
       
-      // Sign in with the credential
-      await auth().signInWithCredential(authCredential);
+      if (!identityToken) {
+        throw new Error('Apple Sign In failed: No identity token');
+      }
+      
+      // Create the Apple credential
+      const appleCredential = firebase.AppleAuthProvider.credential(identityToken);
+      
+      // Sign in with credential
+      await auth.signInWithCredential(appleCredential);
       
       // Navigate to main app
       router.push('/(tabs)');
@@ -220,7 +228,7 @@ export default function LoginScreen() {
             {/* Google Sign In Button */}
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => promptGoogleAsync()}
+              onPress={() => promptAsync()}
               disabled={loading}
             >
               <Image 

@@ -8,7 +8,8 @@ import {
   Dimensions, 
   TouchableOpacity,
   FlatList,
-  SafeAreaView
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

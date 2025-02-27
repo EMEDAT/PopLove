@@ -1,9 +1,9 @@
 // services/storage.ts
 
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { storage } from '../lib/firebase';
+import firebase from '@react-native-firebase/storage';
 
 /**
  * Service for managing file storage operations
@@ -29,16 +29,16 @@ export class StorageService {
       
       // Create a unique filename
       const fileName = `profile_${userId}_${Date.now()}.jpg`;
-      const storageRef = ref(storage(), `profile_images/${fileName}`);
+      const storageRef = storage.ref(`profile_images/${fileName}`);
       
       console.log('Uploading to path:', `profile_images/${fileName}`);
       console.log('File URI:', fileUri);
       
-      // Upload the file
-      await uploadBytesResumable(storageRef, fileUri);
+      // Upload the file using putFile which works with local URIs
+      await storageRef.putFile(fileUri);
       
       // Get the download URL
-      const downloadURL = await getDownloadURL(storageRef);
+      const downloadURL = await storageRef.getDownloadURL();
       console.log('Download URL:', downloadURL);
       
       return downloadURL;
@@ -119,8 +119,8 @@ export class StorageService {
     if (!url) return;
     
     try {
-      const storageRef = ref(storage(), url);
-      await deleteObject(storageRef);
+      const storageRef = storage.refFromURL(url);
+      await storageRef.delete();
     } catch (error) {
       console.error('Error deleting image:', error);
       throw error;

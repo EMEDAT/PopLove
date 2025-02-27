@@ -21,9 +21,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { auth, firestore } from '../../lib/firebase';
-import { GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
-import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { auth, firestore, serverTimestamp, GoogleAuthProvider } from '../../lib/firebase';
+import firebase from '@react-native-firebase/auth';
 
 // Required for Google Auth
 WebBrowser.maybeCompleteAuthSession();
@@ -36,12 +35,12 @@ export default function SignupScreen() {
   const { signUp, error: authError } = useAuthContext();
   const [hasAppleAuth, setHasAppleAuth] = useState(false);
   
-  // Google Auth setup
-  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+  // Google Auth setup with correct config
+  const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    // No expoClientId needed
   });
 
   // Check if Apple Authentication is available
@@ -56,19 +55,22 @@ export default function SignupScreen() {
 
   // Handle Google Auth response
   useEffect(() => {
-    if (googleResponse?.type === 'success') {
+    if (response?.type === 'success') {
       setLoading(true);
-      const { id_token } = googleResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth(), credential)
+      
+      const { id_token } = response.params;
+      
+      // Create a credential from Google Auth response
+      const credential = firebase.GoogleAuthProvider.credential(id_token);
+      
+      auth.signInWithCredential(credential)
         .then(async (result) => {
           // Check if this is a new user
           const isNewUser = result.additionalUserInfo?.isNewUser;
           
           if (isNewUser && result.user) {
             // Create user document for new users
-            const userRef = doc(firestore, 'users', result.user.uid);
-            await setDoc(userRef, {
+            await firestore.collection('users').doc(result.user.uid).set({
               email: result.user.email,
               displayName: result.user.displayName,
               photoURL: result.user.photoURL,
@@ -93,7 +95,7 @@ export default function SignupScreen() {
           setLoading(false);
         });
     }
-  }, [googleResponse]);
+  }, [response]);
 
   // Handle Apple Sign In
   const handleAppleSignIn = async () => {
@@ -106,12 +108,19 @@ export default function SignupScreen() {
         ],
       });
       
-      // Create a provider credential
-      const provider = new auth.AppleAuthProvider();
-      const authCredential = provider.credential(credential.identityToken || '');
+      // Use the standard Firebase authentication 
+      // with native Apple authentication
+      const { identityToken } = credential;
       
-      // Sign in with the credential
-      const userCredential = await auth().signInWithCredential(authCredential);
+      if (!identityToken) {
+        throw new Error('Apple Sign In failed: No identity token');
+      }
+      
+      // Create the Apple Auth provider
+      const appleCredential = firebase.AppleAuthProvider.credential(identityToken);
+      
+      // Sign in with credential
+      const userCredential = await auth.signInWithCredential(appleCredential);
       
       // Check if this is a new user
       const isNewUser = userCredential.additionalUserInfo?.isNewUser;
@@ -124,8 +133,7 @@ export default function SignupScreen() {
           : '';
           
         // Create user document for new users
-        const userRef = doc(firestore, 'users', userCredential.user.uid);
-        await setDoc(userRef, {
+        await firestore.collection('users').doc(userCredential.user.uid).set({
           email: userCredential.user.email,
           displayName: displayName || userCredential.user.displayName,
           photoURL: userCredential.user.photoURL,
@@ -274,7 +282,7 @@ export default function SignupScreen() {
             {/* Google Sign In Button */}
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => promptGoogleAsync()}
+              onPress={() => promptAsync()}
               disabled={loading}
             >
               <Image 

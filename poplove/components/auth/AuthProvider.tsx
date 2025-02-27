@@ -1,11 +1,10 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
-import { authService } from '../../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, usePathname } from 'expo-router';
-import { auth, firestore } from '../../lib/firebase';
+import { auth, firestore, serverTimestamp } from '../../lib/firebase';
+import { authService } from '../../services/auth';
 
 type AuthContextType = {
   user: FirebaseAuthTypes.User | null;
@@ -48,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for auth state changes
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged((authUser) => {
+    const subscriber = auth.onAuthStateChanged((authUser) => {
       console.log('Firebase Auth State Changed:', {
         user: authUser ? {
           uid: authUser.uid,
@@ -62,8 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(authUser);
         
         // Update user's last login time in Firestore
-        const userRef = doc(firestore, 'users', authUser.uid);
-        setDoc(userRef, {
+        firestore.collection('users').doc(authUser.uid).set({
           email: authUser.email || '',
           lastLogin: serverTimestamp()
         }, { merge: true })
@@ -103,12 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       // No user, navigate to auth
-      router.replace('/(auth)/');
+      if (!pathname.includes('(auth)') && !pathname.includes('(onboarding)/splash')) {
+        router.replace('/(auth)/');
+      }
       return;
     }
 
     // User exists, check onboarding
-    if (!hasCompletedOnboarding && !pathname.includes('profile-setup')) {
+    if (!hasCompletedOnboarding && !pathname.includes('profile-setup') && !pathname.includes('subscription')) {
       console.log('Redirecting to profile setup');
       router.replace('/(onboarding)/profile-setup');
     }

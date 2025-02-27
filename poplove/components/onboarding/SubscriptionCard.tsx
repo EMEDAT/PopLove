@@ -27,7 +27,7 @@ export function SubscriptionCard({
       style={[
         styles.card, 
         isSelected ? styles.selectedCard : styles.unselectedCard,
-        isPremium && styles.premiumCard
+        isPremium && styles.premiumBorder
       ]}
       activeOpacity={0.8}
     >
@@ -87,8 +87,8 @@ const styles = StyleSheet.create({
   unselectedCard: {
     borderColor: '#E5E5E5',
   },
-  premiumCard: {
-    borderColor: isPrimary => isPrimary ? '#FF6B6B' : '#E5E5E5',
+  premiumBorder: {
+    borderColor: '#FF6B6B',
   },
   headerContainer: {
     flexDirection: 'row',
