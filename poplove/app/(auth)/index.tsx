@@ -3,34 +3,56 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'react-native';
 
 export default function AuthIndex() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to PopLove</Text>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => router.push('/(auth)/signup')}
-        >
-          <Text style={styles.buttonText}>Create Account</Text>
+      <View style={styles.socialButtons}>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/GoogleIcon.png')} 
+            style={styles.socialIcon}
+          />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.loginButton]}
-          onPress={() => router.push('/(auth)/login')}
-        >
-          <Text style={styles.loginButtonText}>Log In</Text>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/AppleIcon.png')} 
+            style={styles.socialIcon}
+          />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.resetButton}
-          onPress={() => router.replace('/')}
-        >
-          <Text style={styles.resetText}>Troubleshoot</Text>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/FacebookIcon.png')} 
+            style={styles.socialIcon}
+          />
         </TouchableOpacity>
       </View>
+      
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+      
+      <TouchableOpacity 
+        style={styles.emailButton}
+        onPress={() => router.push('/(auth)/signup')}
+      >
+        <LinearGradient
+          colors={['#FF6B6B', '#FFA07A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradient}
+        >
+          <Text style={styles.buttonText}>Continue with Email</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+      
+      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+        <Text style={styles.loginText}>Already have an account? Log In</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -41,45 +63,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff'
+    backgroundColor: 'white'
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    color: '#333'
+  socialButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 30,
+    gap: 20
   },
-  buttonContainer: {
-    width: '100%',
-    gap: 16,
+  socialButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  button: {
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 14,
-    borderRadius: 25,
+  socialIcon: {
+    width: 30,
+    height: 30
+  },
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 30
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5'
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#666'
+  },
+  emailButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 20,
+    overflow: 'hidden'
+  },
+  gradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600'
   },
-  loginButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#FF6B6B',
-  },
-  loginButtonText: {
+  loginText: {
     color: '#FF6B6B',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resetButton: {
-    marginTop: 40,
-    padding: 10,
-  },
-  resetText: {
-    color: '#888',
-    textAlign: 'center',
+    fontSize: 15
   }
 });
