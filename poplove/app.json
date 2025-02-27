@@ -13,8 +13,7 @@
             "compileSdkVersion": 35,
             "targetSdkVersion": 34,
             "buildToolsVersion": "35.0.0", 
-            "ndkVersion": "28.0.13004108",
-            "ndkPath": "C:\\Users\\USER\\AppData\\Local\\Android\\Sdk\\ndk\\28.0.13004108"
+            "ndkVersion": "26.1.10909125"
           },
           "ios": {
             "useFrameworks": "static"

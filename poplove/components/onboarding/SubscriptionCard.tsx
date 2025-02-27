@@ -1,8 +1,8 @@
-// poplove\components\onboarding\SubscriptionCard.tsx
+// components/onboarding/SubscriptionCard.tsx
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 type SubscriptionCardProps = {
   title: string;
@@ -26,8 +26,10 @@ export function SubscriptionCard({
       onPress={onSelect}
       style={[
         styles.card, 
-        isSelected ? styles.selectedCard : styles.unselectedCard
+        isSelected ? styles.selectedCard : styles.unselectedCard,
+        isPremium && styles.premiumCard
       ]}
+      activeOpacity={0.8}
     >
       <View style={styles.headerContainer}>
         <Text style={[
@@ -39,19 +41,22 @@ export function SubscriptionCard({
         
         {isSelected && (
           <View style={styles.checkIcon}>
-            <MaterialIcons name="check" size={18} color="white" />
+            <Ionicons name="checkmark" size={18} color="white" />
           </View>
         )}
       </View>
       
-      <Text style={styles.price}>
+      <Text style={[
+        styles.price,
+        isPremium ? styles.premiumPrice : styles.regularPrice
+      ]}>
         {price}
       </Text>
       
       <View style={styles.featuresContainer}>
         {features.map((feature, index) => (
           <View key={index} style={styles.featureRow}>
-            <MaterialIcons name="check-circle" size={18} color="#FF6B6B" />
+            <Ionicons name="checkmark-circle" size={18} color="#FF6B6B" />
             <Text style={styles.featureText}>{feature}</Text>
           </View>
         ))}
@@ -66,12 +71,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+    backgroundColor: '#FFFFFF',
   },
   selectedCard: {
     borderColor: '#FF6B6B',
   },
   unselectedCard: {
     borderColor: '#E5E5E5',
+  },
+  premiumCard: {
+    borderColor: isPrimary => isPrimary ? '#FF6B6B' : '#E5E5E5',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -102,15 +119,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
   },
+  premiumPrice: {
+    color: '#FF6B6B',
+  },
+  regularPrice: {
+    color: '#333',
+  },
   featuresContainer: {
     gap: 8,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 6,
   },
   featureText: {
     marginLeft: 8,
     color: '#666',
+    fontSize: 14,
   },
 });

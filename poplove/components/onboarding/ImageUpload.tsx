@@ -1,10 +1,19 @@
 // components/onboarding/ImageUpload.tsx
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Image, Text, Modal, ActivityIndicator, StyleSheet, Alert, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { 
+  View, 
+  TouchableOpacity, 
+  Image, 
+  Text, 
+  Modal, 
+  ActivityIndicator, 
+  StyleSheet, 
+  Alert, 
+  Platform 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import storage from '@react-native-firebase/storage';
+import StorageService from '../../services/storage';
 
 type ImageUploadProps = {
   onChange: (url: string) => void;
@@ -23,40 +32,25 @@ export function ImageUpload({ onChange, value, uploading = false }: ImageUploadP
       // Close modal first
       setModalVisible(false);
       
-      let result;
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to upload an image');
+        return;
+      }
+      
+      let imageUri: string | null = null;
       
       if (type === 'camera') {
-        const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-        if (cameraPermission.status !== 'granted') {
-          Alert.alert('Permission Required', 'Camera permission is required to take photos');
-          return;
-        }
-        
-        result = await ImagePicker.launchCameraAsync({
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
+        imageUri = await StorageService.takePhoto();
       } else {
-        const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (libraryPermission.status !== 'granted') {
-          Alert.alert('Permission Required', 'Media library permission is required to select photos');
-          return;
-        }
-        
-        result = await ImagePicker.launchImageLibraryAsync({
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
+        imageUri = await StorageService.pickImage();
       }
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        await uploadImage(result.assets[0].uri);
+      if (imageUri) {
+        await uploadImage(imageUri);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Error selecting image. Please try again.');
+      Alert.alert('Error', error.message || 'Error selecting image. Please try again.');
     }
   };
 
@@ -66,33 +60,16 @@ export function ImageUpload({ onChange, value, uploading = false }: ImageUploadP
     try {
       setLocalUploading(true);
       
-      // Handle file URI based on platform
-      let fileUri = uri;
-      if (Platform.OS === 'ios' && !uri.startsWith('file://')) {
-        fileUri = `file://${uri}`;
-      }
-      
-      // Create a unique filename
-      const fileName = `profile_${user.uid}_${Date.now()}.jpg`;
-      const reference = storage().ref(`profile_images/${fileName}`);
-      
-      console.log('Uploading to path:', `profile_images/${fileName}`);
-      console.log('File URI:', fileUri);
-      
-      // Upload the file directly
-      await reference.putFile(fileUri);
-      
-      // Get the download URL
-      const downloadURL = await reference.getDownloadURL();
-      console.log('Download URL:', downloadURL);
+      // Upload to Firebase Storage using our service
+      const downloadURL = await StorageService.uploadProfileImage(uri, user.uid);
       
       // Update the UI with the new image URL
       onChange(downloadURL);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading image:", error);
       Alert.alert(
         "Upload Failed", 
-        `Error uploading image: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Error uploading image: ${error.message || 'Unknown error'}`
       );
     } finally {
       setLocalUploading(false);

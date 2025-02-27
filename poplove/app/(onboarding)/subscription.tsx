@@ -1,4 +1,4 @@
-// poplove\app\(onboarding)\subscription.tsx
+// app/(onboarding)/subscription.tsx
 
 import React, { useState } from 'react';
 import { 
@@ -7,14 +7,16 @@ import {
   TouchableOpacity, 
   ScrollView, 
   ActivityIndicator,
-  StyleSheet
+  StyleSheet,
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { SubscriptionCard } from '../../components/onboarding/SubscriptionCard';
-import { getFirestore, collection, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
 import { firestore } from '../../lib/firebase';
 
 // Define subscription plans
@@ -58,7 +60,7 @@ const subscriptionPlans = [
 ];
 
 export default function SubscriptionScreen() {
-  const { user } = useAuthContext();
+  const { user, setHasCompletedOnboarding } = useAuthContext();
   const [selectedPlan, setSelectedPlan] = useState('basic');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,11 +71,16 @@ export default function SubscriptionScreen() {
       setError(null);
       
       if (user) {
-        // Update user's subscription tier in Firestore using React Native Firebase
-        await setDoc(doc(collection(firestore, 'users'), user.uid), {
+        // Update user's subscription tier in Firestore
+        const userRef = doc(firestore, 'users', user.uid);
+        await setDoc(userRef, {
           subscriptionTier: selectedPlan,
+          hasCompletedOnboarding: true,
           updatedAt: serverTimestamp()
         }, { merge: true });
+        
+        // Update local state to indicate onboarding is complete
+        await setHasCompletedOnboarding(true);
         
         // Navigate to main app
         router.replace('/(tabs)');
@@ -82,14 +89,14 @@ export default function SubscriptionScreen() {
       }
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      setError(error.message);
+      setError(error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()}
@@ -101,7 +108,10 @@ export default function SubscriptionScreen() {
         <Text style={styles.headerTitle}>Choose Your Plan</Text>
       </View>
       
-      <ScrollView style={styles.scrollView}>
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
@@ -129,7 +139,7 @@ export default function SubscriptionScreen() {
         <TouchableOpacity
           onPress={handleContinue}
           disabled={loading}
-          style={[styles.continueButton, loading && styles.disabledButton]}
+          style={styles.continueButton}
         >
           <LinearGradient
             colors={['#FF6B6B', '#FFA07A']}
@@ -152,7 +162,7 @@ export default function SubscriptionScreen() {
           You can cancel your subscription at any time.
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -162,21 +172,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   header: {
-    paddingTop: 48,
+    paddingTop: Platform.OS === 'android' ? 48 : 10,
     paddingHorizontal: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
-    position: 'absolute',
-    left: 24,
-    top: 48,
+    padding: 8,
+    marginRight: 16,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
+    flex: 1,
+    marginRight: 30, // To center the title with the back button on the left
   },
   scrollView: {
     flex: 1,
@@ -195,6 +208,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 24,
     textAlign: 'center',
+    fontSize: 16,
   },
   footer: {
     padding: 24,
@@ -203,14 +217,13 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     width: '100%',
-  },
-  disabledButton: {
-    opacity: 0.5,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
   },
   gradient: {
     width: '100%',
-    height: 56,
-    borderRadius: 8,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },

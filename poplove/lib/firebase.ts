@@ -1,28 +1,31 @@
-// poplove\lib\firebase.ts
+// lib/firebase.ts
 
-import auth from '@react-native-firebase/auth';
+import { initializeApp, getApp } from '@react-native-firebase/app';
+import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
-import storage from '@react-native-firebase/storage';
+import { getStorage } from '@react-native-firebase/storage';
 
-// Initialize Firestore correctly
-const firestore = getFirestore();
+// Initialize Firebase app
+let app;
+try {
+  app = getApp();
+} catch (error) {
+  app = initializeApp();
+}
 
-// Disable Firestore offline persistence if it's causing issues
+// Initialize services
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+const storage = getStorage(app);
+
+// Optional: Disable Firestore offline persistence if it's causing issues
 firestore.settings({
   persistence: false
 });
 
-// Initialize Firebase
-const initializeFirebase = () => {
-  try {
-    if (__DEV__) {
-      console.log('Firebase modules initialized');
-    }
-  } catch (error) {
-    console.error('Firebase initialization error:', error);
-  }
-};
-
-initializeFirebase();
+// Log initialization in dev mode
+if (__DEV__) {
+  console.log('Firebase modules initialized');
+}
 
 export { auth, firestore, storage };

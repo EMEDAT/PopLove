@@ -7,7 +7,8 @@ import {
   StyleSheet, 
   Dimensions, 
   TouchableOpacity,
-  FlatList
+  FlatList,
+  SafeAreaView
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,17 +16,17 @@ import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
 
-// Splash screens exactly as per your design
+// Define your splash screens
 const SPLASH_SCREENS = [
   {
     id: 1,
     type: 'intro',
-    image: require('../../assets/images/onboarding/SplashScreen1.png'),
+    image: require('../../assets/images/onboarding/splash1.png'),
   },
   {
     id: 2,
     type: 'feature',
-    image: require('../../assets/images/onboarding/SplashScreen2.png'),
+    image: require('../../assets/images/onboarding/splash2.png'),
     title: 'Speed Dating Mode',
     description: 'Fast, fun, and flirty! Match, chat, and vibe—all in just a few minutes.',
     buttonText: 'Get Started',
@@ -34,7 +35,7 @@ const SPLASH_SCREENS = [
   {
     id: 3,
     type: 'feature',
-    image: require('../../assets/images/onboarding/SplashScreen3.png'),
+    image: require('../../assets/images/onboarding/splash3.png'),
     title: 'Live Lineup Matchmaking',
     description: 'Step into the spotlight! Join the lineup, get chosen, or make your pick in real-time.',
     buttonText: 'Get Started',
@@ -64,7 +65,7 @@ export default function SplashScreen() {
       setActiveIndex(nextIndex);
       flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     } else {
-      router.push('/(auth)/index'); // Be explicit about the route
+      router.push('/(auth)/');
     }
   };
   
@@ -87,7 +88,7 @@ export default function SplashScreen() {
           <Image 
             source={item.image}
             style={styles.fullImage}
-            resizeMode="contain"
+            resizeMode="cover"
           />
           
           {/* Feature screens display indicator dots within the feature image area */}
@@ -131,22 +132,19 @@ export default function SplashScreen() {
             <View style={styles.socialButtonsRow}>
               <TouchableOpacity style={styles.socialButton}>
                 <Image 
-                  source={require('../../assets/icons/GoogleIcon.png')} 
+                  source={require('../../assets/images/google-icon.png')} 
                   style={styles.socialIcon}
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Image 
-                  source={require('../../assets/icons/FacebookIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Image 
-                  source={require('../../assets/icons/AppleIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
+              
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity style={styles.socialButton}>
+                  <Image 
+                    source={require('../../assets/images/apple-icon.png')} 
+                    style={styles.socialIcon}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -161,8 +159,8 @@ export default function SplashScreen() {
   }).current;
   
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
       
       <FlatList
         ref={flatListRef}
@@ -177,14 +175,14 @@ export default function SplashScreen() {
           itemVisiblePercentThreshold: 50
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
   },
   slide: {
     width,
@@ -198,12 +196,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     flexDirection: 'row',
     alignSelf: 'center',
-    bottom: height * 0.49, // Move the dots higher up (increase the value)
+    bottom: height * 0.49,
     zIndex: 10,
   },
   featureContent: {
     position: 'absolute',
-    top: height * 0.59, // Positioned exactly like in your screenshots
+    top: height * 0.59,
     left: 0,
     paddingHorizontal: 20,
   },
@@ -212,10 +210,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'left',
+    color: '#fff',
   },
   featureDescription: {
     fontSize: 13,
-    color: '#666',
+    color: '#eee',
     textAlign: 'left',
     lineHeight: 20,
     marginBottom: 20,
@@ -223,14 +222,14 @@ const styles = StyleSheet.create({
   },
   buttonSection: {
     position: 'absolute',
-    bottom: 30, // Move the buttons further down (decrease this value)
+    bottom: 30,
     left: 0,
     right: 0,
     paddingHorizontal: 20,
   },
   buttonWrapper: {
     width: '100%',
-    height: 40, // Exact height from your screenshots
+    height: 50,
     borderRadius: 25,
     overflow: 'hidden',
   },
@@ -241,7 +240,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
   },
   orContainer: {
@@ -252,31 +251,32 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#666',
   },
   orText: {
     marginHorizontal: 8,
-    color: '#666',
+    color: '#fff',
     fontSize: 14,
   },
   socialButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'center',
+    gap: 20,
     marginTop: 5,
   },
   socialButton: {
-    width: 88,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#666',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   socialIcon: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
   },
   paginationDot: {
     width: 8,
@@ -289,6 +289,6 @@ const styles = StyleSheet.create({
     width: 16,
   },
   inactivePaginationDot: {
-    backgroundColor: '#DDD',
+    backgroundColor: '#666',
   },
 });

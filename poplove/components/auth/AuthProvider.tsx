@@ -1,10 +1,11 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
 import { authService } from '../../services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, usePathname } from 'expo-router';
+import { auth, firestore } from '../../lib/firebase';
 
 type AuthContextType = {
   user: FirebaseAuthTypes.User | null;
@@ -45,28 +46,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkOnboardingStatus();
   }, []);
 
-// Listen for auth state changes
-useEffect(() => {
-  const subscriber = auth().onAuthStateChanged((authUser) => {
-    console.log('Firebase Auth State Changed:', {
-      user: authUser ? {
-        uid: authUser.uid,
-        email: authUser.email,
-        emailVerified: authUser.emailVerified
-      } : null,
-      timestamp: new Date().toISOString()
-    });
+  // Listen for auth state changes
+  useEffect(() => {
+    const subscriber = auth().onAuthStateChanged((authUser) => {
+      console.log('Firebase Auth State Changed:', {
+        user: authUser ? {
+          uid: authUser.uid,
+          email: authUser.email,
+          emailVerified: authUser.emailVerified
+        } : null,
+        timestamp: new Date().toISOString()
+      });
 
-    if (authUser) {
-      setUser(authUser);
-      
-      // More defensive Firestore update
-      firestore()
-        .collection('users')
-        .doc(authUser.uid)
-        .set({
+      if (authUser) {
+        setUser(authUser);
+        
+        // Update user's last login time in Firestore
+        const userRef = doc(firestore, 'users', authUser.uid);
+        setDoc(userRef, {
           email: authUser.email || '',
-          lastLogin: firestore.FieldValue.serverTimestamp()
+          lastLogin: serverTimestamp()
         }, { merge: true })
         .catch(error => {
           console.error('Error updating user document:', {
@@ -75,16 +74,15 @@ useEffect(() => {
             errorStack: error.stack
           });
         });
-    } else {
-      setUser(null);
-    }
-    
-    setAuthChecked(true);
-  });
+      } else {
+        setUser(null);
+      }
+      
+      setAuthChecked(true);
+    });
 
-  return () => subscriber();
-}, []);
-
+    return () => subscriber();
+  }, []);
 
   // Combine loading states
   useEffect(() => {

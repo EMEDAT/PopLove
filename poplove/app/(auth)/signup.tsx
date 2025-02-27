@@ -1,5 +1,5 @@
 // app/(auth)/signup.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,13 +10,23 @@ import {
   Platform,
   ActivityIndicator,
   SafeAreaView,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { StatusBar } from 'expo-status-bar';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { auth, firestore } from '../../lib/firebase';
+import { GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+
+// Required for Google Auth
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -24,8 +34,126 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const { signUp, error: authError } = useAuthContext();
+  const [hasAppleAuth, setHasAppleAuth] = useState(false);
+  
+  // Google Auth setup
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
 
-  const handleSignUp = async () => {
+  // Check if Apple Authentication is available
+  useEffect(() => {
+    const checkAppleAuth = async () => {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      setHasAppleAuth(isAvailable);
+    };
+    
+    checkAppleAuth();
+  }, []);
+
+  // Handle Google Auth response
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      setLoading(true);
+      const { id_token } = googleResponse.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth(), credential)
+        .then(async (result) => {
+          // Check if this is a new user
+          const isNewUser = result.additionalUserInfo?.isNewUser;
+          
+          if (isNewUser && result.user) {
+            // Create user document for new users
+            const userRef = doc(firestore, 'users', result.user.uid);
+            await setDoc(userRef, {
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              createdAt: serverTimestamp(),
+              hasCompletedOnboarding: false,
+              provider: 'google',
+              status: 'active'
+            }, { merge: true });
+            
+            // Navigate to onboarding for new users
+            router.push('/(onboarding)/profile-setup');
+          } else {
+            // Existing user - navigate to main app
+            router.push('/(tabs)');
+          }
+        })
+        .catch((error) => {
+          console.error('Google Sign-in Error:', error);
+          setLocalError(error.message || 'Google sign-in failed');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [googleResponse]);
+
+  // Handle Apple Sign In
+  const handleAppleSignIn = async () => {
+    try {
+      setLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      
+      // Create a provider credential
+      const provider = new auth.AppleAuthProvider();
+      const authCredential = provider.credential(credential.identityToken || '');
+      
+      // Sign in with the credential
+      const userCredential = await auth().signInWithCredential(authCredential);
+      
+      // Check if this is a new user
+      const isNewUser = userCredential.additionalUserInfo?.isNewUser;
+      
+      if (isNewUser && userCredential.user) {
+        // For new Apple users, we need to save their name from the credential
+        // as Apple only provides it once
+        const displayName = credential.fullName 
+          ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+          : '';
+          
+        // Create user document for new users
+        const userRef = doc(firestore, 'users', userCredential.user.uid);
+        await setDoc(userRef, {
+          email: userCredential.user.email,
+          displayName: displayName || userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL,
+          createdAt: serverTimestamp(),
+          hasCompletedOnboarding: false,
+          provider: 'apple',
+          status: 'active'
+        }, { merge: true });
+        
+        // Navigate to onboarding for new users
+        router.push('/(onboarding)/profile-setup');
+      } else {
+        // Existing user - navigate to main app
+        router.push('/(tabs)');
+      }
+    } catch (error: any) {
+      console.error('Apple Sign-in Error:', error);
+      // Only set error for real errors, not user cancellation
+      if (error.code !== 'ERR_CANCELED') {
+        setLocalError(error.message || 'Apple sign-in failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Email Sign Up
+  const handleEmailSignUp = async () => {
     if (!email || !password) {
       setLocalError('Please enter both email and password');
       return;
@@ -56,10 +184,8 @@ export default function SignupScreen() {
     } catch (err: any) {
       console.error('Sign up error:', err);
       setLocalError(err.message || 'Failed to create account');
-      // Alert the user about the error
-      Alert.alert('Sign Up Error', err.message || 'Failed to create account');
     } finally {
-      setLoading(false); // Always reset loading state, even on errors
+      setLoading(false);
     }
   };
   
@@ -118,7 +244,7 @@ export default function SignupScreen() {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={styles.signupButton}
-            onPress={handleSignUp}
+            onPress={handleEmailSignUp}
             disabled={loading || !email || !password}
             testID="signup-button"
           >
@@ -132,10 +258,44 @@ export default function SignupScreen() {
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.buttonText}>Create Account</Text>
+                <Text style={styles.buttonText}>Create with Email</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
+          
+          <View style={styles.orContainer}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
+          
+          {/* Social Login Options */}
+          <View style={styles.socialButtonsContainer}>
+            {/* Google Sign In Button */}
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => promptGoogleAsync()}
+              disabled={loading}
+            >
+              <Image 
+                source={require('../../assets/images/google-icon.png')}
+                style={styles.socialIcon}
+              />
+              <Text style={styles.socialButtonText}>Google</Text>
+            </TouchableOpacity>
+            
+            {/* Apple Sign In Button - Only on iOS */}
+            {Platform.OS === 'ios' && hasAppleAuth && (
+              <TouchableOpacity
+                style={[styles.socialButton, styles.appleButton]}
+                onPress={handleAppleSignIn}
+                disabled={loading}
+              >
+                <Ionicons name="logo-apple" size={24} color="#000" style={styles.appleIcon} />
+                <Text style={styles.socialButtonText}>Apple</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         
         <View style={styles.footer}>
@@ -168,7 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleContainer: {
-    marginBottom: 40,
+    marginBottom: 30,
   },
   title: {
     fontSize: 28,
@@ -213,8 +373,56 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 16,
+  },
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  orText: {
+    marginHorizontal: 10,
+    color: '#666',
+    fontSize: 14,
+  },
+  socialButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    flex: 1,
+    marginHorizontal: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  appleButton: {
+    backgroundColor: '#FFFFFF',
+  },
+  socialIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+  },
+  appleIcon: {
+    marginRight: 8,
+  },
+  socialButtonText: {
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#333',
   },
   footer: {
     flexDirection: 'row',

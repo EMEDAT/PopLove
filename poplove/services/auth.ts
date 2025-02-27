@@ -2,10 +2,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { getFirestore, collection, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
-import { auth } from '../lib/firebase';
-
-const firestore = getFirestore();
+import { collection, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { auth, firestore } from '../lib/firebase';
 
 class AuthService {
   // Sign in with email and password
@@ -42,8 +40,9 @@ class AuthService {
           // More defensive Firestore document creation
           const uid = userCredential.user.uid;
           
-          // Use set with merge to avoid potential document creation issues
+          // Use modern Firestore API
           await setDoc(doc(collection(firestore, 'users'), uid), {
+            email: email,
             createdAt: serverTimestamp(),
             hasCompletedOnboarding: false,
             status: 'active'
@@ -54,8 +53,6 @@ class AuthService {
             errorMessage: firestoreError.message,
             errorStack: firestoreError.stack
           });
-          
-          // Optionally, log the error or handle it gracefully
         }
       }
   
@@ -72,7 +69,7 @@ class AuthService {
       await auth().signOut();
       console.log('Sign out successful');
       
-      // Optional: Clear any local storage or async storage
+      // Optional: Clear local storage
       await AsyncStorage.removeItem('onboardingCompleted');
     } catch (error: any) {
       console.error('Error signing out:', error);

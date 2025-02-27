@@ -8,14 +8,14 @@ import {
   Modal, 
   FlatList, 
   StyleSheet,
-  Platform,
-  NativeSyntheticEvent,
-  TextInputKeyPressEventData
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { debounce } from 'lodash';
-import LocationService from '../../services/location';
 import CountryItem from './CountryItem';
+
+// Import countries from a country list library
+import { countries } from 'countries-list';
 
 const ITEM_HEIGHT = 50; 
 
@@ -33,15 +33,20 @@ export function LocationSelectionModal({
   onClose, 
   onSelectLocation 
 }: LocationSelectionModalProps) {
-  // Sorted countries with cleanup of articles
-  const [allCountries] = useState(() => 
-    LocationService.getAllCountries().sort((a, b) => {
+  // Convert countries object to array and sort by name
+  const [allCountries] = useState(() => {
+    const countryArray = Object.entries(countries).map(([code, details]) => ({
+      code,
+      name: details.name
+    }));
+    
+    return countryArray.sort((a, b) => {
       const cleanName = (name: string) => 
         name.replace(/^(The |A |An )/, '').trim();
       
       return cleanName(a.name).localeCompare(cleanName(b.name), undefined, { sensitivity: 'base' });
-    })
-  );
+    });
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<'countries' | 'custom'>('countries');
@@ -73,13 +78,13 @@ export function LocationSelectionModal({
     }
   };
   
-  const getItemLayout = (data, index) => ({
+  const getItemLayout = (_data: any, index: number) => ({
     length: ITEM_HEIGHT,
     offset: ITEM_HEIGHT * index,
     index,
   });
 
-  const renderCountryItem = ({ item }) => (
+  const renderCountryItem = ({ item }: { item: any }) => (
     <CountryItem item={item} onSelect={handleCountrySelect} />
   );
 
@@ -105,7 +110,20 @@ export function LocationSelectionModal({
             onChangeText={setCustomLocation}
             onSubmitEditing={handleCustomLocationSubmit}
             placeholderTextColor="#aaa"
-            />
+          />
+          
+          <TouchableOpacity 
+            style={styles.submitButton}
+            onPress={handleCustomLocationSubmit}
+            disabled={!customLocation.trim()}
+          >
+            <Text style={[
+              styles.submitButtonText,
+              !customLocation.trim() && { opacity: 0.5 }
+            ]}>
+              Confirm Location
+            </Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -118,7 +136,7 @@ export function LocationSelectionModal({
           onPress={() => setView('custom')}
         >
           <View style={styles.customLocationContent}>
-            <Ionicons name="location-outline" size={24} color="#007AFF" />
+            <Ionicons name="location-outline" size={24} color="#FF6B6B" />
             <Text style={styles.customLocationText}>Enter Custom Location</Text>
           </View>
         </TouchableOpacity>
@@ -138,7 +156,7 @@ export function LocationSelectionModal({
         {/* Countries List */}
         <FlatList
           data={filteredCountries}
-          keyExtractor={(item) => item.name}
+          keyExtractor={(item) => item.code}
           renderItem={renderCountryItem}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={10}
@@ -163,6 +181,7 @@ export function LocationSelectionModal({
             <Ionicons name="close" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Location</Text>
+          <View style={{ width: 24 }} />
         </View>
         
         {renderContent()}
@@ -175,18 +194,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
-    paddingTop: Platform.OS === 'android' ? 20 : 50,
+    paddingTop: Platform.OS === 'android' ? 40 : 50,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   headerTitle: {
-    marginLeft: 20,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -221,18 +240,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   customLocationText: {
-    color: '#007AFF',
+    color: '#FF6B6B',
     fontSize: 16,
     fontWeight: '500',
-  },
-  listItem: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  listItemText: {
-    fontSize: 16,
   },
   backButton: {
     flexDirection: 'row',
@@ -256,6 +266,18 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
     borderRadius: 8,
     padding: 15,
+    fontSize: 16,
+  },
+  submitButton: {
+    marginHorizontal: 20,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 25,
+    padding: 15,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontWeight: '600',
     fontSize: 16,
   }
 });

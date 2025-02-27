@@ -1,6 +1,6 @@
-// poplove\app\(onboarding)\profile-setup.tsx
+// app/(onboarding)/profile-setup.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { ImageUpload } from '../../components/onboarding/ImageUpload';
 import { LocationSelectionModal } from '../../components/onboarding/LocationSelectionModal';
-import { getFirestore, collection, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
 import { firestore } from '../../lib/firebase';
 
 export default function ProfileSetupScreen() {
@@ -44,6 +44,18 @@ export default function ProfileSetupScreen() {
     gender: '',
     ageRange: ''
   });
+
+  // Fetch user data when component mounts
+  useEffect(() => {
+    if (user) {
+      // Populate profile data with existing user information
+      setProfileData(prev => ({
+        ...prev,
+        displayName: user.displayName || prev.displayName,
+        photoURL: user.photoURL || prev.photoURL
+      }));
+    }
+  }, [user]);
 
   // When selecting location
   const handleLocationSelect = (selectedLocation: {
@@ -88,9 +100,15 @@ export default function ProfileSetupScreen() {
         
         if (user) {
           // Update Firestore with profile data
-          await setDoc(doc(collection(firestore, 'users'), user.uid), {
-            updatedAt: serverTimestamp(),
-            hasCompletedOnboarding: true
+          const userRef = doc(firestore, 'users', user.uid);
+          await setDoc(userRef, {
+            displayName: profileData.displayName,
+            photoURL: profileData.photoURL,
+            bio: profileData.bio,
+            location: profileData.location,
+            gender: profileData.gender,
+            ageRange: profileData.ageRange,
+            updatedAt: serverTimestamp()
           }, { merge: true });
           
           router.replace('/(onboarding)/subscription');
@@ -99,7 +117,7 @@ export default function ProfileSetupScreen() {
         }
       } catch (error: any) {
         console.error('Error updating profile:', error);
-        setError(error.message);
+        setError(error.message || 'An unexpected error occurred');
       } finally {
         setLoading(false);
       }
@@ -120,7 +138,7 @@ export default function ProfileSetupScreen() {
             onPress={handleBack}
             style={styles.backButton}
           >
-            <Text style={[styles.optionText, { fontSize: 24 }]}>{'<'}</Text>
+            <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
         )}
         <View style={styles.headerTitleContainer}>
@@ -325,12 +343,12 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'android' ? 50 : 10,
   },
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 50,
+    top: Platform.OS === 'android' ? 50 : 10,
     zIndex: 10,
   },
   headerTitleContainer: {
