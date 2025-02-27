@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import StorageService from '../../services/storage';
+import { StorageService } from '../../services/storage';
 
 type ImageUploadProps = {
   onChange: (url: string) => void;

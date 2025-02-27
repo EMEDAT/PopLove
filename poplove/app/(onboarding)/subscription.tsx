@@ -72,8 +72,8 @@ export default function SubscriptionScreen() {
       
       if (user) {
         // Update user's subscription tier in Firestore
-        const userRef = doc(firestore, 'users', user.uid);
-        await setDoc(userRef, {
+        const userRef = firestore().collection('users').doc(user.uid);
+        await userRef.set({
           subscriptionTier: selectedPlan,
           hasCompletedOnboarding: true,
           updatedAt: serverTimestamp()

@@ -1,30 +1,41 @@
-// poplove\app\(auth)\index.tsx
-
+// app/(auth)/index.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 export default function AuthIndex() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      
+      <View style={styles.logoContainer}>
+        <Image 
+          source={require('../../assets/images/splash-icon.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.appName}>PopLove</Text>
+      </View>
+      
       <View style={styles.socialButtons}>
-        <TouchableOpacity style={styles.socialButton}>
+        <TouchableOpacity 
+          style={styles.socialButton}
+          onPress={() => console.log('Google login - to be implemented')}
+        >
           <Image 
             source={require('../../assets/icons/GoogleIcon.png')} 
             style={styles.socialIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
+        
+        <TouchableOpacity 
+          style={styles.socialButton}
+          onPress={() => console.log('Apple login - to be implemented')}
+        >
           <Image 
             source={require('../../assets/icons/AppleIcon.png')} 
-            style={styles.socialIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
-          <Image 
-            source={require('../../assets/icons/FacebookIcon.png')} 
             style={styles.socialIcon}
           />
         </TouchableOpacity>
@@ -46,14 +57,17 @@ export default function AuthIndex() {
           end={{ x: 1, y: 0 }}
           style={styles.gradient}
         >
-          <Text style={styles.buttonText}>Continue with Email</Text>
+          <Text style={styles.buttonText}>Create Account</Text>
         </LinearGradient>
       </TouchableOpacity>
       
-      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-        <Text style={styles.loginText}>Already have an account? Log In</Text>
+      <TouchableOpacity 
+        onPress={() => router.push('/(auth)/login')}
+        style={styles.loginLink}
+      >
+        <Text style={styles.loginText}>Already have an account? <Text style={styles.loginTextBold}>Log In</Text></Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -64,6 +78,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     backgroundColor: 'white'
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 50
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 10
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF6B6B'
   },
   socialButtons: {
     flexDirection: 'row',
@@ -81,12 +109,13 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   socialIcon: {
-    width: 30,
-    height: 30
+    width: 24,
+    height: 24
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
     marginBottom: 30
   },
   dividerLine: {
@@ -115,8 +144,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   },
+  loginLink: {
+    marginTop: 10
+  },
   loginText: {
-    color: '#FF6B6B',
+    color: '#666',
     fontSize: 15
+  },
+  loginTextBold: {
+    color: '#FF6B6B',
+    fontWeight: '600'
   }
 });

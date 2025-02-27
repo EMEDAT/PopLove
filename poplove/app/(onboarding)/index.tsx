@@ -1,19 +1,24 @@
 // app/(onboarding)/index.tsx
 import { Redirect } from 'expo-router';
-import { useAuth } from '../../hooks/useAuth'; // Updated import
+import { useAuth } from '../../components/auth/AuthProvider';
 
 export default function OnboardingIndex() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasCompletedOnboarding } = useAuth();
 
   if (loading) {
-    return null; // Or a loading screen
+    return null; // Show nothing while loading
   }
 
-  // If no user, go to splash
+  // If not authenticated, go to splash screen
   if (!user) {
     return <Redirect href="/(onboarding)/splash" />;
   }
 
-  // If user exists but hasn't completed onboarding
-  return <Redirect href="/(onboarding)/profile-setup" />;
+  // If authenticated but hasn't completed onboarding
+  if (!hasCompletedOnboarding) {
+    return <Redirect href="/(onboarding)/profile-setup" />;
+  }
+
+  // If fully authenticated and onboarded
+  return <Redirect href="/(tabs)/" />;
 }

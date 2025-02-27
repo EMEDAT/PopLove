@@ -1,25 +1,47 @@
 // app/(auth)/signup.tsx
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, TextInput, 
-  KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Alert
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  TextInput, 
+  ActivityIndicator,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthContext } from '../../components/auth/AuthProvider';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../../components/auth/AuthProvider';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp, error: authError } = useAuthContext();
+  const { signUp, error: authError } = useAuth();
 
   const handleSignUp = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    // Password validation
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
@@ -31,90 +53,103 @@ export default function SignupScreen() {
     try {
       setLoading(true);
       await signUp(email, password);
-      router.push('/(onboarding)/profile-setup');
+      router.replace('/(onboarding)/profile-setup');
     } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message);
+      Alert.alert('Sign Up Failed', err.message || 'An unexpected error occurred');
     } finally {
-      setLoading(false);  
+      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}> 
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={22} color="#000" />  
-          </TouchableOpacity>
-        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Create Account</Text>
+            <View style={styles.headerRight} />
+          </View>
 
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to find your perfect match</Text>
-        </View>
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Join PopLove</Text>
+            <Text style={styles.subtitle}>Sign up to find your perfect match</Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholderTextColor="#aaa"
+              />
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholderTextColor="#aaa"
+              />
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                placeholderTextColor="#aaa"
+              />
+            </View>
 
-        <View style={styles.formContainer}>
-          <TextInput
-            style={styles.input}  
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
+            {authError && (
+              <Text style={styles.errorText}>{authError}</Text>
+            )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"  
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TextInput 
-            style={styles.input}
-            placeholder="Confirm Password"
-            value={confirmPassword} 
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-
-          {authError && (
-            <Text style={styles.errorText}>{authError}</Text>  
-          )}
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.signupButton}  
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            <LinearGradient
-              colors={['#FF6B6B', '#FFA07A']}
-              start={{ x: 0, y: 0 }}  
-              end={{ x: 1, y: 0 }}
-              style={styles.gradient}
+            <TouchableOpacity 
+              style={styles.signupButton}
+              onPress={handleSignUp}
+              disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : ( 
-                <Text style={styles.buttonText}>Create Account</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              <LinearGradient
+                colors={['#FF6B6B', '#FFA07A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradient}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Create Account</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.linkText}>Log In</Text>
-          </TouchableOpacity>  
-        </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+                <Text style={styles.loginText}>Log In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -123,81 +158,98 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 20,
   },
   header: {
-    marginTop: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
     marginBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+    padding: 5,
   },
-  titleContainer: {
-    marginBottom: 30,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerRight: {
+    width: 24, // Balance the header
+  },
+  formContainer: {
+    flex: 1,
+    paddingTop: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#000',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-  },
-  formContainer: {
     marginBottom: 30,
   },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    color: '#333',
+  },
   input: {
-    height: 56,
+    height: 50,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 8,
+    paddingHorizontal: 15,
     fontSize: 16,
-    marginBottom: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F9F9F9',
   },
   errorText: {
     color: '#FF3B30',
-    marginTop: 4,
-    fontSize: 14,
-  },
-  buttonContainer: {
-    marginBottom: 30,
+    marginBottom: 15,
   },
   signupButton: {
     height: 50,
     borderRadius: 25,
     overflow: 'hidden',
+    marginTop: 10,
+    marginBottom: 20,
   },
   gradient: {
-    flex: 1,
+    height: '100%',
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   buttonText: {
     color: 'white',
-    fontWeight: '600',
     fontSize: 16,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    marginTop: 20,
   },
   footerText: {
     color: '#666',
     fontSize: 15,
   },
-  linkText: {
+  loginText: {
     color: '#FF6B6B',
-    fontWeight: '600',
     fontSize: 15,
+    fontWeight: '600',
   },
 });

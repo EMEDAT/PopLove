@@ -100,8 +100,8 @@ export default function ProfileSetupScreen() {
         
         if (user) {
           // Update Firestore with profile data
-          const userRef = doc(firestore, 'users', user.uid);
-          await setDoc(userRef, {
+          const userRef = firestore().collection('users').doc(user.uid);
+          await userRef.set({
             displayName: profileData.displayName,
             photoURL: profileData.photoURL,
             bio: profileData.bio,

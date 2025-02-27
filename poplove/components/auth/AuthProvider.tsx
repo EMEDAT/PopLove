@@ -1,187 +1,55 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, usePathname } from 'expo-router';
-import { auth, firestore, serverTimestamp } from '../../lib/firebase';
-import { authService } from '../../services/auth';
+import { router } from 'expo-router';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
-type AuthContextType = {
-  user: FirebaseAuthTypes.User | null;
-  loading: boolean;
-  error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetAuth: () => Promise<void>;
-  hasCompletedOnboarding: boolean;
-  setHasCompletedOnboarding: (value: boolean) => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+// Change the import to use useAuth since that's what your code expects
+export const useAuthContext = () => {
+  // Dummy implementation until Firebase is properly integrated
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const pathname = usePathname();
 
-  // Check onboarding status
-  useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      try {
-        const status = await AsyncStorage.getItem('onboardingCompleted');
-        setHasCompletedOnboarding(status === 'true');
-      } catch (e) {
-        console.error('Error checking onboarding status:', e);
-      } finally {
-        setOnboardingChecked(true);
-      }
-    };
-    
-    checkOnboardingStatus();
-  }, []);
-
-  // Listen for auth state changes
-  useEffect(() => {
-    const subscriber = auth.onAuthStateChanged((authUser) => {
-      console.log('Firebase Auth State Changed:', {
-        user: authUser ? {
-          uid: authUser.uid,
-          email: authUser.email,
-          emailVerified: authUser.emailVerified
-        } : null,
-        timestamp: new Date().toISOString()
-      });
-
-      if (authUser) {
-        setUser(authUser);
-        
-        // Update user's last login time in Firestore
-        firestore.collection('users').doc(authUser.uid).set({
-          email: authUser.email || '',
-          lastLogin: serverTimestamp()
-        }, { merge: true })
-        .catch(error => {
-          console.error('Error updating user document:', {
-            errorCode: error.code,
-            errorMessage: error.message,
-            errorStack: error.stack
-          });
-        });
-      } else {
-        setUser(null);
-      }
-      
-      setAuthChecked(true);
-    });
-
-    return () => subscriber();
-  }, []);
-
-  // Combine loading states
-  useEffect(() => {
-    if (authChecked && onboardingChecked) {
-      setLoading(false);
-    }
-  }, [authChecked, onboardingChecked]);
-
-  // Routing logic
-  useEffect(() => {
-    if (loading) return;
-
-    console.log('Redirect Logic:', {
-      user: user ? user.uid : 'No User',
-      hasCompletedOnboarding,
-      pathname,
-    });
-
-    if (!user) {
-      // No user, navigate to auth
-      if (!pathname.includes('(auth)') && !pathname.includes('(onboarding)/splash')) {
-        router.replace('/(auth)/');
-      }
-      return;
-    }
-
-    // User exists, check onboarding
-    if (!hasCompletedOnboarding && !pathname.includes('profile-setup') && !pathname.includes('subscription')) {
-      console.log('Redirecting to profile setup');
-      router.replace('/(onboarding)/profile-setup');
-    }
-  }, [user, hasCompletedOnboarding, loading, pathname]);
-
-  // Authentication methods
+  // Simple auth methods until Firebase is properly integrated
   const signIn = async (email: string, password: string) => {
-    try {
-      setError(null);
-      await authService.signInWithEmail(email, password);
-    } catch (err: any) {
-      console.error('Sign In Error:', err);
-      setError(err.message);
-      throw err;
-    }
+    console.log('Signing in with:', email);
+    // This is a placeholder until Firebase is properly integrated
   };
 
   const signUp = async (email: string, password: string) => {
-    try {
-      setError(null);
-      await authService.signUpWithEmail(email, password);
-    } catch (err: any) {
-      console.error('Sign Up Error:', err);
-      setError(err.message);
-      throw err;
-    }
+    console.log('Signing up with:', email);
+    // This is a placeholder until Firebase is properly integrated
+    return null;
   };
 
   const signOut = async () => {
-    try {
-      await authService.signOut();
-      router.replace('/(auth)/');
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const resetAuth = async () => {
-    try {
-      await authService.resetAuth();
-    } catch (err: any) {
-      setError(err.message);
-    }
+    console.log('Signing out');
+    // This is a placeholder until Firebase is properly integrated
   };
 
   const updateOnboardingStatus = async (value: boolean) => {
-    try {
-      await AsyncStorage.setItem('onboardingCompleted', value ? 'true' : 'false');
-      setHasCompletedOnboarding(value);
-    } catch (e) {
-      console.error('Error setting onboarding status:', e);
-    }
+    setHasCompletedOnboarding(value);
   };
 
-  const value = {
+  return {
     user,
     loading,
     error,
     signIn,
     signUp,
     signOut,
-    resetAuth,
     hasCompletedOnboarding,
     setHasCompletedOnboarding: updateOnboardingStatus,
+    resetAuth: () => {}
   };
+};
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// AuthProvider component (placeholder)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
-export const useAuthContext = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
-  return context;
-};
+// For backward compatibility
+export const useAuth = useAuthContext;

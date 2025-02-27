@@ -30,15 +30,11 @@ export default function HomeScreen() {
         setError(null);
         
         // Create a Firestore query to get featured profiles
-        const profilesRef = collection(firestore, 'users');
-        const profilesQuery = query(
-          profilesRef,
-          orderBy('createdAt', 'desc'),
-          limit(5)
-        );
+        const profilesRef = firestore().collection('users');
+        const profilesQuery = profilesRef.orderBy('createdAt', 'desc').limit(5);
         
         // Fetch profiles
-        const querySnapshot = await getDocs(profilesQuery);
+        const querySnapshot = await profilesQuery.get();
         
         // Map the documents to a more usable format
         const profiles = querySnapshot.docs.map(doc => ({
