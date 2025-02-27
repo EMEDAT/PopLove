@@ -1,9 +1,9 @@
 // app/(onboarding)/index.tsx
 import { Redirect } from 'expo-router';
-import { useAuthContext } from '../../components/auth/AuthProvider';
+import { useAuth } from '../../hooks/useAuth'; // Updated import
 
 export default function OnboardingIndex() {
-  const { user, loading } = useAuthContext();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return null; // Or a loading screen
