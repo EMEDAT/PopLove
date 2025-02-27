@@ -97,7 +97,7 @@ export default function SplashScreen() {
           <View style={styles.buttonSection}>
             <TouchableOpacity 
               style={styles.buttonWrapper} 
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => router.push('/(auth)')}
             >
               <LinearGradient
                 colors={['#FF6B6B', '#FFA07A']}
@@ -108,6 +108,33 @@ export default function SplashScreen() {
                 <Text style={styles.buttonText}>{item.buttonText}</Text>
               </LinearGradient>
             </TouchableOpacity>
+            
+            <View style={styles.orContainer}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
+            
+            <View style={styles.socialButtonsRow}>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image 
+                  source={require('../../assets/icons/GoogleIcon.png')} 
+                  style={styles.socialIcon}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image 
+                  source={require('../../assets/icons/FacebookIcon.png')} 
+                  style={styles.socialIcon}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image 
+                  source={require('../../assets/icons/AppleIcon.png')} 
+                  style={styles.socialIcon}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       );
@@ -203,6 +230,40 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  orText: {
+    marginHorizontal: 8,
+    color: '#666',
+    fontSize: 14,
+  },
+  socialButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  socialButton: {
+    width: 88,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  socialIcon: {
+    width: 20,
+    height: 20,
   },
   paginationDot: {
     width: 8,
