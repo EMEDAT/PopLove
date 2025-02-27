@@ -7,15 +7,11 @@ import {
   StyleSheet, 
   Dimensions, 
   TouchableOpacity,
-  FlatList,
-  Platform
+  FlatList
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import * as AppleAuthentication from 'expo-apple-authentication';
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,30 +42,9 @@ const SPLASH_SCREENS = [
   }
 ];
 
-// Required for Google Auth
-WebBrowser.maybeCompleteAuthSession();
-
 export default function SplashScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [hasAppleAuth, setHasAppleAuth] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  
-  // Google Auth setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-
-  // Check if Apple Authentication is available
-  useEffect(() => {
-    const checkAppleAuth = async () => {
-      const isAvailable = await AppleAuthentication.isAvailableAsync();
-      setHasAppleAuth(isAvailable);
-    };
-    
-    checkAppleAuth();
-  }, []);
 
   // Auto-advance from first screen after 2 seconds
   useEffect(() => {
@@ -82,35 +57,9 @@ export default function SplashScreen() {
       return () => clearTimeout(timer);
     }
   }, [activeIndex]);
-
-  // Handle Google Sign In
-  const handleGoogleSignIn = async () => {
-    try {
-      const result = await promptAsync();
-      // TODO: Implement Google Sign In logic
-    } catch (error) {
-      console.error('Google Sign In Error:', error);
-    }
-  };
-
-  // Handle Apple Sign In
-  const handleAppleSignIn = async () => {
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      // TODO: Implement Apple Sign In logic
-    } catch (error) {
-      console.error('Apple Sign In Error:', error);
-    }
-  };
   
   const renderScreen = ({ item, index }: { item: any, index: number }) => {
     if (item.type === 'intro') {
-      // First screen - just show the full image without any buttons or indicators
       return (
         <View style={styles.slide}>
           <Image 
@@ -121,7 +70,6 @@ export default function SplashScreen() {
         </View>
       );
     } else {
-      // Feature screens
       return (
         <View style={styles.slide}>
           <Image 
@@ -130,7 +78,6 @@ export default function SplashScreen() {
             resizeMode="contain"
           />
           
-          {/* Feature screens display indicator dots within the feature image area */}
           <View style={styles.paginationWithinImage}>
             <View style={[
               styles.paginationDot,
@@ -161,36 +108,6 @@ export default function SplashScreen() {
                 <Text style={styles.buttonText}>{item.buttonText}</Text>
               </LinearGradient>
             </TouchableOpacity>
-            
-            <View style={styles.orContainer}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.orLine} />
-            </View>
-            
-            <View style={styles.socialButtonsRow}>
-              <TouchableOpacity 
-                style={styles.socialButton}
-                onPress={handleGoogleSignIn}
-              >
-                <Image 
-                  source={require('../../assets/icons/GoogleIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
-              
-              {Platform.OS === 'ios' && hasAppleAuth && (
-                <TouchableOpacity 
-                  style={styles.socialButton}
-                  onPress={handleAppleSignIn}
-                >
-                  <Image 
-                    source={require('../../assets/icons/AppleIcon.png')} 
-                    style={styles.socialIcon}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
         </View>
       );
@@ -286,41 +203,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
-  },
-  orContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 14,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5E5',
-  },
-  orText: {
-    marginHorizontal: 8,
-    color: '#666',
-    fontSize: 14,
-  },
-  socialButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    marginTop: 5,
-  },
-  socialButton: {
-    width: 88,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-  },
-  socialIcon: {
-    width: 20,
-    height: 20,
   },
   paginationDot: {
     width: 8,

@@ -21,51 +21,51 @@ import { StatusBar } from 'expo-status-bar';
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
   const { signUp, error: authError } = useAuthContext();
 
   const handleSignUp = async () => {
+    // Validate inputs
     if (!email || !password) {
-      setLocalError('Please enter both email and password');
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+    
+    // Check password match
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setLocalError('Please enter a valid email address');
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
     
-    // Password validation - at least 6 characters
+    // Password strength check
     if (password.length < 6) {
-      setLocalError('Password must be at least 6 characters long');
+      Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
     
     try {
       setLoading(true);
-      setLocalError(null);
       
       await signUp(email, password);
-      console.log('Authentication successful, navigating to profile setup');
       
-      // If we get here, the authentication was successful
+      // Navigate to profile setup after successful signup
       router.push('/(onboarding)/profile-setup');
     } catch (err: any) {
       console.error('Sign up error:', err);
-      setLocalError(err.message || 'Failed to create account');
-      // Alert the user about the error
-      Alert.alert('Sign Up Error', err.message || 'Failed to create account');
+      Alert.alert('Sign Up Failed', err.message || 'An error occurred during signup');
     } finally {
-      setLoading(false); // Always reset loading state, even on errors
+      setLoading(false);
     }
   };
   
-  // Use either local error or auth error
-  const error = localError || authError;
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -97,7 +97,6 @@ export default function SignupScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             placeholderTextColor="#999"
-            testID="email-input"
           />
           
           <TextInput
@@ -107,11 +106,19 @@ export default function SignupScreen() {
             onChangeText={setPassword}
             secureTextEntry
             placeholderTextColor="#999"
-            testID="password-input"
           />
           
-          {error && (
-            <Text style={styles.errorText}>{error}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            placeholderTextColor="#999"
+          />
+          
+          {authError && (
+            <Text style={styles.errorText}>{authError}</Text>
           )}
         </View>
         
@@ -119,8 +126,7 @@ export default function SignupScreen() {
           <TouchableOpacity
             style={styles.signupButton}
             onPress={handleSignUp}
-            disabled={loading || !email || !password}
-            testID="signup-button"
+            disabled={loading || !email || !password || !confirmPassword}
           >
             <LinearGradient
               colors={['#FF6B6B', '#FFA07A']}
@@ -168,7 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleContainer: {
-    marginBottom: 40,
+    marginBottom: 30,
   },
   title: {
     fontSize: 28,
@@ -213,8 +219,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 16,
   },
   footer: {
     flexDirection: 'row',

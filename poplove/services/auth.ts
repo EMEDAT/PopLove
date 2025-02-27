@@ -1,11 +1,8 @@
-// services/auth.ts
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { auth, firestore, serverTimestamp } from '../lib/firebase';
 
 class AuthService {
-  // Sign in with email and password
   async signInWithEmail(email: string, password: string) {
     try {
       const response = await auth.signInWithEmailAndPassword(email, password);
@@ -29,17 +26,14 @@ class AuthService {
     }
   }
 
-  // Sign up with email and password
   async signUpWithEmail(email: string, password: string) {
     try {
       const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       
       if (userCredential.user) {
         try {
-          // More defensive Firestore document creation
           const uid = userCredential.user.uid;
           
-          // Create a user document
           await firestore.collection('users').doc(uid).set({
             email: email,
             createdAt: serverTimestamp(),
@@ -47,11 +41,7 @@ class AuthService {
             status: 'active'
           }, { merge: true });
         } catch (firestoreError: any) {
-          console.error('Firestore Document Creation Error:', {
-            errorCode: firestoreError.code,
-            errorMessage: firestoreError.message,
-            errorStack: firestoreError.stack
-          });
+          console.error('Firestore Document Creation Error:', firestoreError);
         }
       }
   
@@ -62,13 +52,10 @@ class AuthService {
     }
   }
 
-  // Sign out method
   async signOut() {
     try {
       await auth.signOut();
       console.log('Sign out successful');
-      
-      // Optional: Clear any local storage or async storage
       await AsyncStorage.removeItem('onboardingCompleted');
     } catch (error: any) {
       console.error('Error signing out:', error);
@@ -76,13 +63,10 @@ class AuthService {
     }
   }
 
-  // Reset authorization state completely
   async resetAuth() {
     try {
-      // Clear onboarding status from AsyncStorage
       await AsyncStorage.removeItem('onboardingCompleted');
       
-      // Clear any other auth-related items in AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
       const authKeys = keys.filter(key => 
         key.includes('auth') || 
@@ -95,22 +79,14 @@ class AuthService {
         await AsyncStorage.multiRemove(authKeys);
       }
       
-      // Try to delete the current user if it exists
-      try {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          await currentUser.delete();
-        }
-      } catch (e) {
-        console.log("Could not delete user", e);
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await currentUser.delete();
       }
       
-      // Sign out from Firebase
       await this.signOut();
       
       console.log('Auth reset successful');
-      
-      // Navigate to auth
       router.replace('/(auth)/');
     } catch (error) {
       console.error('Error resetting auth:', error);
