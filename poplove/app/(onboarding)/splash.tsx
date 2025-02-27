@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 
+
 const { width, height } = Dimensions.get('window');
 
 // Splash screens exactly as per your design
