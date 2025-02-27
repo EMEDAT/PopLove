@@ -111,7 +111,7 @@ export default function HomeScreen() {
                   source={
                     profile.photoURL 
                       ? { uri: profile.photoURL } 
-                      : require('../../assets/images/default-profile.png')
+                      : require('../../assets/images/default-profile.jpg')
                   }
                   style={styles.profileImage}
                 />

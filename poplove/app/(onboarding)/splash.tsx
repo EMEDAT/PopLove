@@ -8,26 +8,28 @@ import {
   Dimensions, 
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
   Platform
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 const { width, height } = Dimensions.get('window');
 
-// Define your splash screens
+// Splash screens exactly as per your design
 const SPLASH_SCREENS = [
   {
     id: 1,
     type: 'intro',
-    image: require('../../assets/images/onboarding/splash1.png'),
+    image: require('../../assets/images/onboarding/SplashScreen1.png'),
   },
   {
     id: 2,
     type: 'feature',
-    image: require('../../assets/images/onboarding/splash2.png'),
+    image: require('../../assets/images/onboarding/SplashScreen2.png'),
     title: 'Speed Dating Mode',
     description: 'Fast, fun, and flirty! Match, chat, and vibe—all in just a few minutes.',
     buttonText: 'Get Started',
@@ -36,7 +38,7 @@ const SPLASH_SCREENS = [
   {
     id: 3,
     type: 'feature',
-    image: require('../../assets/images/onboarding/splash3.png'),
+    image: require('../../assets/images/onboarding/SplashScreen3.png'),
     title: 'Live Lineup Matchmaking',
     description: 'Step into the spotlight! Join the lineup, get chosen, or make your pick in real-time.',
     buttonText: 'Get Started',
@@ -44,10 +46,31 @@ const SPLASH_SCREENS = [
   }
 ];
 
+// Required for Google Auth
+WebBrowser.maybeCompleteAuthSession();
+
 export default function SplashScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [hasAppleAuth, setHasAppleAuth] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   
+  // Google Auth setup
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  // Check if Apple Authentication is available
+  useEffect(() => {
+    const checkAppleAuth = async () => {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      setHasAppleAuth(isAvailable);
+    };
+    
+    checkAppleAuth();
+  }, []);
+
   // Auto-advance from first screen after 2 seconds
   useEffect(() => {
     if (activeIndex === 0) {
@@ -60,13 +83,28 @@ export default function SplashScreen() {
     }
   }, [activeIndex]);
 
-  const handleNext = () => {
-    if (activeIndex < SPLASH_SCREENS.length - 1) {
-      const nextIndex = activeIndex + 1;
-      setActiveIndex(nextIndex);
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-    } else {
-      router.push('/(auth)/');
+  // Handle Google Sign In
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await promptAsync();
+      // TODO: Implement Google Sign In logic
+    } catch (error) {
+      console.error('Google Sign In Error:', error);
+    }
+  };
+
+  // Handle Apple Sign In
+  const handleAppleSignIn = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      // TODO: Implement Apple Sign In logic
+    } catch (error) {
+      console.error('Apple Sign In Error:', error);
     }
   };
   
@@ -89,7 +127,7 @@ export default function SplashScreen() {
           <Image 
             source={item.image}
             style={styles.fullImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
           
           {/* Feature screens display indicator dots within the feature image area */}
@@ -131,17 +169,23 @@ export default function SplashScreen() {
             </View>
             
             <View style={styles.socialButtonsRow}>
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity 
+                style={styles.socialButton}
+                onPress={handleGoogleSignIn}
+              >
                 <Image 
-                  source={require('../../assets/images/google-icon.png')} 
+                  source={require('../../assets/icons/GoogleIcon.png')} 
                   style={styles.socialIcon}
                 />
               </TouchableOpacity>
               
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity style={styles.socialButton}>
+              {Platform.OS === 'ios' && hasAppleAuth && (
+                <TouchableOpacity 
+                  style={styles.socialButton}
+                  onPress={handleAppleSignIn}
+                >
                   <Image 
-                    source={require('../../assets/images/apple-icon.png')} 
+                    source={require('../../assets/icons/AppleIcon.png')} 
                     style={styles.socialIcon}
                   />
                 </TouchableOpacity>
@@ -160,8 +204,8 @@ export default function SplashScreen() {
   }).current;
   
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+    <View style={styles.container}>
+      <StatusBar style="dark" />
       
       <FlatList
         ref={flatListRef}
@@ -176,14 +220,14 @@ export default function SplashScreen() {
           itemVisiblePercentThreshold: 50
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#fff',
   },
   slide: {
     width,
@@ -211,11 +255,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'left',
-    color: '#fff',
   },
   featureDescription: {
     fontSize: 13,
-    color: '#eee',
+    color: '#666',
     textAlign: 'left',
     lineHeight: 20,
     marginBottom: 20,
@@ -230,7 +273,7 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     width: '100%',
-    height: 50,
+    height: 40,
     borderRadius: 25,
     overflow: 'hidden',
   },
@@ -241,7 +284,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
   },
   orContainer: {
@@ -252,11 +295,11 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#666',
+    backgroundColor: '#E5E5E5',
   },
   orText: {
     marginHorizontal: 8,
-    color: '#fff',
+    color: '#666',
     fontSize: 14,
   },
   socialButtonsRow: {
@@ -266,18 +309,18 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   socialButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 88,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#666',
+    borderColor: '#E5E5E5',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'white',
   },
   socialIcon: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
   },
   paginationDot: {
     width: 8,
@@ -290,6 +333,6 @@ const styles = StyleSheet.create({
     width: 16,
   },
   inactivePaginationDot: {
-    backgroundColor: '#666',
+    backgroundColor: '#DDD',
   },
 });

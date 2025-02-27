@@ -232,7 +232,7 @@ export default function LoginScreen() {
               disabled={loading}
             >
               <Image 
-                source={require('../../assets/images/google-icon.png')}
+                source={require('../../assets/icons/GoogleIcon.png')}
                 style={styles.socialIcon}
               />
               <Text style={styles.socialButtonText}>Google</Text>
