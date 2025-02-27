@@ -62,7 +62,6 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#000" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Log In</Text>
             <View style={styles.headerRight} />
           </View>
 
@@ -151,7 +150,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 40,
     marginBottom: 20,
   },
   backButton: {

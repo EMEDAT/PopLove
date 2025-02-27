@@ -1,52 +1,15 @@
-// app/(auth)/index.tsx
+// poplove\app\(auth)\index.tsx
+
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
+import { Image } from 'react-native';
 
 export default function AuthIndex() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <View style={styles.logoContainer}>
-        <Image 
-          source={require('../../assets/images/splash-icon.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.appName}>PopLove</Text>
-      </View>
-      
-      <View style={styles.socialButtons}>
-        <TouchableOpacity 
-          style={styles.socialButton}
-          onPress={() => console.log('Google login - to be implemented')}
-        >
-          <Image 
-            source={require('../../assets/icons/GoogleIcon.png')} 
-            style={styles.socialIcon}
-          />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.socialButton}
-          onPress={() => console.log('Apple login - to be implemented')}
-        >
-          <Image 
-            source={require('../../assets/icons/AppleIcon.png')} 
-            style={styles.socialIcon}
-          />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.divider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.dividerLine} />
-      </View>
-      
+    <View style={styles.container}>
+
       <TouchableOpacity 
         style={styles.emailButton}
         onPress={() => router.push('/(auth)/signup')}
@@ -57,17 +20,41 @@ export default function AuthIndex() {
           end={{ x: 1, y: 0 }}
           style={styles.gradient}
         >
-          <Text style={styles.buttonText}>Create Account</Text>
+          <Text style={styles.buttonText}>Continue with Email</Text>
         </LinearGradient>
       </TouchableOpacity>
       
-      <TouchableOpacity 
-        onPress={() => router.push('/(auth)/login')}
-        style={styles.loginLink}
-      >
-        <Text style={styles.loginText}>Already have an account? <Text style={styles.loginTextBold}>Log In</Text></Text>
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <View style={styles.socialButtons}>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/GoogleIcon.png')} 
+            style={styles.socialIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/AppleIcon.png')} 
+            style={styles.socialIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton}>
+          <Image 
+            source={require('../../assets/icons/FacebookIcon.png')} 
+            style={styles.socialIcon}
+          />
+        </TouchableOpacity>
+      </View>
+      
+      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+        <Text style={styles.loginText}>Already have an account? Log In</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -79,20 +66,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: 'white'
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 50
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 10
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FF6B6B'
-  },
   socialButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -100,7 +73,7 @@ const styles = StyleSheet.create({
     gap: 20
   },
   socialButton: {
-    width: 60,
+    width: 90,
     height: 60,
     borderRadius: 30,
     borderWidth: 1,
@@ -109,13 +82,12 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   socialIcon: {
-    width: 24,
-    height: 24
+    width: 30,
+    height: 30
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
     marginBottom: 30
   },
   dividerLine: {
@@ -144,15 +116,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   },
-  loginLink: {
-    marginTop: 10
-  },
   loginText: {
-    color: '#666',
-    fontSize: 15
-  },
-  loginTextBold: {
     color: '#FF6B6B',
-    fontWeight: '600'
+    fontSize: 15
   }
 });

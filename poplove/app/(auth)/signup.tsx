@@ -31,36 +31,44 @@ export default function SignupScreen() {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
+  
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
-
+  
     // Password validation
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
-
+  
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-
+  
     try {
       setLoading(true);
       await signUp(email, password);
-      router.replace('/(onboarding)/profile-setup');
+      
+      // Add a console log to track navigation
+      console.log('Signup successful, navigating to profile setup');
+      
+      // Force navigation with setTimeout for any state updates to complete
+      setTimeout(() => {
+        router.push('/(onboarding)/profile-setup');
+      }, 500);
+      
     } catch (err: any) {
       Alert.alert('Sign Up Failed', err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
-
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -74,7 +82,6 @@ export default function SignupScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#000" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Create Account</Text>
             <View style={styles.headerRight} />
           </View>
 
@@ -171,7 +178,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 40,
     marginBottom: 20,
   },
   backButton: {
