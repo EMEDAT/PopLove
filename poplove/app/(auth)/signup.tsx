@@ -1,16 +1,8 @@
 // app/(auth)/signup.tsx
 import React, { useState } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  SafeAreaView,
-  Alert
+  View, Text, StyleSheet, TouchableOpacity, TextInput, 
+  KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,129 +18,102 @@ export default function SignupScreen() {
   const { signUp, error: authError } = useAuthContext();
 
   const handleSignUp = async () => {
-    // Validate inputs
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
     }
-    
-    // Check password match
+
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-    
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-    
-    // Password strength check
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
-    
+
     try {
       setLoading(true);
-      
       await signUp(email, password);
-      
-      // Navigate to profile setup after successful signup
       router.push('/(onboarding)/profile-setup');
     } catch (err: any) {
-      console.error('Sign up error:', err);
-      Alert.alert('Sign Up Failed', err.message || 'An error occurred during signup');
+      Alert.alert('Sign Up Failed', err.message);
     } finally {
-      setLoading(false);
+      setLoading(false);  
     }
   };
-  
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}> 
       <StatusBar style="dark" />
-      
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={22} color="#000" />
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color="#000" />  
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Sign up to find your perfect match</Text>
         </View>
-        
+
         <View style={styles.formContainer}>
           <TextInput
-            style={styles.input}
+            style={styles.input}  
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#999"
           />
-          
+
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder="Password"  
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholderTextColor="#999"
           />
-          
-          <TextInput
+
+          <TextInput 
             style={styles.input}
             placeholder="Confirm Password"
-            value={confirmPassword}
+            value={confirmPassword} 
             onChangeText={setConfirmPassword}
             secureTextEntry
-            placeholderTextColor="#999"
           />
-          
+
           {authError && (
-            <Text style={styles.errorText}>{authError}</Text>
+            <Text style={styles.errorText}>{authError}</Text>  
           )}
         </View>
-        
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.signupButton}
+            style={styles.signupButton}  
             onPress={handleSignUp}
-            disabled={loading || !email || !password || !confirmPassword}
+            disabled={loading}
           >
             <LinearGradient
               colors={['#FF6B6B', '#FFA07A']}
-              start={{ x: 0, y: 0 }}
+              start={{ x: 0, y: 0 }}  
               end={{ x: 1, y: 0 }}
-              locations={[0.3, 1]}
               style={styles.gradient}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
-              ) : (
+              ) : ( 
                 <Text style={styles.buttonText}>Create Account</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
             <Text style={styles.linkText}>Log In</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>  
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -1,16 +1,8 @@
 // app/(auth)/login.tsx
 import React, { useState } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  SafeAreaView,
-  Alert
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,14 +24,10 @@ export default function LoginScreen() {
     
     try {
       setLoading(true);
-      
       await signIn(email, password);
-      
-      // If sign-in is successful, navigate to tabs
       router.push('/(tabs)');
     } catch (err: any) {
-      console.error('Login error:', err);
-      Alert.alert('Login Failed', err.message || 'An error occurred during login');
+      Alert.alert('Login Failed', err.message);
     } finally {
       setLoading(false);
     }
@@ -50,77 +38,67 @@ export default function LoginScreen() {
       <StatusBar style="dark" />
       
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.keyboardView}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
+          <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={22} color="#000" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to continue</Text>
         </View>
-        
+
         <View style={styles.formContainer}>
           <TextInput
             style={styles.input}
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#999"
           />
-          
+
           <TextInput
             style={styles.input}
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholderTextColor="#999"
           />
-          
+
           {authError && (
             <Text style={styles.errorText}>{authError}</Text>
           )}
-          
-          <TouchableOpacity 
-            style={styles.forgotPasswordButton}
-            onPress={() => Alert.alert('Reset Password', 'This feature will be available soon.')}
-          >
+
+          <TouchableOpacity onPress={() => Alert.alert('Future feature')}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
+          <TouchableOpacity 
             style={styles.loginButton}
             onPress={handleEmailLogin}
-            disabled={loading || !email || !password}
+            disabled={loading}
           >
             <LinearGradient
               colors={['#FF6B6B', '#FFA07A']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              locations={[0.3, 1]}
               style={styles.gradient}
             >
               {loading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color="white" /> 
               ) : (
                 <Text style={styles.buttonText}>Log In</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
