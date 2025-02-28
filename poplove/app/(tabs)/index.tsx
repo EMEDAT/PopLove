@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, orderBy, limit } from '@react-native-firebase/firestore';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 
 export default function HomeScreen() {
@@ -30,11 +30,11 @@ export default function HomeScreen() {
         setError(null);
         
         // Create a Firestore query to get featured profiles
-        const profilesRef = firestore().collection('users');
-        const profilesQuery = profilesRef.orderBy('createdAt', 'desc').limit(5);
+        const profilesRef = collection(firestore, 'users');
+        const profilesQuery = query(profilesRef, orderBy('createdAt', 'desc'), limit(5));
         
         // Fetch profiles
-        const querySnapshot = await profilesQuery.get();
+        const querySnapshot = await getDocs(profilesQuery);
         
         // Map the documents to a more usable format
         const profiles = querySnapshot.docs.map(doc => ({

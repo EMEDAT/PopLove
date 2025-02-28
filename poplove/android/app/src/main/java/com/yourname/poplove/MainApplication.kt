@@ -16,12 +16,6 @@ import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
-// Import Firebase packages
-import io.invertase.firebase.app.ReactNativeFirebaseAppPackage
-import io.invertase.firebase.firestore.ReactNativeFirebaseFirestorePackage
-import io.invertase.firebase.auth.ReactNativeFirebaseAuthPackage
-import io.invertase.firebase.storage.ReactNativeFirebaseStoragePackage
-
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
@@ -30,12 +24,6 @@ class MainApplication : Application(), ReactApplication {
           override fun getPackages(): List<ReactPackage> {
             // Get the packages from PackageList
             val packages = PackageList(this).packages.toMutableList()
-            
-            // Add Firebase packages manually
-            packages.add(ReactNativeFirebaseAppPackage())
-            packages.add(ReactNativeFirebaseFirestorePackage())
-            packages.add(ReactNativeFirebaseAuthPackage())
-            packages.add(ReactNativeFirebaseStoragePackage())
             
             return packages
           }
