@@ -27,32 +27,23 @@ export default function SignupScreen() {
   const { signUp, error: authError } = useAuth();
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-  
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-  
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
-  
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
+    console.log('Signup Start:', { 
+      email: email.length > 0, 
+      password: password.length > 0,
+      confirmPassword: confirmPassword.length > 0 
+    });
   
     try {
       setLoading(true);
+      console.log('Before signUp call');
       await signUp(email, password);
+      console.log('After signUp call');
       router.push('/(onboarding)/profile-setup');
     } catch (err: any) {
+      console.error('Full Signup Error Object:', err);
+      console.error('Signup Error Code:', err.code);
+      console.error('Signup Error Message:', err.message);
+  
       let errorMessage = 'Sign up failed';
       
       switch (err.code) {

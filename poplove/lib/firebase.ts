@@ -32,5 +32,4 @@ export {
   User
 };
 
-// Export default app
 export default app;

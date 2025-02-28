@@ -16,7 +16,10 @@ class AuthService {
       console.log('Sign in successful:', response.user.uid);
       return response;
     } catch (error: any) {
-      console.error('Error signing in with email:', error);
+      console.error('Sign In Error:', {
+        code: error.code,
+        message: error.message
+      });
       throw error;
     }
   }
@@ -37,13 +40,22 @@ class AuthService {
             status: 'active'
           }, { merge: true });
         } catch (firestoreError: any) {
-          console.error('Firestore Document Creation Error:', firestoreError);
+          console.error('Firestore Creation Error:', {
+            code: firestoreError.code,
+            message: firestoreError.message
+          });
+          // Optionally delete the user if Firestore fails
+          await deleteUser(userCredential.user);
+          throw firestoreError;
         }
       }
   
       return userCredential.user;
     } catch (error: any) {
-      console.error('Sign Up Error:', error);
+      console.error('Sign Up Error:', {
+        code: error.code,
+        message: error.message
+      });
       throw error;
     }
   }
@@ -53,7 +65,10 @@ class AuthService {
       await firebaseSignOut(auth);
       console.log('Sign out successful');
     } catch (error: any) {
-      console.error('Error signing out:', error);
+      console.error('Sign Out Error:', {
+        code: error.code,
+        message: error.message
+      });
       throw error;
     }
   }
@@ -71,8 +86,11 @@ class AuthService {
       await this.signOut();
       
       console.log('Auth reset successful');
-    } catch (error) {
-      console.error('Error resetting auth:', error);
+    } catch (error: any) {
+      console.error('Auth Reset Error:', {
+        code: error.code,
+        message: error.message
+      });
       throw error;
     }
   }
