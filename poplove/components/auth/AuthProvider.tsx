@@ -1,142 +1,139 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  User, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut as firebaseSignOut, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, firestore } from '../../lib/firebase';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
-// Create auth context
 type AuthContextType = {
-  user: User | null;
+  user: FirebaseAuthTypes.User | null;
   loading: boolean;
   error: string | null;
+  hasCompletedOnboarding: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<User | null>;
+  signUp: (email: string, password: string) => Promise<FirebaseAuthTypes.User | null>;
   signOut: () => Promise<void>;
   resetAuth: () => Promise<void>;
-  hasCompletedOnboarding: boolean;
   setHasCompletedOnboarding: (value: boolean) => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  error: null,
+  hasCompletedOnboarding: false,
+  signIn: async () => {},
+  signUp: async () => null,
+  signOut: async () => {},
+  resetAuth: async () => {},
+  setHasCompletedOnboarding: async () => {}
+});
 
-// Auth Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
 
-  // Handle user state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+    const subscriber = auth().onAuthStateChanged((authUser) => {
       setUser(authUser);
       
       if (authUser) {
-        // Check if user has completed onboarding
-        const userDocRef = doc(firestore, 'users', authUser.uid);
-        getDoc(userDocRef)
+        firestore()
+          .collection('users')
+          .doc(authUser.uid)
+          .get()
           .then(documentSnapshot => {
-            if (documentSnapshot.exists()) {
+            if (documentSnapshot.exists) {
               const userData = documentSnapshot.data();
-              setHasCompletedOnboarding(userData?.hasCompletedOnboarding || false);
+              setHasCompletedOnboardingState(userData?.hasCompletedOnboarding || false);
             }
           })
-          .catch(err => console.error("Error fetching user data:", err));
+          .catch(error => {
+            console.error('Error fetching user data:', error);
+          });
       }
       
       setLoading(false);
     });
 
-    return unsubscribe; // unsubscribe on unmount
+    return subscriber;
   }, []);
 
-  // Sign in with email and password
-  const signIn = async (email: string, password: string) => {
-    try {
-      setError(null);
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      console.error("Sign in error:", err);
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  // Sign up with email and password
   const signUp = async (email: string, password: string) => {
     try {
-      setError(null);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      setLoading(true);
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       
-      // Create user document in Firestore
       if (userCredential.user) {
-        const userDocRef = doc(firestore, 'users', userCredential.user.uid);
-        await setDoc(userDocRef, {
-          email: userCredential.user.email,
-          createdAt: serverTimestamp(),
-          hasCompletedOnboarding: false
-        });
+        await firestore()
+          .collection('users')
+          .doc(userCredential.user.uid)
+          .set({
+            email: userCredential.user.email,
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            hasCompletedOnboarding: false
+          });
       }
       
+      setError(null);
       return userCredential.user;
     } catch (err: any) {
-      console.error("Sign up error:", err);
+      console.error('Signup Error:', err);
       setError(err.message);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Sign out
+  const signIn = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      await auth().signInWithEmailAndPassword(email, password);
+      setError(null);
+    } catch (err: any) {
+      console.error('Login Error:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     try {
-      await firebaseSignOut(auth);
+      await auth().signOut();
     } catch (err: any) {
       setError(err.message);
-      throw err;
     }
   };
 
-  // Reset auth state (for testing)
   const resetAuth = async () => {
     try {
       if (user) {
-        // Update Firestore data
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await updateDoc(userDocRef, {
-          hasCompletedOnboarding: false
-        });
-        
-        // Update local state
-        setHasCompletedOnboarding(false);
-        
-        // Sign out
-        await signOut();
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .update({ hasCompletedOnboarding: false });
+        await auth().signOut();
       }
     } catch (err: any) {
       setError(err.message);
-      throw err;
     }
   };
 
-  // Update onboarding status
   const updateOnboardingStatus = async (value: boolean) => {
     if (user) {
       try {
-        // Update Firestore
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await updateDoc(userDocRef, {
-          hasCompletedOnboarding: value,
-          updatedAt: serverTimestamp()
-        });
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            hasCompletedOnboarding: value,
+            updatedAt: firestore.FieldValue.serverTimestamp()
+          });
         
-        // Update local state
-        setHasCompletedOnboarding(value);
+        setHasCompletedOnboardingState(value);
       } catch (error) {
         console.error('Error updating onboarding status:', error);
       }
@@ -147,18 +144,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     error,
+    hasCompletedOnboarding,
     signIn,
     signUp,
     signOut,
     resetAuth,
-    hasCompletedOnboarding,
     setHasCompletedOnboarding: updateOnboardingStatus
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Custom hook to use auth context
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -167,5 +163,4 @@ export const useAuthContext = () => {
   return context;
 };
 
-// For backward compatibility
 export const useAuth = useAuthContext;

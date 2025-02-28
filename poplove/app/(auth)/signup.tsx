@@ -32,14 +32,12 @@ export default function SignupScreen() {
       return;
     }
   
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
   
-    // Password validation
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
@@ -53,17 +51,23 @@ export default function SignupScreen() {
     try {
       setLoading(true);
       await signUp(email, password);
-      
-      // Add a console log to track navigation
-      console.log('Signup successful, navigating to profile setup');
-      
-      // Force navigation with setTimeout for any state updates to complete
-      setTimeout(() => {
-        router.push('/(onboarding)/profile-setup');
-      }, 500);
-      
+      router.push('/(onboarding)/profile-setup');
     } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message || 'An unexpected error occurred');
+      let errorMessage = 'Sign up failed';
+      
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'Email already in use';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your connection.';
+          break;
+      }
+  
+      Alert.alert('Sign Up Error', errorMessage);
     } finally {
       setLoading(false);
     }
