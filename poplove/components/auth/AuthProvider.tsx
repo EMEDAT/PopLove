@@ -59,16 +59,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      setLoading(true);
+      console.log('Network Configuration:', {
+        EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ? 'Set' : 'Not Set',
+        EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not Set',
+        EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ? 'Set' : 'Not Set'
+      });
+  
       const userCredential = await authService.signUpWithEmail(email, password);
-      setError(null);
       return userCredential;
-    } catch (err: any) {
-      console.error('Signup Error:', err);
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+    } catch (error: any) {
+      console.error('Detailed Signup Error:', {
+        fullError: error,
+        errorCode: error?.code,
+        errorMessage: error?.message
+      });
+      setError(error?.message || 'Signup failed');
+      throw error;
     }
   };
 
