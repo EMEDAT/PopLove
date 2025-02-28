@@ -14,6 +14,16 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Log Firebase config for debugging (remove in production)
+console.log('Firebase Config:', {
+  apiKey: firebaseConfig.apiKey ? 'Configured' : 'Missing',
+  authDomain: firebaseConfig.authDomain ? 'Configured' : 'Missing',
+  projectId: firebaseConfig.projectId ? 'Configured' : 'Missing',
+  storageBucket: firebaseConfig.storageBucket ? 'Configured' : 'Missing',
+  messagingSenderId: firebaseConfig.messagingSenderId ? 'Configured' : 'Missing',
+  appId: firebaseConfig.appId ? 'Configured' : 'Missing',
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

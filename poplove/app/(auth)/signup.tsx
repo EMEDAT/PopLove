@@ -24,40 +24,84 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { signUp, error: authError } = useAuth();
 
+  const validateInputs = () => {
+    // Clear previous error
+    setValidationError(null);
+    
+    // Check empty fields
+    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setValidationError('All fields are required');
+      return false;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setValidationError('Please enter a valid email address');
+      return false;
+    }
+    
+    // Check password length
+    if (password.length < 6) {
+      setValidationError('Password must be at least 6 characters');
+      return false;
+    }
+    
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      setValidationError('Passwords do not match');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSignUp = async () => {
-    console.log('Signup Start:', { 
-      email: email.length > 0, 
-      password: password.length > 0,
-      confirmPassword: confirmPassword.length > 0 
-    });
-  
+    console.log('Attempting signup validation');
+    
+    // Validate inputs first
+    if (!validateInputs()) {
+      return;
+    }
+    
     try {
       setLoading(true);
-      console.log('Before signUp call');
-      await signUp(email, password);
-      console.log('After signUp call');
+      console.log('Validation passed, attempting signup');
+      
+      const user = await signUp(email, password);
+      console.log('Signup successful, user:', user?.uid);
+      
+      // Navigate to profile setup
       router.push('/(onboarding)/profile-setup');
     } catch (err: any) {
-      console.error('Full Signup Error Object:', err);
-      console.error('Signup Error Code:', err.code);
-      console.error('Signup Error Message:', err.message);
-  
+      console.error('Signup error:', err);
+      
       let errorMessage = 'Sign up failed';
       
+      // Handle specific Firebase auth errors
       switch (err.code) {
         case 'auth/email-already-in-use':
-          errorMessage = 'Email already in use';
+          errorMessage = 'This email is already registered';
           break;
         case 'auth/invalid-email':
           errorMessage = 'Invalid email address';
           break;
-        case 'auth/network-request-failed':
-          errorMessage = 'Network error. Please check your connection.';
+        case 'auth/weak-password':
+          errorMessage = 'Password is too weak';
           break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your connection';
+          break;
+        case 'permission-denied':
+          errorMessage = 'Permission denied. Please try again later';
+          break;
+        default:
+          errorMessage = err.message || 'An unexpected error occurred';
       }
-  
+      
       Alert.alert('Sign Up Error', errorMessage);
     } finally {
       setLoading(false);
@@ -90,7 +134,10 @@ export default function SignupScreen() {
                 style={styles.input}
                 placeholder="Enter your email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setValidationError(null);
+                }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 placeholderTextColor="#aaa"
@@ -103,7 +150,10 @@ export default function SignupScreen() {
                 style={styles.input}
                 placeholder="Create a password"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setValidationError(null);
+                }}
                 secureTextEntry
                 placeholderTextColor="#aaa"
               />
@@ -115,18 +165,25 @@ export default function SignupScreen() {
                 style={styles.input}
                 placeholder="Confirm your password"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setValidationError(null);
+                }}
                 secureTextEntry
                 placeholderTextColor="#aaa"
               />
             </View>
+
+            {validationError && (
+              <Text style={styles.errorText}>{validationError}</Text>
+            )}
 
             {authError && (
               <Text style={styles.errorText}>{authError}</Text>
             )}
 
             <TouchableOpacity 
-              style={styles.signupButton}
+              style={[styles.signupButton, loading && styles.disabledButton]}
               onPress={handleSignUp}
               disabled={loading}
             >
@@ -228,6 +285,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 10,
     marginBottom: 20,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   gradient: {
     height: '100%',

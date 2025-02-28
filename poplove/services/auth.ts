@@ -26,26 +26,33 @@ class AuthService {
 
   async signUpWithEmail(email: string, password: string) {
     try {
+      console.log('Creating user with email:', email);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('User created successfully:', userCredential.user.uid);
       
       if (userCredential.user) {
+        const uid = userCredential.user.uid;
+        console.log('Creating user document in Firestore for:', uid);
+        
         try {
-          const uid = userCredential.user.uid;
-          
           // Create user document in Firestore
           await setDoc(doc(firestore, 'users', uid), {
             email: email,
             createdAt: serverTimestamp(),
             hasCompletedOnboarding: false,
             status: 'active'
-          }, { merge: true });
+          });
+          
+          console.log('User document created successfully');
+          return userCredential.user;
         } catch (firestoreError: any) {
           console.error('Firestore Creation Error:', {
             code: firestoreError.code,
             message: firestoreError.message
           });
-          // Optionally delete the user if Firestore fails
-          await deleteUser(userCredential.user);
+          
+          // Don't automatically delete the user here, as they may need to just
+          // continue with profile setup and retry the Firestore operation
           throw firestoreError;
         }
       }
@@ -77,9 +84,14 @@ class AuthService {
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        await updateDoc(doc(firestore, 'users', currentUser.uid), {
-          hasCompletedOnboarding: false
-        });
+        try {
+          await updateDoc(doc(firestore, 'users', currentUser.uid), {
+            hasCompletedOnboarding: false
+          });
+        } catch (error) {
+          console.error('Failed to update user document, continuing with reset');
+        }
+        
         await deleteUser(currentUser);
       }
       
