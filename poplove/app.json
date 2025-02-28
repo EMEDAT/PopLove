@@ -4,6 +4,7 @@
       "slug": "poplove",
       "version": "1.0.0",
       "scheme": "poplove",
+      "newArchEnabled": true,
       "plugins": [
         [
             "expo-build-properties",
