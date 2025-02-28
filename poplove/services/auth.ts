@@ -1,11 +1,18 @@
 // services/auth.ts
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  deleteUser,
+  User 
+} from 'firebase/auth';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, firestore, serverTimestamp } from '../lib/firebase';
 
 class AuthService {
   async signInWithEmail(email: string, password: string) {
     try {
-      // NOTE: Using auth() as a function
-      const response = await auth().signInWithEmailAndPassword(email, password);
+      const response = await signInWithEmailAndPassword(auth, email, password);
       console.log('Sign in successful:', response.user.uid);
       return response;
     } catch (error: any) {
@@ -16,15 +23,14 @@ class AuthService {
 
   async signUpWithEmail(email: string, password: string) {
     try {
-      // NOTE: Using auth() as a function
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
       if (userCredential.user) {
         try {
           const uid = userCredential.user.uid;
           
-          // NOTE: Using firestore() as a function
-          await firestore().collection('users').doc(uid).set({
+          // Create user document in Firestore
+          await setDoc(doc(firestore, 'users', uid), {
             email: email,
             createdAt: serverTimestamp(),
             hasCompletedOnboarding: false,
@@ -44,8 +50,7 @@ class AuthService {
 
   async signOut() {
     try {
-      // NOTE: Using auth() as a function
-      await auth().signOut();
+      await firebaseSignOut(auth);
       console.log('Sign out successful');
     } catch (error: any) {
       console.error('Error signing out:', error);
@@ -55,10 +60,12 @@ class AuthService {
 
   async resetAuth() {
     try {
-      // NOTE: Using auth() as a function
-      const currentUser = auth().currentUser;
+      const currentUser = auth.currentUser;
       if (currentUser) {
-        await currentUser.delete();
+        await updateDoc(doc(firestore, 'users', currentUser.uid), {
+          hasCompletedOnboarding: false
+        });
+        await deleteUser(currentUser);
       }
       
       await this.signOut();

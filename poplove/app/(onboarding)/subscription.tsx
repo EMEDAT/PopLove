@@ -16,8 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { SubscriptionCard } from '../../components/onboarding/SubscriptionCard';
-import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
-import { firestore } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { firestore, serverTimestamp } from '../../lib/firebase';
 
 // Define subscription plans
 const subscriptionPlans = [
@@ -72,8 +72,8 @@ export default function SubscriptionScreen() {
       
       if (user) {
         // Update user's subscription tier in Firestore
-        const userRef = firestore().collection('users').doc(user.uid);
-        await userRef.set({
+        const userRef = doc(firestore, 'users', user.uid);
+        await setDoc(userRef, {
           subscriptionTier: selectedPlan,
           hasCompletedOnboarding: true,
           updatedAt: serverTimestamp()

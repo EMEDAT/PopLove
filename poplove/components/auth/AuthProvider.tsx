@@ -1,15 +1,17 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, updateDoc, collection, setDoc } from 'firebase/firestore';
+import { auth, firestore, serverTimestamp } from '../../lib/firebase';
+import { authService } from '../../services/auth';
 
 type AuthContextType = {
-  user: FirebaseAuthTypes.User | null;
+  user: User | null;
   loading: boolean;
   error: string | null;
   hasCompletedOnboarding: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<FirebaseAuthTypes.User | null>;
+  signUp: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   resetAuth: () => Promise<void>;
   setHasCompletedOnboarding: (value: boolean) => Promise<void>;
@@ -28,55 +30,39 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
 
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged((authUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       
       if (authUser) {
-        firestore()
-          .collection('users')
-          .doc(authUser.uid)
-          .get()
-          .then(documentSnapshot => {
-            if (documentSnapshot.exists) {
-              const userData = documentSnapshot.data();
-              setHasCompletedOnboardingState(userData?.hasCompletedOnboarding || false);
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching user data:', error);
-          });
+        try {
+          const userDoc = await getDoc(doc(firestore, 'users', authUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setHasCompletedOnboardingState(userData?.hasCompletedOnboarding || false);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
       }
       
       setLoading(false);
     });
 
-    return subscriber;
+    return unsubscribe;
   }, []);
 
   const signUp = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-      
-      if (userCredential.user) {
-        await firestore()
-          .collection('users')
-          .doc(userCredential.user.uid)
-          .set({
-            email: userCredential.user.email,
-            createdAt: firestore.FieldValue.serverTimestamp(),
-            hasCompletedOnboarding: false
-          });
-      }
-      
+      const userCredential = await authService.signUpWithEmail(email, password);
       setError(null);
-      return userCredential.user;
+      return userCredential;
     } catch (err: any) {
       console.error('Signup Error:', err);
       setError(err.message);
@@ -89,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      await auth().signInWithEmailAndPassword(email, password);
+      await authService.signInWithEmail(email, password);
       setError(null);
     } catch (err: any) {
       console.error('Login Error:', err);
@@ -102,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await auth().signOut();
+      await authService.signOut();
     } catch (err: any) {
       setError(err.message);
     }
@@ -110,13 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetAuth = async () => {
     try {
-      if (user) {
-        await firestore()
-          .collection('users')
-          .doc(user.uid)
-          .update({ hasCompletedOnboarding: false });
-        await auth().signOut();
-      }
+      await authService.resetAuth();
     } catch (err: any) {
       setError(err.message);
     }
@@ -125,13 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateOnboardingStatus = async (value: boolean) => {
     if (user) {
       try {
-        await firestore()
-          .collection('users')
-          .doc(user.uid)
-          .update({
-            hasCompletedOnboarding: value,
-            updatedAt: firestore.FieldValue.serverTimestamp()
-          });
+        await updateDoc(doc(firestore, 'users', user.uid), {
+          hasCompletedOnboarding: value,
+          updatedAt: serverTimestamp()
+        });
         
         setHasCompletedOnboardingState(value);
       } catch (error) {

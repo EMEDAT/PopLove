@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { ImageUpload } from '../../components/onboarding/ImageUpload';
 import { LocationSelectionModal } from '../../components/onboarding/LocationSelectionModal';
+import { doc, setDoc } from 'firebase/firestore';
 import { firestore, serverTimestamp } from '../../lib/firebase';
 
 export default function ProfileSetupScreen() {
@@ -99,19 +100,19 @@ export default function ProfileSetupScreen() {
         
         if (user) {
           // Update Firestore with profile data
-          const userRef = firestore().collection('users').doc(user.uid);
-          await userRef.set({
+          const userRef = doc(firestore, 'users', user.uid);
+          await setDoc(userRef, {
             displayName: profileData.displayName,
             photoURL: profileData.photoURL,
             bio: profileData.bio,
             location: profileData.location,
             gender: profileData.gender,
             ageRange: profileData.ageRange,
-            updatedAt: firestore.FieldValue.serverTimestamp()
+            updatedAt: serverTimestamp()
           }, { merge: true });
           
           router.replace('/(onboarding)/subscription');
-        }else {
+        } else {
           throw new Error('User not authenticated');
         }
       } catch (error: any) {

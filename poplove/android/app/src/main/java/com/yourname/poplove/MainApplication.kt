@@ -16,8 +16,11 @@ import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
+// Import Firebase packages
 import io.invertase.firebase.app.ReactNativeFirebaseAppPackage
 import io.invertase.firebase.firestore.ReactNativeFirebaseFirestorePackage
+import io.invertase.firebase.auth.ReactNativeFirebaseAuthPackage
+import io.invertase.firebase.storage.ReactNativeFirebaseStoragePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -25,9 +28,15 @@ class MainApplication : Application(), ReactApplication {
         this,
         object : DefaultReactNativeHost(this) {
           override fun getPackages(): List<ReactPackage> {
-            val packages = PackageList(this).packages
-            // Packages that cannot be autolinked yet can be added manually here, for example:
-            // packages.add(new MyReactNativePackage());
+            // Get the packages from PackageList
+            val packages = PackageList(this).packages.toMutableList()
+            
+            // Add Firebase packages manually
+            packages.add(ReactNativeFirebaseAppPackage())
+            packages.add(ReactNativeFirebaseFirestorePackage())
+            packages.add(ReactNativeFirebaseAuthPackage())
+            packages.add(ReactNativeFirebaseStoragePackage())
+            
             return packages
           }
 
@@ -56,12 +65,5 @@ class MainApplication : Application(), ReactApplication {
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
-  }
-
-  override fun getPackages(): List<ReactPackage> {
-      val packages = PackageList(this).packages.toMutableList()
-      packages.add(ReactNativeFirebaseAppPackage())
-      packages.add(ReactNativeFirebaseFirestorePackage())
-      return packages
   }
 }
