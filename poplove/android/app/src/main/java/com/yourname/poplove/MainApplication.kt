@@ -16,6 +16,9 @@ import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
+import io.invertase.firebase.app.ReactNativeFirebaseAppPackage
+import io.invertase.firebase.firestore.ReactNativeFirebaseFirestorePackage
+
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
@@ -53,5 +56,12 @@ class MainApplication : Application(), ReactApplication {
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
+  }
+
+  override fun getPackages(): List<ReactPackage> {
+      val packages = PackageList(this).packages.toMutableList()
+      packages.add(ReactNativeFirebaseAppPackage())
+      packages.add(ReactNativeFirebaseFirestorePackage())
+      return packages
   }
 }
