@@ -1,51 +1,66 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { 
+  User, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, firestore } from '../../lib/firebase';
 
 // Create auth context
-const AuthContext = createContext<any>(null);
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<User | null>;
+  signOut: () => Promise<void>;
+  resetAuth: () => Promise<void>;
+  hasCompletedOnboarding: boolean;
+  setHasCompletedOnboarding: (value: boolean) => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType | null>(null);
 
 // Auth Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
 
   // Handle user state changes
-  function onAuthStateChanged(authUser: FirebaseAuthTypes.User | null) {
-    setUser(authUser);
-    
-    if (authUser) {
-      // Check if user has completed onboarding
-      firestore()
-        .collection('users')
-        .doc(authUser.uid)
-        .get()
-        .then(documentSnapshot => {
-          if (documentSnapshot.exists) {
-            const userData = documentSnapshot.data();
-            setHasCompletedOnboarding(userData?.hasCompletedOnboarding || false);
-          }
-        })
-        .catch(err => console.error("Error fetching user data:", err));
-    }
-    
-    setLoading(false);
-  }
-
   useEffect(() => {
-    // Subscribe to auth state changes
-    const subscriber = auth().onAuthStateChanged(onAuthStateChanged);
-    return subscriber; // unsubscribe on unmount
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      setUser(authUser);
+      
+      if (authUser) {
+        // Check if user has completed onboarding
+        const userDocRef = doc(firestore, 'users', authUser.uid);
+        getDoc(userDocRef)
+          .then(documentSnapshot => {
+            if (documentSnapshot.exists()) {
+              const userData = documentSnapshot.data();
+              setHasCompletedOnboarding(userData?.hasCompletedOnboarding || false);
+            }
+          })
+          .catch(err => console.error("Error fetching user data:", err));
+      }
+      
+      setLoading(false);
+    });
+
+    return unsubscribe; // unsubscribe on unmount
   }, []);
 
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
-      await auth().signInWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err: any) {
       console.error("Sign in error:", err);
       setError(err.message);
@@ -57,13 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string) => {
     try {
       setError(null);
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
       // Create user document in Firestore
       if (userCredential.user) {
-        await firestore().collection('users').doc(userCredential.user.uid).set({
+        const userDocRef = doc(firestore, 'users', userCredential.user.uid);
+        await setDoc(userDocRef, {
           email: userCredential.user.email,
-          createdAt: firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
           hasCompletedOnboarding: false
         });
       }
@@ -79,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign out
   const signOut = async () => {
     try {
-      await auth().signOut();
+      await firebaseSignOut(auth);
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -91,7 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (user) {
         // Update Firestore data
-        await firestore().collection('users').doc(user.uid).update({
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, {
           hasCompletedOnboarding: false
         });
         
@@ -112,9 +129,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       try {
         // Update Firestore
-        await firestore().collection('users').doc(user.uid).update({
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, {
           hasCompletedOnboarding: value,
-          updatedAt: firestore.FieldValue.serverTimestamp()
+          updatedAt: serverTimestamp()
         });
         
         // Update local state
@@ -125,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     loading,
     error,
@@ -142,7 +160,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 // Custom hook to use auth context
 export const useAuthContext = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  return context;
 };
 
 // For backward compatibility

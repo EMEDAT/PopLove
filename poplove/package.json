@@ -49,6 +49,7 @@
     "expo-symbols": "~0.2.2",
     "expo-system-ui": "~4.0.8",
     "expo-web-browser": "~14.0.2",
+    "firebase": "^11.4.0",
     "lodash": "^4.17.21",
     "nativewind": "^4.1.23",
     "p-map": "^7.0.3",
