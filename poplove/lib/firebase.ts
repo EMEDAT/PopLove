@@ -1,10 +1,12 @@
 // lib/firebase.ts
-import app from '@react-native-firebase/app';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 
-// Export Firebase services (must be called as functions)
+// No need to import app or check initialization - Firebase auto-initializes
+console.log('Firebase modules loaded');
+
+// Export Firebase services
 export { auth, firestore, storage };
 
 // Export Firestore timestamp

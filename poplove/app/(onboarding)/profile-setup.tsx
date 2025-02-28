@@ -18,8 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { ImageUpload } from '../../components/onboarding/ImageUpload';
 import { LocationSelectionModal } from '../../components/onboarding/LocationSelectionModal';
-import { doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
-import { firestore } from '../../lib/firebase';
+import { firestore, serverTimestamp } from '../../lib/firebase';
 
 export default function ProfileSetupScreen() {
   const { user } = useAuthContext();
