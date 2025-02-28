@@ -1,9 +1,10 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, firestore, serverTimestamp } from '../../lib/firebase';
 import { authService } from '../../services/auth';
+import { router } from 'expo-router';
 
 type AuthContextType = {
   user: User | null;
@@ -35,6 +36,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
 
+  // Handle routing based on auth state
+  useEffect(() => {
+    if (!loading) {
+      if (user && !hasCompletedOnboarding) {
+        // User is logged in but hasn't completed onboarding
+        console.log('Navigating to profile setup');
+        router.replace('/(onboarding)/profile-setup');
+      } else if (user && hasCompletedOnboarding) {
+        // User is logged in and has completed onboarding
+        console.log('Navigating to main app');
+        router.replace('/(tabs)');
+      }
+    }
+  }, [user, hasCompletedOnboarding, loading]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
@@ -45,9 +61,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setHasCompletedOnboardingState(userData?.hasCompletedOnboarding || false);
+          } else {
+            // If the document doesn't exist yet, create it
+            await setDoc(doc(firestore, 'users', authUser.uid), {
+              email: authUser.email,
+              createdAt: serverTimestamp(),
+              hasCompletedOnboarding: false
+            });
+            setHasCompletedOnboardingState(false);
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
+          setHasCompletedOnboardingState(false);
         }
       }
       
