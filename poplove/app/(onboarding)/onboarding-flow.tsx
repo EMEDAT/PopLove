@@ -237,15 +237,13 @@ export default function OnboardingFlow() {
             onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
           />
         );
-      case 'lifestyle':
-        return (
-          <ExpectationsLifestyle 
-            onNext={(options) => {
-              updateProfile('lifestyle', options);
-              handleNext();
-            }}
-          />
-        );
+        case 'lifestyle':
+            return (
+              <ExpectationsLifestyle 
+                selectedLifestyle={profileData.lifestyle}
+                onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
+              />
+            );
       case 'interests':
         return (
           <InterestsSelection 
@@ -296,8 +294,7 @@ export default function OnboardingFlow() {
       </View>
       
       {STEPS[currentStep] !== 'subscription' && 
-       STEPS[currentStep] !== 'welcome' && 
-       STEPS[currentStep] !== 'lifestyle' && (
+       STEPS[currentStep] !== 'welcome' && (
         <OnboardingNavigation 
           onBack={handleBack}
           onNext={handleNext}
