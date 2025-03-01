@@ -188,7 +188,7 @@ export default function SignupScreen() {
               disabled={loading}
             >
               <LinearGradient
-                colors={['#FF6B6B', '#FFA07A']}
+                colors={['#EC5F61', '#F0B433'] }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradient}

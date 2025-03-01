@@ -163,6 +163,12 @@ export default function OnboardingFlow() {
 
   const renderHeader = () => {
     const step = STEPS[currentStep];
+    
+    // Don't render header for subscription or welcome screens
+    if (step === 'subscription' || step === 'welcome') {
+      return null;
+    }
+    
     let title = '';
     
     switch (step) {
@@ -184,16 +190,11 @@ export default function OnboardingFlow() {
       case 'prompts':
         title = 'Prompts';
         break;
-      case 'subscription':
-        title = 'Select Plan';
-        break;
-      case 'welcome':
-        return null; // No header for welcome screen
     }
     
     return (
       <View style={styles.header}>
-        {currentStep > 0 && step !== 'subscription' && (
+        {currentStep > 0 && (
           <TouchableOpacity 
             onPress={handleBack}
             style={styles.backButton}

@@ -44,7 +44,7 @@ export default function SubscriptionPlan({
     },
     {
       id: 'premium',
-      title: 'Premium',
+      title: 'Premium ✨',
       price: '$155/yr',
       monthlyPrice: '$12.99/mo',
       features: [
@@ -61,7 +61,7 @@ export default function SubscriptionPlan({
     },
     {
       id: 'vip',
-      title: 'VIP',
+      title: 'VIP 👑',
       price: '$300/yr',
       monthlyPrice: '$25.99/mo',
       features: [
@@ -105,13 +105,15 @@ export default function SubscriptionPlan({
                 selectedPlan === plan.id && styles.activeTabText
               ]}
             >
-              {plan.title} {plan.id === 'premium' ? '✨' : plan.id === 'vip' ? '🔥' : ''}
+              {plan.title.split(' ')[0]}
+              {plan.id === 'premium' && ' ✨'}
+              {plan.id === 'vip' && ' 👑'}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
       
-      <ScrollView style={styles.planDetailsContainer}>
+      <View style={styles.planDetailsContainer}>
         {plans.map(plan => {
           if (plan.id !== selectedPlan) return null;
           
@@ -119,12 +121,12 @@ export default function SubscriptionPlan({
             <View key={plan.id}>
               <View style={styles.planHeader}>
                 <LinearGradient
-                  colors={['#996633', '#33CCFF']}
+                  colors={['#996633',  '#F0B433',  '#33CCFF']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.planGradient}
                 >
-                  <Text style={styles.planTitle}>{plan.title}</Text>
+                  <Text style={styles.planTitle}>{plan.title.split(' ')[0]}</Text>
                   <Text style={styles.planPrice}>{plan.price}</Text>
                   {plan.monthlyPrice && (
                     <Text style={styles.monthlyPrice}>{plan.monthlyPrice}</Text>
@@ -137,8 +139,9 @@ export default function SubscriptionPlan({
                   <View key={index} style={styles.featureItem}>
                     <Ionicons 
                       name={feature.included ? "checkmark-circle" : "close-circle"} 
-                      size={24} 
+                      size={20} 
                       color={feature.included ? "#FF6B6B" : "#ccc"} 
+                      style={styles.featureIcon}
                     />
                     <Text style={styles.featureText}>{feature.text}</Text>
                   </View>
@@ -147,16 +150,16 @@ export default function SubscriptionPlan({
             </View>
           );
         })}
-      </ScrollView>
+      </View>
       
       <TouchableOpacity style={styles.continueButton} onPress={onContinue}>
         <LinearGradient
-          colors={['#FF6B6B', '#FFA07A']}
+          colors={['#EC5F61', '#F0B433']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.continueGradient}
         >
-          <Text style={styles.continueText}>Continue</Text>
+          <Text style={styles.continueText}>Select Plan</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -167,13 +170,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 50,
+    marginBottom: 10,
   },
   headerTitle: {
     fontSize: 24,
@@ -182,16 +187,16 @@ const styles = StyleSheet.create({
   skipText: {
     color: '#FF6B6B',
     fontSize: 16,
+    fontWeight: '500',
   },
   subtitle: {
     fontSize: 14,
     color: '#666',
     paddingHorizontal: 20,
-    marginTop: 8,
   },
   tabsContainer: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
@@ -214,30 +219,32 @@ const styles = StyleSheet.create({
   },
   planDetailsContainer: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   planHeader: {
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   planGradient: {
     padding: 20,
   },
   planTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '500',
     color: 'white',
   },
   planPrice: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '400',
     color: 'white',
     marginTop: 8,
   },
   monthlyPrice: {
     fontSize: 16,
     color: 'white',
+    marginTop: 1,
   },
   featuresList: {
     marginBottom: 20,
@@ -245,14 +252,17 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  featureIcon: {
+    marginRight: 10,
   },
   featureText: {
-    marginLeft: 10,
-    fontSize: 16,
+    flex: 1,
+    fontSize: 15,
   },
   continueButton: {
-    margin: 20,
+    marginHorizontal: 20,
     borderRadius: 28,
     overflow: 'hidden',
   },
@@ -262,7 +272,7 @@ const styles = StyleSheet.create({
   },
   continueText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 10,
     fontWeight: 'bold',
   }
 });
