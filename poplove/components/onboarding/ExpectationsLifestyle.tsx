@@ -19,26 +19,38 @@ export default function ExpectationsLifestyle({ onNext }: ExpectationsProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
   const options = [
-    { id: 'longterm', label: 'Long term relationship', size: 'medium', position: { top: 80, left: 40 } },
-    { id: 'vacation', label: 'Vacation', size: 'small', position: { top: 80, right: 120 } },
-    { id: 'romance', label: 'Romance', size: 'medium', position: { top: 60, right: 40 } },
-    { id: 'family', label: 'Start a family', size: 'large', position: { top: 180, left: 140 } },
-    { id: 'active', label: 'Active partner', size: 'medium', position: { top: 300, left: 60 } },
-    { id: 'casual', label: 'Casual dating', size: 'medium', position: { top: 250, right: 80 } },
-    { id: 'friends', label: 'Friends first', size: 'small', position: { top: 180, right: 30 } },
-    { id: 'friendsplus', label: 'Friends with benefit', size: 'small', position: { top: 130, right: 30 } },
-    { id: 'chat', label: 'Chat', size: 'small', position: { top: 130, left: 140 } },
-    { id: 'touring', label: 'Touring', size: 'small', position: { top: 220, left: 30 } },
-    { id: 'marriage', label: 'Marriage', size: 'small', position: { bottom: 100, left: 120 } },
-    { id: 'pets', label: 'Pets', size: 'small', position: { bottom: 60, left: 50 } },
-    { id: 'surfing', label: 'Surfing', size: 'small', position: { bottom: 120, right: 50 } },
-    { id: 'drinking', label: 'Drinking', size: 'small', position: { bottom: 100, right: 160 } },
-    { id: 'dontknow', label: "Don't know", size: 'small', position: { bottom: 60, right: 80 } },
+    { id: 'longterm', label: 'Long term relationship', size: 'medium', position: { top: 40, left: 0 } },
+    { id: 'vacation', label: 'Vacation', size: 'small', position: { top: 30, right: 110 } },
+    { id: 'romance', label: 'Romance', size: 'medium', position: { top: 10, right: 10 } },
+    { id: 'family', label: 'Start a family', size: 'large', position: { top: 160, left: 120 } },
+    { id: 'active', label: 'Active partner', size: 'medium', position: { top: 280, left: 40 } },
+    { id: 'casual', label: 'Casual dating', size: 'medium', position: { top: 230, right: 60 } },
+    { id: 'friends', label: 'Friends first', size: 'small', position: { top: 160, right: 20 } },
+    { id: 'friendsplus', label: 'Friends with benefit', size: 'small', position: { top: 110, right: 20 } },
+    { id: 'chat', label: 'Chat', size: 'small', position: { top: 120, left: 120 } },
+    { id: 'touring', label: 'Touring', size: 'small', position: { top: 200, left: 20 } },
+    { id: 'marriage', label: 'Marriage', size: 'small', position: { bottom: 120, left: 100 } },
+    { id: 'pets', label: 'Pets', size: 'small', position: { bottom: 80, left: 40 } },
+    { id: 'surfing', label: 'Surfing', size: 'small', position: { bottom: 140, right: 40 } },
+    { id: 'drinking', label: 'Drinking', size: 'small', position: { bottom: 120, right: 140 } }, 
+    { id: 'dontknow', label: "Don't know", size: 'small', position: { bottom: 80, right: 70 } },
   ];
-  
+
   const getSizeStyles = (size: string) => {
     switch (size) {
-      case 'large':
+      case 'Largest':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Larger':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Large':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Small':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Smaller':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Smallest':
+        return { width: 160, height: 160, fontSize: 18 };
+      case 'Tiny':
         return { width: 160, height: 160, fontSize: 18 };
       case 'medium':
         return { width: 120, height: 120, fontSize: 16 };
@@ -136,10 +148,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '400',
     marginTop: 20,
-    marginBottom: 30,
+    marginBottom: 20,
   },
   optionsContainer: {
     flex: 1,
