@@ -19,16 +19,16 @@ export default function ExpectationsLifestyle({ onNext }: ExpectationsProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
   const options = [
-    { id: 'longterm', label: 'Long term relationship', size: 'medium', position: { top: 40, left: 0 } },
+    { id: 'longterm', label: 'Long term relationship', size: 'Larger', position: { top: 40, left: 0 } },
     { id: 'vacation', label: 'Vacation', size: 'small', position: { top: 30, right: 110 } },
     { id: 'romance', label: 'Romance', size: 'medium', position: { top: 10, right: 10 } },
-    { id: 'family', label: 'Start a family', size: 'large', position: { top: 160, left: 120 } },
+    { id: 'family', label: 'Start a family', size: 'Largest', position: { top: 140, left: 75 } },
     { id: 'active', label: 'Active partner', size: 'medium', position: { top: 280, left: 40 } },
     { id: 'casual', label: 'Casual dating', size: 'medium', position: { top: 230, right: 60 } },
     { id: 'friends', label: 'Friends first', size: 'small', position: { top: 160, right: 20 } },
     { id: 'friendsplus', label: 'Friends with benefit', size: 'small', position: { top: 110, right: 20 } },
-    { id: 'chat', label: 'Chat', size: 'small', position: { top: 120, left: 120 } },
-    { id: 'touring', label: 'Touring', size: 'small', position: { top: 200, left: 20 } },
+    { id: 'chat', label: 'Chat', size: 'small', position: { top: 120, left: 180 } },
+    { id: 'touring', label: 'Touring', size: 'Smaller', position: { top: 170, left: 0 } },
     { id: 'marriage', label: 'Marriage', size: 'small', position: { bottom: 120, left: 100 } },
     { id: 'pets', label: 'Pets', size: 'small', position: { bottom: 80, left: 40 } },
     { id: 'surfing', label: 'Surfing', size: 'small', position: { bottom: 140, right: 40 } },
@@ -39,23 +39,23 @@ export default function ExpectationsLifestyle({ onNext }: ExpectationsProps) {
   const getSizeStyles = (size: string) => {
     switch (size) {
       case 'Largest':
-        return { width: 160, height: 160, fontSize: 18 };
+        return { width: 140, height: 140, fontSize: 18 };
       case 'Larger':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'Large':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'Small':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'Smaller':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'Smallest':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'Tiny':
-        return { width: 160, height: 160, fontSize: 18 };
-      case 'medium':
         return { width: 120, height: 120, fontSize: 16 };
-      case 'small':
-        return { width: 90, height: 90, fontSize: 14 };
+      case 'Large':
+        return { width: 100, height: 100, fontSize: 14 };
+      case 'Small':
+        return { width: 90, height: 90, fontSize: 12 };
+      case 'Smaller':
+        return { width: 70, height: 70, fontSize: 10 };
+      case 'Smallest':
+        return { width: 160, height: 160, fontSize: 8 };
+      case 'Tiny':
+        return { width: 160, height: 160, fontSize: 6 };
+      // case 'medium':
+      //   return { width: 120, height: 120, fontSize: 16 };
+      // case 'small':
+      //   return { width: 90, height: 90, fontSize: 14 };
       default:
         return { width: 90, height: 90, fontSize: 14 };
     }
@@ -120,24 +120,6 @@ export default function ExpectationsLifestyle({ onNext }: ExpectationsProps) {
           );
         })}
       </View>
-      
-      <TouchableOpacity 
-        style={styles.continueButton}
-        onPress={handleContinue}
-        disabled={selectedOptions.length === 0}
-      >
-        <LinearGradient
-          colors={['#FF6B6B', '#FFA07A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[
-            styles.gradientButton,
-            selectedOptions.length === 0 && styles.disabledButton
-          ]}
-        >
-          <Text style={styles.continueText}>Continue</Text>
-        </LinearGradient>
-      </TouchableOpacity>
     </View>
   );
 }
