@@ -47,10 +47,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '400',
     marginTop: 20,
     marginBottom: 30,
+    color: '#292929',
   },
   promptContainer: {
     marginBottom: 24,
@@ -61,13 +62,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   promptInput: {
-    height: 120,
+    height: 115,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#D0D5DD',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    fontSize: 14,
+    backgroundColor: '#FFFFFF',
     color: '#000',
   }
 });

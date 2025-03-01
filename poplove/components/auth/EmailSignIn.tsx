@@ -42,7 +42,7 @@ export function EmailSignIn({ mode }: EmailSignInProps) {
       if (mode === 'signup') {
         await signUp(email, password);
         console.log('Sign up successful, navigating to profile setup');
-        router.push('/(onboarding)/profile-setup');
+        router.push('/(onboarding)/onboarding-flow');
       } else {
         await signIn(email, password);
         console.log('Sign in successful, navigating to tabs');

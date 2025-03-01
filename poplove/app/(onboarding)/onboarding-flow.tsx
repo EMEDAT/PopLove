@@ -28,15 +28,15 @@ import OnboardingNavigation from '../../components/onboarding/OnboardingNavigati
 
 // Define all the steps in the onboarding flow
 const STEPS = [
-  'profile',
-  'gender',
-  'age',
-  'lifestyle',
-  'interests',
-  'prompts',
-  'subscription',
-  'welcome'
-];
+    'profile',
+    'gender',
+    'age',
+    'interests',
+    'prompts',
+    'lifestyle',
+    'subscription',
+    'welcome'
+  ];
 
 export default function OnboardingFlow() {
   const { user, setHasCompletedOnboarding } = useAuthContext();
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
+    paddingTop: Platform.OS === 'android' ? 60 : 10,
     paddingBottom: 10,
   },
   backButton: {
@@ -327,6 +327,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#292929',
   },
   content: {
     flex: 1,

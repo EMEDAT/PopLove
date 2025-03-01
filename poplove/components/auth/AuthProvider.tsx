@@ -40,11 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading) {
       if (user && !hasCompletedOnboarding) {
-        // User is logged in but hasn't completed onboarding
-        console.log('Navigating to profile setup');
-        router.replace('/(onboarding)/profile-setup');
+        // Navigate to the onboarding flow
+        console.log('Navigating to onboarding flow');
+        router.replace('/(onboarding)/onboarding-flow');
       } else if (user && hasCompletedOnboarding) {
-        // User is logged in and has completed onboarding
         console.log('Navigating to main app');
         router.replace('/(tabs)');
       }

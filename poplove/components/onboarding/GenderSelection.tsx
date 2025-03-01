@@ -24,7 +24,7 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
           style={styles.optionButton}
         >
           <LinearGradient
-            colors={selectedGender === 'male' ? ['#FF6B6B', '#FFA07A'] : ['#E5E5E5', '#E5E5E5']}
+            colors={selectedGender === 'male' ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradientButton}
@@ -43,7 +43,7 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
           style={styles.optionButton}
         >
           <LinearGradient
-            colors={selectedGender === 'female' ? ['#FF6B6B', '#FFA07A'] : ['#E5E5E5', '#E5E5E5']}
+            colors={selectedGender === 'female' ? ['#EC5F61', '#F0B433'] : ['#E5E5E5', '#E5E5E5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradientButton}
@@ -86,7 +86,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 20,
   },
   optionText: {
     fontSize: 18,

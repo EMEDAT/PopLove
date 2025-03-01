@@ -107,24 +107,26 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 18,
+    fontSize: 19,
     marginTop: 20,
     marginBottom: 30,
     lineHeight: 24,
+    fontWeight: '500',
   },
   interestsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     marginBottom: 30,
   },
   interestChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
     marginBottom: 8,
-    marginRight: 8,
+    marginRight: 2,
+    alignItems: 'center',
   },
   selectedChip: {
     backgroundColor: '#FFE4E4',
@@ -135,17 +137,17 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
   },
   interestText: {
-    fontSize: 14,
+    fontSize: 13,
   },
   selectedText: {
-    color: '#FF6B6B',
+    color: '#475367',
   },
   unselectedText: {
-    color: '#666',
+    color: '#667185',
   },
   dealBreakerContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginTop: 20,
   },
@@ -155,10 +157,11 @@ const styles = StyleSheet.create({
   dealBreakerTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#101928',
   },
   dealBreakerSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12,
+    color: '#667185',
     marginTop: 4,
   }
 });

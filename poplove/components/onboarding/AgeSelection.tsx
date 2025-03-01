@@ -35,7 +35,7 @@ export default function AgeSelection({ selectedAgeRange, onSelectAge }: AgeSelec
             style={styles.optionButton}
           >
             <LinearGradient
-              colors={selectedAgeRange === ageRange ? ['#FF6B6B', '#FFA07A'] : ['#E5E5E5', '#E5E5E5']}
+              colors={selectedAgeRange === ageRange ? ['#EC5F61', '#F0B433']  : ['#E6E9ED', '#E6E9ED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     width: '100%',
-    height: 56,
+    height: 50,
     borderRadius: 28,
     overflow: 'hidden',
   },
@@ -79,7 +79,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 20,
   },
   optionText: {
     fontSize: 18,

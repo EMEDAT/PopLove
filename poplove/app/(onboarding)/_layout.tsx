@@ -7,8 +7,7 @@ export default function OnboardingLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="splash" />
-      <Stack.Screen name="profile-setup" />
-      <Stack.Screen name="subscription" />
+      <Stack.Screen name="onboarding-flow" />
     </Stack>
   );
 }

@@ -35,7 +35,7 @@ export default function ExpectationsLifestyle({ onNext }: ExpectationsProps) {
     { id: 'drinking', label: 'Drinking', size: 'small', position: { bottom: 100, right: 160 } },
     { id: 'dontknow', label: "Don't know", size: 'small', position: { bottom: 60, right: 80 } },
   ];
-
+  
   const getSizeStyles = (size: string) => {
     switch (size) {
       case 'large':

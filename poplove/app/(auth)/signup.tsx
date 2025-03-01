@@ -75,7 +75,7 @@ export default function SignupScreen() {
       console.log('Signup successful, user:', user?.uid);
       
       // Navigate to profile setup
-      router.push('/(onboarding)/profile-setup');
+      router.push('/(onboarding)/onboarding-flow');
     } catch (err: any) {
       console.error('Signup error:', err);
       
