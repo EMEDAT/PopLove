@@ -1,5 +1,5 @@
 // components/auth/AuthProvider.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, firestore, serverTimestamp } from '../../lib/firebase';
@@ -11,23 +11,31 @@ type AuthContextType = {
   loading: boolean;
   error: string | null;
   hasCompletedOnboarding: boolean;
+  onboardingStartTime: number | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   resetAuth: () => Promise<void>;
   setHasCompletedOnboarding: (value: boolean) => Promise<void>;
+  startOnboarding: () => void;
+  saveOnboardingProgress: (progress: any) => Promise<void>;
 };
+
+const ONBOARDING_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   error: null,
   hasCompletedOnboarding: false,
+  onboardingStartTime: null,
   signIn: async () => {},
   signUp: async () => null,
   signOut: async () => {},
   resetAuth: async () => {},
-  setHasCompletedOnboarding: async () => {}
+  setHasCompletedOnboarding: async () => {},
+  startOnboarding: () => {},
+  saveOnboardingProgress: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -35,21 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
+  const [onboardingStartTime, setOnboardingStartTime] = useState<number | null>(null);
+  const [onboardingProgress, setOnboardingProgress] = useState<any>(null);
+  
+  // Use refs to prevent navigation loops
+  const initialNavPerformed = useRef(false);
+  const userNavFired = useRef(false);
 
-  // Handle routing based on auth state
-  useEffect(() => {
-    if (!loading) {
-      if (user && !hasCompletedOnboarding) {
-        // Navigate to the onboarding flow
-        console.log('Navigating to onboarding flow');
-        router.replace('/(onboarding)/onboarding-flow');
-      } else if (user && hasCompletedOnboarding) {
-        console.log('Navigating to main app');
-        router.replace('/(tabs)');
-      }
-    }
-  }, [user, hasCompletedOnboarding, loading]);
-
+  // Handle user authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
@@ -60,6 +61,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setHasCompletedOnboardingState(userData?.hasCompletedOnboarding || false);
+            
+            // Load onboarding progress
+            if (!userData.hasCompletedOnboarding) {
+              if (userData.onboardingProgress) {
+                setOnboardingProgress(userData.onboardingProgress);
+              }
+              
+              if (userData.onboardingStartTime) {
+                setOnboardingStartTime(userData.onboardingStartTime);
+              } else {
+                // Only save to Firestore, don't trigger another state update
+                const startTime = Date.now();
+                updateDoc(doc(firestore, 'users', authUser.uid), {
+                  onboardingStartTime: startTime
+                }).catch(error => {
+                  console.error('Error saving onboarding start time:', error);
+                });
+              }
+            }
           } else {
             // If the document doesn't exist yet, create it
             await setDoc(doc(firestore, 'users', authUser.uid), {
@@ -73,6 +93,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Error fetching user data:', error);
           setHasCompletedOnboardingState(false);
         }
+      } else {
+        // Reset state when user is not authenticated
+        setHasCompletedOnboardingState(false);
+        setOnboardingStartTime(null);
+        setOnboardingProgress(null);
       }
       
       setLoading(false);
@@ -81,22 +106,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // Single navigation effect that runs only once when auth state is determined
+  useEffect(() => {
+    if (loading) return;
+    
+    if (userNavFired.current) return;
+    
+    const performNavigation = async () => {
+      userNavFired.current = true;
+      
+      if (!user) {
+        router.replace('/(auth)');
+        return;
+      }
+      
+      if (hasCompletedOnboarding) {
+        router.replace('/(tabs)');
+        return;
+      }
+      
+      // We have a user that hasn't completed onboarding
+      router.replace('/(onboarding)/onboarding-flow');
+    };
+    
+    // Small delay to avoid navigation conflicts
+    setTimeout(() => {
+      performNavigation();
+    }, 100);
+  }, [loading, user, hasCompletedOnboarding]);
+
   const signUp = async (email: string, password: string) => {
     try {
-      console.log('Network Configuration:', {
-        EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ? 'Set' : 'Not Set',
-        EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not Set',
-        EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ? 'Set' : 'Not Set'
-      });
-  
+      console.log('Starting signup process for:', email);
+      
       const userCredential = await authService.signUpWithEmail(email, password);
+      
+      // Manually set start time instead of triggering effect
+      if (userCredential) {
+        const startTime = Date.now();
+        await updateDoc(doc(firestore, 'users', userCredential.uid), {
+          onboardingStartTime: startTime
+        });
+      }
+      
       return userCredential;
     } catch (error: any) {
-      console.error('Detailed Signup Error:', {
-        fullError: error,
-        errorCode: error?.code,
-        errorMessage: error?.message
-      });
+      console.error('Signup Error:', error);
       setError(error?.message || 'Signup failed');
       throw error;
     }
@@ -119,6 +174,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await authService.signOut();
+      // Reset state when signing out
+      setHasCompletedOnboardingState(false);
+      setOnboardingStartTime(null);
+      setOnboardingProgress(null);
+      userNavFired.current = false;
     } catch (err: any) {
       setError(err.message);
     }
@@ -127,8 +187,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetAuth = async () => {
     try {
       await authService.resetAuth();
+      // Reset onboarding state
+      setHasCompletedOnboardingState(false);
+      setOnboardingStartTime(null);
+      setOnboardingProgress(null);
+      userNavFired.current = false;
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  // Save onboarding progress to Firestore
+  const saveOnboardingProgress = async (progress: any) => {
+    if (user) {
+      try {
+        await updateDoc(doc(firestore, 'users', user.uid), {
+          onboardingProgress: progress,
+          updatedAt: serverTimestamp()
+        });
+        setOnboardingProgress(progress);
+      } catch (error) {
+        console.error('Error saving onboarding progress:', error);
+      }
     }
   };
 
@@ -137,14 +217,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await updateDoc(doc(firestore, 'users', user.uid), {
           hasCompletedOnboarding: value,
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          // Clear onboarding progress if complete
+          ...(value ? { onboardingProgress: null, onboardingStartTime: null } : {})
         });
         
         setHasCompletedOnboardingState(value);
+        
+        // Clear onboarding start time when completed
+        if (value) {
+          setOnboardingStartTime(null);
+          setOnboardingProgress(null);
+        }
       } catch (error) {
         console.error('Error updating onboarding status:', error);
       }
     }
+  };
+
+  const startOnboarding = () => {
+    if (!user || onboardingStartTime) return;
+    
+    const startTime = Date.now();
+    
+    // Only update Firestore, not state
+    updateDoc(doc(firestore, 'users', user.uid), {
+      onboardingStartTime: startTime
+    }).catch(error => {
+      console.error('Error saving onboarding start time:', error);
+    });
   };
 
   const value: AuthContextType = {
@@ -152,11 +253,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     hasCompletedOnboarding,
+    onboardingStartTime,
     signIn,
     signUp,
     signOut,
     resetAuth,
-    setHasCompletedOnboarding: updateOnboardingStatus
+    setHasCompletedOnboarding: updateOnboardingStatus,
+    startOnboarding,
+    saveOnboardingProgress
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

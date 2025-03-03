@@ -1,5 +1,5 @@
 // components/onboarding/ImageUpload.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   TouchableOpacity, 
@@ -14,6 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
 import { StorageService } from '../../services/storage';
+import { updateProfile } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { firestore } from '../../lib/firebase';
 
 type ImageUploadProps = {
   onChange: (url: string) => void;
@@ -25,7 +28,33 @@ export function ImageUpload({ onChange, value, uploading = false }: ImageUploadP
   const { user } = useAuthContext();
   const [modalVisible, setModalVisible] = useState(false);
   const [localUploading, setLocalUploading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const isUploading = uploading || localUploading;
+
+  // When a profile photo is added, update the Firebase Auth profile
+  useEffect(() => {
+    const updateUserProfile = async () => {
+      if (value && user && value !== user.photoURL) {
+        try {
+          // Update Firebase Auth profile
+          await updateProfile(user, { photoURL: value });
+          
+          // Also update Firestore user document
+          await updateDoc(doc(firestore, 'users', user.uid), {
+            photoURL: value
+          });
+          
+          console.log("User profile photo updated in Firebase Auth and Firestore");
+        } catch (error) {
+          console.error("Error updating user profile photo:", error);
+        }
+      }
+    };
+    
+    if (value) {
+      updateUserProfile();
+    }
+  }, [value, user]);
 
   const handleImageSelection = async (type: 'camera' | 'library') => {
     try {
@@ -59,6 +88,7 @@ export function ImageUpload({ onChange, value, uploading = false }: ImageUploadP
   
     try {
       setLocalUploading(true);
+      setRetryCount(0);
       
       // Upload to Firebase Storage using our service
       const downloadURL = await StorageService.uploadProfileImage(uri, user.uid);
@@ -67,10 +97,30 @@ export function ImageUpload({ onChange, value, uploading = false }: ImageUploadP
       onChange(downloadURL);
     } catch (error: any) {
       console.error("Error uploading image:", error);
-      Alert.alert(
-        "Upload Failed", 
-        `Error uploading image: ${error.message || 'Unknown error'}`
-      );
+      
+      if (retryCount < 2) {
+        // Retry upload
+        setRetryCount(prev => prev + 1);
+        Alert.alert(
+          "Upload Failed", 
+          "Failed to upload image. Would you like to retry?",
+          [
+            {
+              text: "Cancel",
+              style: "cancel"
+            },
+            {
+              text: "Retry",
+              onPress: () => uploadImage(uri)
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Upload Failed", 
+          `Error uploading image: ${error.message || 'Unknown error'}`
+        );
+      }
     } finally {
       setLocalUploading(false);
     }
@@ -180,7 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    // overflow: 'hidden',
+    overflow: 'hidden',
   },
   placeholderContainer: {
     width: '100%',
@@ -191,6 +241,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 45,
   },
   cameraButtonContainer: {
     position: 'absolute',
@@ -223,6 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 10,
+    zIndex: 10,
   },
   uploadingText: {
     color: 'white',

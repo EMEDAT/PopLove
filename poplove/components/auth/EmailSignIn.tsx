@@ -41,12 +41,12 @@ export function EmailSignIn({ mode }: EmailSignInProps) {
 
       if (mode === 'signup') {
         await signUp(email, password);
-        console.log('Sign up successful, navigating to profile setup');
-        router.push('/(onboarding)/onboarding-flow');
+        console.log('Sign up successful');
+        // Don't navigate here - let AuthProvider handle it
       } else {
         await signIn(email, password);
-        console.log('Sign in successful, navigating to tabs');
-        router.push('/(tabs)');
+        console.log('Sign in successful');
+        // Don't navigate here - let AuthProvider handle it
       }
     } catch (err: any) {
       console.error('Authentication Error:', err);

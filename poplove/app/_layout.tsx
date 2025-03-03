@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
@@ -31,6 +31,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // Log any font loading errors
   useEffect(() => {
@@ -42,7 +43,13 @@ export default function RootLayout() {
   // Hide splash screen when fonts are loaded
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      // Small delay to ensure layout is fully mounted
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync();
+        setIsLayoutReady(true);
+      }, 300);
+      
+      return () => clearTimeout(timer);
     }
   }, [loaded]);
 

@@ -1,8 +1,19 @@
-// poplove\app\(tabs)\profile.tsx
-
+// app/(tabs)/profile.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image, 
+  SafeAreaView, 
+  Alert, 
+  ScrollView,
+  Platform 
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
@@ -43,107 +54,204 @@ export default function ProfileScreen() {
     );
   };
 
+  const menuItems = [
+    {
+      id: 'details',
+      title: 'Personal Details',
+      icon: 'person-outline',
+      action: () => console.log('Navigate to personal details')
+    },
+    {
+      id: 'notifications',
+      title: 'Notifications',
+      icon: 'notifications-outline',
+      action: () => console.log('Navigate to notifications')
+    },
+    {
+      id: 'favorites',
+      title: 'Favourites',
+      icon: 'heart-outline',
+      action: () => console.log('Navigate to favorites')
+    },
+    {
+      id: 'settings',
+      title: 'Settings',
+      icon: 'settings-outline',
+      action: () => console.log('Navigate to settings')
+    }
+  ];
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Profile</Text>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
 
-      <View style={styles.userInfo}>
-        <Text style={styles.label}>Email:</Text>
-        <Text style={styles.value}>{user?.email || 'Not available'}</Text>
-        
-        <Text style={styles.label}>User ID:</Text>
-        <Text style={styles.value}>{user?.uid || 'Not available'}</Text>
-      </View>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileImageContainer}>
+            {user?.photoURL ? (
+              <Image 
+                source={{ uri: user.photoURL }} 
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Ionicons name="person" size={40} color="#999" />
+              </View>
+            )}
+            {/* Blue checkmark badge */}
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark" size={12} color="#fff" />
+            </View>
+          </View>
+          
+          <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
+        </View>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity onPress={handleSignOut} style={styles.buttonWrapper}>
-          <LinearGradient
-            colors={['#FF6B6B', '#FFA07A']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.button}
-          >
-            <Text style={styles.buttonText}>Sign Out</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        <TouchableOpacity onPress={handleResetAuth} style={[styles.buttonWrapper, styles.resetButtonWrapper]}>
-          <View style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>Reset Authentication</Text>
+        {/* Menu Items */}
+        <View style={styles.menuContainer}>
+          {menuItems.map(item => (
+            <TouchableOpacity 
+              key={item.id}
+              style={styles.menuItem}
+              onPress={item.action}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name={item.icon as any} size={22} color="#333" />
+              </View>
+              <Text style={styles.menuItemText}>{item.title}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={handleSignOut}
+        >
+          <View style={styles.logoutContent}>
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={styles.logoutText}>Log Out</Text>
           </View>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {/* Reset Auth Button (for development) */}
+        {__DEV__ && (
+          <TouchableOpacity 
+            style={styles.resetButton}
+            onPress={handleResetAuth}
+          >
+            <Text style={styles.resetText}>Reset Auth State</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
   },
   header: {
-    paddingTop: 60,
     paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 40 : 10,
     paddingBottom: 20,
-    backgroundColor: '#fff',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  userInfo: {
-    padding: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 16,
-  },
-  value: {
-    fontSize: 16,
-    color: '#333',
-    marginTop: 4,
-  },
-  buttonContainer: {
-    padding: 20,
-    marginTop: 20,
-  },
-  buttonWrapper: {
-    marginVertical: 10,
-    borderRadius: 25,
-    overflow: 'hidden',
-  },
-  button: {
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: '600',
   },
-  resetButtonWrapper: {
-    marginTop: 20,
+  profileCard: {
+    alignItems: 'center',
+    marginBottom: 30,
   },
-  resetButton: {
-    height: 50,
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  placeholderImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 25,
+    marginBottom: 10,
   },
-  resetButtonText: {
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#0084FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  menuContainer: {
+    paddingHorizontal: 20,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  menuIconContainer: {
+    width: 40,
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+  },
+  logoutButton: {
+    marginTop: 30,
+    marginHorizontal: 20,
+  },
+  logoutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutText: {
     color: '#FF3B30',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  resetButton: {
+    marginTop: 20,
+    marginHorizontal: 20,
+    padding: 10,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  resetText: {
+    color: '#666',
   },
 });

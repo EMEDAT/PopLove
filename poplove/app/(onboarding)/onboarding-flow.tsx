@@ -6,15 +6,17 @@ import {
   StyleSheet, 
   SafeAreaView,
   TouchableOpacity,
-  Platform 
+  Platform,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { firestore, serverTimestamp } from '../../lib/firebase';
 
-// Import the onboarding components (using default imports)
+// Import the onboarding components
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
 import AgeSelection from '../../components/onboarding/AgeSelection';
@@ -28,21 +30,23 @@ import OnboardingNavigation from '../../components/onboarding/OnboardingNavigati
 
 // Define all the steps in the onboarding flow
 const STEPS = [
-    'profile',
-    'gender',
-    'age',
-    'interests',
-    'prompts',
-    'lifestyle',
-    'subscription',
-    'welcome'
-  ];
+  'profile',
+  'gender',
+  'age',
+  'interests',
+  'prompts',
+  'lifestyle',
+  'subscription',
+  'welcome'
+];
 
 export default function OnboardingFlow() {
-  const { user, setHasCompletedOnboarding } = useAuthContext();
+  const { user, setHasCompletedOnboarding, startOnboarding, saveOnboardingProgress } = useAuthContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingProgress, setSavingProgress] = useState(false);
   
   // Profile data
   const [profileData, setProfileData] = useState({
@@ -63,16 +67,96 @@ export default function OnboardingFlow() {
     subscriptionPlan: 'basic'
   });
 
+  // Load saved onboarding progress
   useEffect(() => {
-    if (user) {
-      // Populate profile data with existing user information
-      setProfileData(prev => ({
-        ...prev,
-        displayName: user.displayName || prev.displayName,
-        photoURL: user.photoURL || prev.photoURL
-      }));
-    }
+    const loadProgress = async () => {
+      if (!user) return;
+      
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // If we have saved progress, restore it
+          if (userData.onboardingProgress) {
+            console.log('Restoring onboarding progress:', userData.onboardingProgress);
+            
+            // Update profile data with saved values
+            setProfileData(prevData => ({
+              ...prevData,
+              ...userData.onboardingProgress
+            }));
+            
+            // If there's a saved step, restore it
+            if (userData.currentOnboardingStep !== undefined) {
+              setCurrentStep(userData.currentOnboardingStep);
+            }
+          }
+          
+          // Update display name and photo from user profile
+          if (user.displayName) {
+            setProfileData(prevData => ({
+              ...prevData,
+              displayName: user.displayName || prevData.displayName
+            }));
+          }
+          
+          if (user.photoURL) {
+            setProfileData(prevData => ({
+              ...prevData,
+              photoURL: user.photoURL || prevData.photoURL
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading onboarding progress:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    loadProgress();
   }, [user]);
+
+  // Initialize onboarding timer when component mounts
+  useEffect(() => {
+    startOnboarding();
+  }, []);
+
+  // Save progress to Firebase after each step change
+  useEffect(() => {
+    const saveProgress = async () => {
+      if (!user || initialLoading) return;
+      
+      try {
+        setSavingProgress(true);
+        
+        // Save current progress to Firestore
+        await setDoc(doc(firestore, 'users', user.uid), {
+          onboardingProgress: profileData,
+          currentOnboardingStep: currentStep,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        // Also save to the AuthContext for potential recovery
+        await saveOnboardingProgress({
+          ...profileData,
+          currentStep
+        });
+        
+        console.log(`Progress saved at step ${currentStep}`);
+      } catch (error) {
+        console.error('Error saving onboarding progress:', error);
+      } finally {
+        setSavingProgress(false);
+      }
+    };
+    
+    // Don't save on initial load or mount
+    if (!initialLoading && user) {
+      saveProgress();
+    }
+  }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -98,7 +182,7 @@ export default function OnboardingFlow() {
         setError(null);
         
         if (user) {
-          // Update Firestore with profile data
+          // Update Firestore with complete profile data
           const userRef = doc(firestore, 'users', user.uid);
           await setDoc(userRef, {
             displayName: profileData.displayName,
@@ -113,7 +197,10 @@ export default function OnboardingFlow() {
             prompts: profileData.prompts,
             subscriptionPlan: profileData.subscriptionPlan,
             hasCompletedOnboarding: true,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            // Clear onboarding progress data since it's now complete
+            onboardingProgress: null,
+            onboardingStartTime: null
           }, { merge: true });
           
           await setHasCompletedOnboarding(true);
@@ -124,6 +211,7 @@ export default function OnboardingFlow() {
       } catch (error: any) {
         console.error('Error updating profile:', error);
         setError(error.message || 'An unexpected error occurred');
+        Alert.alert('Error', 'Failed to complete onboarding. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -203,6 +291,9 @@ export default function OnboardingFlow() {
           </TouchableOpacity>
         )}
         <Text style={styles.headerTitle}>{title}</Text>
+        {savingProgress && (
+          <ActivityIndicator size="small" color="#FF6B6B" style={styles.savingIndicator} />
+        )}
       </View>
     );
   };
@@ -238,13 +329,13 @@ export default function OnboardingFlow() {
             onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
           />
         );
-        case 'lifestyle':
-            return (
-              <ExpectationsLifestyle 
-                selectedLifestyle={profileData.lifestyle}
-                onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
-              />
-            );
+      case 'lifestyle':
+        return (
+          <ExpectationsLifestyle 
+            selectedLifestyle={profileData.lifestyle}
+            onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
+          />
+        );
       case 'interests':
         return (
           <InterestsSelection 
@@ -279,6 +370,21 @@ export default function OnboardingFlow() {
     }
   };
 
+  // If user is not authenticated, redirect to auth screen
+  if (!user && !loading && !initialLoading) {
+    router.replace('/(auth)');
+    return null;
+  }
+
+  if (initialLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {renderHeader()}
@@ -303,6 +409,13 @@ export default function OnboardingFlow() {
           canGoNext={isCurrentStepValid()}
         />
       )}
+      
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+          <Text style={styles.loadingText}>Saving your profile...</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -326,8 +439,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#292929',
+    flex: 1,
+  },
+  savingIndicator: {
+    marginLeft: 10,
   },
   content: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
   }
 });
