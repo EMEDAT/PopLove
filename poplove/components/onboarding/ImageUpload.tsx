@@ -230,7 +230,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    overflow: 'hidden',
   },
   placeholderContainer: {
     width: '100%',

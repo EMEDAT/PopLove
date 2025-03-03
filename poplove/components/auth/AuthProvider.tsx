@@ -115,6 +115,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const performNavigation = async () => {
       userNavFired.current = true;
       
+      // This is the key modification
+      if (!initialNavPerformed.current) {
+        router.replace('/(onboarding)/splash');
+        initialNavPerformed.current = true;
+        return;
+      }
+      
       if (!user) {
         router.replace('/(auth)');
         return;
