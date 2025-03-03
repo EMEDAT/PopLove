@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, getDocs, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function MatchesScreen() {
   const { user } = useAuthContext();

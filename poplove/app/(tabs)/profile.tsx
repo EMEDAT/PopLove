@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
   const { user, signOut, resetAuth } = useAuthContext();

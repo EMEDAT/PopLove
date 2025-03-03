@@ -10,13 +10,16 @@ import {
   SafeAreaView, 
   ActivityIndicator,
   Platform,
-  Modal
+  Modal,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function ExploreScreen() {
   const { user } = useAuthContext();
@@ -59,7 +62,6 @@ export default function ExploreScreen() {
       let profilesQuery = query(
         profilesRef,
         where('hasCompletedOnboarding', '==', true),
-        where('uid', '!=', user.uid),
         limit(20)
       );
       
