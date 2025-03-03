@@ -163,12 +163,18 @@ export function ProfileDetailsModal({
                   ]}
                   onPress={actionButton.onPress}
                 >
-                  <LinearGradient
-                    colors={actionButton.color || ['#F0B433', '#EC5F61']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.actionButtonGradient}
-                  >
+                <LinearGradient
+                colors={actionButton.color && Array.isArray(actionButton.color) ? 
+                    actionButton.color.length >= 2 ? 
+                    actionButton.color as [string, string, ...string[]] : 
+                    ['#F0B433', '#EC5F61'] 
+                    : 
+                    ['#F0B433', '#EC5F61']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.actionButtonGradient}
+                >
                     <Text style={[
                       styles.actionButtonText, 
                       { color: actionButton.textColor || 'white' }

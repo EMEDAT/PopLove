@@ -307,20 +307,21 @@ export default function HomeScreen() {
     
     return (
       <Animated.View
-        key={profile.id}
-        style={[
-          styles.cardContainer,
-          {
-            transform: [
-              { rotate: index === currentProfileIndex ? rotate : '0deg' },
-              ...position.getTranslateTransform()
-            ],
-            opacity: index === currentProfileIndex ? 1 : nextCardOpacity,
-            scale: index === currentProfileIndex ? 1 : nextCardScale,
-            zIndex: profiles.length - index,
-          }
-        ]}
-        {...(index === currentProfileIndex ? panResponder.panHandlers : {})}
+      key={profile.id}
+      style={[
+        styles.cardContainer,
+        {
+          transform: [
+            { rotate: index === currentProfileIndex ? rotate : '0deg' },
+            ...position.getTranslateTransform(),
+            { scaleX: index === currentProfileIndex ? 1 : nextCardScale },
+            { scaleY: index === currentProfileIndex ? 1 : nextCardScale }
+          ],
+          opacity: index === currentProfileIndex ? 1 : nextCardOpacity,
+          zIndex: profiles.length - index,
+        }
+      ]}
+      {...(index === currentProfileIndex ? panResponder.panHandlers : {})}
       >
         <View style={styles.card}>
           {/* Profile Image with like/dislike overlay */}

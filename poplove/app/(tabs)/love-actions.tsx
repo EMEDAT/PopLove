@@ -1,18 +1,19 @@
 // app/(tabs)/love-actions.tsx
 import React, { useState, useEffect } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Image, 
-  TouchableOpacity, 
-  SafeAreaView,
-  ActivityIndicator,
-  Platform,
-  Dimensions,
-  Modal
-} from 'react-native';
+    View, 
+    Text, 
+    StyleSheet, 
+    FlatList, 
+    Image, 
+    TouchableOpacity, 
+    SafeAreaView,
+    ActivityIndicator,
+    Platform,
+    Dimensions,
+    Modal,
+    Alert
+  } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { collection, query, getDocs, where, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -103,32 +104,38 @@ export default function LoveActionsScreen() {
         status: 'matched'
       });
 
-      // Create a match
-      const newMatchRef = doc(collection(firestore, 'matches'));
-      await setDoc(newMatchRef, {
-        users: [user?.uid, like.fromUserId],
-        userProfiles: {
-          [user?.uid]: {
-            displayName: user?.displayName,
-            photoURL: user?.photoURL,
-          },
-          [like.fromUserId]: {
-            displayName: like.profile.displayName,
-            photoURL: like.profile.photoURL,
-          }
-        },
-        createdAt: serverTimestamp(),
-      });
-
-      // Remove from local state
-      setPendingLikes(pendingLikes.filter(pendingLike => pendingLike.id !== like.id));
-      setModalVisible(false);
-      
-      // Navigate to chat
-      router.push({
-        pathname: '/(tabs)/matches',
-        params: { matchId: newMatchRef.id }
-      });
+// Create a match
+const userUid = user?.uid;
+if (userUid) {
+  const newMatchRef = doc(collection(firestore, 'matches'));
+  const userProfiles: Record<string, { displayName?: string | null, photoURL?: string | null }> = {};
+  
+  userProfiles[userUid] = {
+    displayName: user?.displayName,
+    photoURL: user?.photoURL,
+  };
+  
+  userProfiles[like.fromUserId] = {
+    displayName: like.profile.displayName,
+    photoURL: like.profile.photoURL,
+  };
+  
+  await setDoc(newMatchRef, {
+    users: [userUid, like.fromUserId],
+    userProfiles,
+    createdAt: serverTimestamp(),
+  });
+  
+  // Remove from local state
+  setPendingLikes(pendingLikes.filter(pendingLike => pendingLike.id !== like.id));
+  setModalVisible(false);
+  
+  // Navigate to chat
+  router.push({
+    pathname: '/(tabs)/matches',
+    params: { matchId: newMatchRef.id }
+  });
+}
       
     } catch (err) {
       console.error('Error accepting like:', err);
