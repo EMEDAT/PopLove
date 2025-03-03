@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 10, // Extra padding for keyboard
+    paddingBottom: 50, // Extra padding for keyboard
   },
   inputGroup: {
     marginBottom: 20,
