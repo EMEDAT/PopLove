@@ -107,43 +107,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Single navigation effect that runs only once when auth state is determined
-  useEffect(() => {
-    if (loading) return;
+// In the navigation effect
+useEffect(() => {
+  if (loading) return;
+  
+  const performNavigation = async () => {
+    // Always start with splash screen first time
+    if (!initialNavPerformed.current) {
+      router.replace('/(onboarding)/splash');
+      initialNavPerformed.current = true;
+      return;
+    }
     
-    const performNavigation = async () => {
-      // Always start with splash screen first time
-      if (!initialNavPerformed.current) {
-        router.replace('/(onboarding)/splash');
-        initialNavPerformed.current = true;
-        return;
-      }
-      
-      // If no user, go directly to auth
-      if (!user) {
-        router.replace('/(auth)');
-        return;
-      }
-      
-      // Critical change: Check if profile is fully complete
-      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-      const userData = userDoc.data();
-      
-      // Only go to onboarding flow if profile is incomplete
-      if (!userData?.hasCompletedOnboarding) {
-        // Additional check to ensure not all critical fields are filled
-        if (!userData?.displayName || !userData?.photoURL) {
-          router.replace('/(onboarding)/onboarding-flow');
-          return;
-        }
-      }
-      
-      // Signed-in user with completed onboarding goes to dashboard
-      router.replace('/(tabs)');
-    };
+    // If no user, go directly to auth
+    if (!user) {
+      router.replace('/(auth)');
+      return;
+    }
     
-    // Small delay to ensure state stability
-    setTimeout(performNavigation, 100);
-  }, [loading, user, hasCompletedOnboarding]);
+    // CRITICAL CHANGE: ALWAYS redirect to onboarding if not completed
+    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+    const userData = userDoc.data();
+    
+    // STRICT REDIRECT: If onboarding is not complete, ALWAYS go to onboarding flow
+    if (!userData?.hasCompletedOnboarding) {
+      router.replace('/(onboarding)/onboarding-flow');
+      return;
+    }
+    
+    // Signed-in user with completed onboarding goes to dashboard
+    router.replace('/(tabs)');
+  };
+  
+  // Small delay to ensure state stability
+  setTimeout(performNavigation, 100);
+}, [loading, user, hasCompletedOnboarding]);
 
   const signUp = async (email: string, password: string) => {
     try {

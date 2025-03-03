@@ -146,17 +146,6 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
           onClose={() => setLocationModalVisible(false)}
           onSelectLocation={handleLocationSelect}
         />
-
-        {/* Continue button at the bottom */}
-        {isFormValid() && (
-          <TouchableOpacity 
-            style={styles.continueButton}
-            onPress={onNext}
-            disabled={saveInProgress}
-          >
-            <Text style={styles.continueButtonText}>Continue</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -171,7 +160,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 100, // Extra padding for keyboard
+    paddingBottom: 10, // Extra padding for keyboard
   },
   inputGroup: {
     marginBottom: 20,
@@ -218,18 +207,5 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     textAlignVertical: 'top',
-  },
-  continueButton: {
-    backgroundColor: '#FF6B6B',
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  continueButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   }
 });
