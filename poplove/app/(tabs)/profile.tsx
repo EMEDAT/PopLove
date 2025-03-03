@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { router } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, signOut, resetAuth } = useAuthContext();
