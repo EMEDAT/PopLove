@@ -110,36 +110,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     
-    if (userNavFired.current) return;
-    
     const performNavigation = async () => {
-      userNavFired.current = true;
-      
-      // This is the key modification
+      // Always start with splash screen first time
       if (!initialNavPerformed.current) {
         router.replace('/(onboarding)/splash');
         initialNavPerformed.current = true;
         return;
       }
       
+      // If no user, go directly to auth
       if (!user) {
         router.replace('/(auth)');
         return;
       }
       
-      if (hasCompletedOnboarding) {
-        router.replace('/(tabs)');
-        return;
+      // Critical change: Check if profile is fully complete
+      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+      const userData = userDoc.data();
+      
+      // Only go to onboarding flow if profile is incomplete
+      if (!userData?.hasCompletedOnboarding) {
+        // Additional check to ensure not all critical fields are filled
+        if (!userData?.displayName || !userData?.photoURL) {
+          router.replace('/(onboarding)/onboarding-flow');
+          return;
+        }
       }
       
-      // We have a user that hasn't completed onboarding
-      router.replace('/(onboarding)/onboarding-flow');
+      // Signed-in user with completed onboarding goes to dashboard
+      router.replace('/(tabs)');
     };
     
-    // Small delay to avoid navigation conflicts
-    setTimeout(() => {
-      performNavigation();
-    }, 100);
+    // Small delay to ensure state stability
+    setTimeout(performNavigation, 100);
   }, [loading, user, hasCompletedOnboarding]);
 
   const signUp = async (email: string, password: string) => {
