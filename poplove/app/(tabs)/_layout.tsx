@@ -1,7 +1,7 @@
-// Updated app/(tabs)/_layout.tsx
+// app/(tabs)/_layout.tsx
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,15 +12,16 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#FF6B6B',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#EC5F61',
+        tabBarInactiveTintColor: '#141414',
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
           marginBottom: 4,
+          fontWeight: 900,
         },
         tabBarStyle: {
-          height: 60 + insets.bottom,
+          height: 65 + insets.bottom,
           paddingTop: 5,
           paddingBottom: insets.bottom,
           backgroundColor: 'white',

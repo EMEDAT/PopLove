@@ -1,495 +1,496 @@
 // app/(tabs)/index.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
-  ActivityIndicator,
-  SafeAreaView,
-  Platform,
-  Dimensions,
-  Animated,
-  PanResponder,
-  ImageBackground,
+ View, 
+ Text, 
+ StyleSheet, 
+ Image, 
+ TouchableOpacity, 
+ ActivityIndicator,
+ SafeAreaView,
+ Platform,
+ Dimensions,
+ Animated,
+ PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, orderBy, limit, where, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
+import TrendingProfiles from '../../components/home/TrendingProfiles';
+import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
 
 const { width, height } = Dimensions.get('window');
-const CARD_HEIGHT = height * 0.62;
 const SWIPE_THRESHOLD = width * 0.25;
 
 export default function HomeScreen() {
-  const { user } = useAuthContext();
-  const [loading, setLoading] = useState(true);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
-  const [userPreferences, setUserPreferences] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Swipe animation values
-  const position = useRef(new Animated.ValueXY()).current;
-  const rotate = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: ['-10deg', '0deg', '10deg'],
-    extrapolate: 'clamp'
-  });
-  
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, width / 4],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
-  
-  const dislikeOpacity = position.x.interpolate({
-    inputRange: [-width / 4, 0],
-    outputRange: [1, 0],
-    extrapolate: 'clamp'
-  });
-  
-  const nextCardOpacity = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: [1, 0.8, 1],
-    extrapolate: 'clamp'
-  });
-  
-  const nextCardScale = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: [1, 0.95, 1],
-    extrapolate: 'clamp'
-  });
+ const { user } = useAuthContext();
+ const [loading, setLoading] = useState(true);
+ const [profiles, setProfiles] = useState<any[]>([]);
+ const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
+ const [userPreferences, setUserPreferences] = useState<any>(null);
+ const [error, setError] = useState<string | null>(null);
+ const [selectedProfile, setSelectedProfile] = useState<any>(null);
+ const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+ 
+ // Swipe animation values
+ const position = useRef(new Animated.ValueXY()).current;
+ const rotate = position.x.interpolate({
+   inputRange: [-width / 2, 0, width / 2],
+   outputRange: ['-10deg', '0deg', '10deg'],
+   extrapolate: 'clamp'
+ });
+ 
+ const likeOpacity = position.x.interpolate({
+   inputRange: [0, width / 4],
+   outputRange: [0, 1],
+   extrapolate: 'clamp'
+ });
+ 
+ const dislikeOpacity = position.x.interpolate({
+   inputRange: [-width / 4, 0],
+   outputRange: [1, 0],
+   extrapolate: 'clamp'
+ });
+ 
+ const nextCardOpacity = position.x.interpolate({
+   inputRange: [-width / 2, 0, width / 2],
+   outputRange: [1, 0.8, 1],
+   extrapolate: 'clamp'
+ });
+ 
+ const nextCardScale = position.x.interpolate({
+   inputRange: [-width / 2, 0, width / 2],
+   outputRange: [1, 0.95, 1],
+   extrapolate: 'clamp'
+ });
 
-  // PanResponder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        position.setValue({ x: gestureState.dx, y: gestureState.dy });
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > SWIPE_THRESHOLD) {
-          swipeRight();
-        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          swipeLeft();
-        } else {
-          resetPosition();
-        }
-      }
-    })
-  ).current;
+ // PanResponder for swipe gestures
+ const panResponder = useRef(
+   PanResponder.create({
+     onStartShouldSetPanResponder: () => true,
+     onPanResponderMove: (_, gestureState) => {
+       position.setValue({ x: gestureState.dx, y: gestureState.dy });
+     },
+     onPanResponderRelease: (_, gestureState) => {
+       if (gestureState.dx > SWIPE_THRESHOLD) {
+         swipeRight();
+       } else if (gestureState.dx < -SWIPE_THRESHOLD) {
+         swipeLeft();
+       } else {
+         resetPosition();
+       }
+     }
+   })
+ ).current;
 
-  // Fetch user preferences and profiles
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // First get the user's preferences
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserPreferences(userData);
-        }
-        
-        // Then fetch potential matches
-        const profilesRef = collection(firestore, 'users');
-        
-        // Build query based on preferences if they exist
-        let profilesQuery;
-        if (userPreferences && userPreferences.gender) {
-          // Get gender preference (opposite of user's gender by default)
-          const genderPreference = userPreferences.gender === 'male' ? 'female' : 'male';
-          
-          profilesQuery = query(
-            profilesRef,
-            where('gender', '==', genderPreference),
-            where('hasCompletedOnboarding', '==', true),
-            limit(10)
-          );
-        } else {
-          // Default query if no preferences yet
-          profilesQuery = query(
-            profilesRef,
-            where('hasCompletedOnboarding', '==', true),
-            limit(10)
-          );
-        }
-        
-        const querySnapshot = await getDocs(profilesQuery);
-        
-        // Map the documents to a more usable format
-        const fetchedProfiles = querySnapshot.docs
-        .map(doc => {
-          const data = doc.data() as {
-            displayName?: string;
-            photoURL?: string;
-            bio?: string;
-            location?: string;
-            ageRange?: string;
-            interests?: string[];
-            gender?: string;
-            profession?: string;
-          };
-          
-          return {
-            id: doc.id,
-            displayName: data.displayName || 'User',
-            photoURL: data.photoURL,
-            bio: data.bio || '',
-            location: data.location || 'Unknown',
-            ageRange: data.ageRange?.split(' ')[0] || '??',
-            interests: data.interests || [],
-            gender: data.gender || '',
-            profession: data.profession || '',
-            distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
-          };
-        })
-        .filter(profile => profile.id !== user.uid); // Exclude current user
-        
-        setProfiles(fetchedProfiles);
-        
-        if (fetchedProfiles.length === 0) {
-          setError('No profiles available right now. Check back soon!');
-        }
-      } catch (err: any) {
-        console.error('Error fetching profiles:', err);
-        setError('Failed to load profiles');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [user]);
+ // Fetch user preferences and profiles
+ useEffect(() => {
+   const loadData = async () => {
+     if (!user) return;
+     
+     try {
+       setLoading(true);
+       setError(null);
+       
+       // First get the user's preferences
+       const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+       if (userDoc.exists()) {
+         const userData = userDoc.data();
+         setUserPreferences(userData);
+       }
+       
+       // Then fetch potential matches
+       const profilesRef = collection(firestore, 'users');
+       
+       // Build query based on preferences if they exist
+       let profilesQuery;
+       if (userPreferences && userPreferences.gender) {
+         // Get gender preference (opposite of user's gender by default)
+         const genderPreference = userPreferences.gender === 'male' ? 'female' : 'male';
+         
+         profilesQuery = query(
+           profilesRef,
+           where('gender', '==', genderPreference),
+           where('hasCompletedOnboarding', '==', true),
+           limit(10)
+         );
+       } else {
+         // Default query if no preferences yet
+         profilesQuery = query(
+           profilesRef,
+           where('hasCompletedOnboarding', '==', true),
+           limit(10)
+         );
+       }
+       
+       const querySnapshot = await getDocs(profilesQuery);
+       
+       // Map the documents to a more usable format
+       const fetchedProfiles = querySnapshot.docs
+       .map(doc => {
+         const data = doc.data() as {
+           displayName?: string;
+           photoURL?: string;
+           bio?: string;
+           location?: string;
+           ageRange?: string;
+           interests?: string[];
+           gender?: string;
+           profession?: string;
+         };
+         
+         return {
+           id: doc.id,
+           displayName: data.displayName || 'User',
+           photoURL: data.photoURL,
+           bio: data.bio || '',
+           location: data.location || 'Unknown',
+           ageRange: data.ageRange?.split(' ')[0] || '??',
+           interests: data.interests || [],
+           gender: data.gender || '',
+           profession: data.profession || '',
+           distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
+         };
+       })
+       .filter(profile => profile.id !== user.uid); // Exclude current user
+       
+       setProfiles(fetchedProfiles);
+       
+       if (fetchedProfiles.length === 0) {
+         setError('No profiles available right now. Check back soon!');
+       }
+     } catch (err: any) {
+       console.error('Error fetching profiles:', err);
+       setError('Failed to load profiles');
+     } finally {
+       setLoading(false);
+     }
+   };
+   
+   loadData();
+ }, [user]);
 
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      friction: 4,
-      useNativeDriver: false
-    }).start();
-  };
+ const resetPosition = () => {
+   Animated.spring(position, {
+     toValue: { x: 0, y: 0 },
+     friction: 4,
+     useNativeDriver: false
+   }).start();
+ };
 
-  const swipeRight = async () => {
-    if (profiles.length <= currentProfileIndex) return;
-    
-    const currentProfile = profiles[currentProfileIndex];
-    console.log('Liked profile:', currentProfile?.id);
-    
-    // Save the like to Firestore
-    try {
-      if (user && currentProfile) {
-        // Create a like document
-        const likeRef = doc(firestore, 'likes', `${user.uid}_${currentProfile.id}`);
-        await setDoc(likeRef, {
-          fromUserId: user.uid,
-          toUserId: currentProfile.id,
-          createdAt: serverTimestamp(),
-          status: 'pending' // pending until the other user likes back
-        });
-        
-        // Check if there's a matching like
-        const matchingLikeRef = doc(firestore, 'likes', `${currentProfile.id}_${user.uid}`);
-        const matchingLike = await getDoc(matchingLikeRef);
-        
-        if (matchingLike.exists()) {
-          // Create a match
-          const newMatchRef = doc(collection(firestore, 'matches'));
-          await setDoc(newMatchRef, {
-            users: [user.uid, currentProfile.id],
-            userProfiles: {
-              [user.uid]: {
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-              },
-              [currentProfile.id]: {
-                displayName: currentProfile.displayName,
-                photoURL: currentProfile.photoURL,
-              }
-            },
-            createdAt: serverTimestamp(),
-          });
-          
-          // Update both likes to matched
-          await updateDoc(likeRef, { status: 'matched' });
-          await updateDoc(matchingLikeRef, { status: 'matched' });
-          
-          // TODO: Show match notification
-        }
-      }
-    } catch (err) {
-      console.error('Error saving like:', err);
-    }
-    
-    Animated.timing(position, {
-      toValue: { x: width + 100, y: 0 },
-      duration: 300,
-      useNativeDriver: false
-    }).start(() => {
-      position.setValue({ x: 0, y: 0 });
-      setCurrentProfileIndex(currentProfileIndex + 1);
-    });
-  };
+ const swipeRight = async () => {
+   if (profiles.length <= currentProfileIndex) return;
+   
+   const currentProfile = profiles[currentProfileIndex];
+   console.log('Liked profile:', currentProfile?.id);
+   
+   // Save the like to Firestore
+   try {
+     if (user && currentProfile) {
+       // Create a like document
+       const likeRef = doc(firestore, 'likes', `${user.uid}_${currentProfile.id}`);
+       await setDoc(likeRef, {
+         fromUserId: user.uid,
+         toUserId: currentProfile.id,
+         createdAt: serverTimestamp(),
+         status: 'pending' // pending until the other user likes back
+       });
+       
+       // Check if there's a matching like
+       const matchingLikeRef = doc(firestore, 'likes', `${currentProfile.id}_${user.uid}`);
+       const matchingLike = await getDoc(matchingLikeRef);
+       
+       if (matchingLike.exists()) {
+         // Create a match
+         const newMatchRef = doc(collection(firestore, 'matches'));
+         await setDoc(newMatchRef, {
+           users: [user.uid, currentProfile.id],
+           userProfiles: {
+             [user.uid]: {
+               displayName: user.displayName,
+               photoURL: user.photoURL,
+             },
+             [currentProfile.id]: {
+               displayName: currentProfile.displayName,
+               photoURL: currentProfile.photoURL,
+             }
+           },
+           createdAt: serverTimestamp(),
+         });
+         
+         // Update both likes to matched
+         await updateDoc(likeRef, { status: 'matched' });
+         await updateDoc(matchingLikeRef, { status: 'matched' });
+         
+         // TODO: Show match notification
+       }
+     }
+   } catch (err) {
+     console.error('Error saving like:', err);
+   }
+   
+   Animated.timing(position, {
+     toValue: { x: width + 100, y: 0 },
+     duration: 300,
+     useNativeDriver: false
+   }).start(() => {
+     position.setValue({ x: 0, y: 0 });
+     setCurrentProfileIndex(currentProfileIndex + 1);
+   });
+ };
 
-  const swipeLeft = () => {
-    if (profiles.length <= currentProfileIndex) return;
-    
-    const currentProfile = profiles[currentProfileIndex];
-    console.log('Passed on profile:', currentProfile?.id);
-    
-    // In a real app, you could save this pass to Firestore
-    
-    Animated.timing(position, {
-      toValue: { x: -width - 100, y: 0 },
-      duration: 300,
-      useNativeDriver: false
-    }).start(() => {
-      position.setValue({ x: 0, y: 0 });
-      setCurrentProfileIndex(currentProfileIndex + 1);
-    });
-  };
+ const swipeLeft = () => {
+   if (profiles.length <= currentProfileIndex) return;
+   
+   const currentProfile = profiles[currentProfileIndex];
+   console.log('Passed on profile:', currentProfile?.id);
+   
+   // In a real app, you could save this pass to Firestore
+   
+   Animated.timing(position, {
+     toValue: { x: -width - 100, y: 0 },
+     duration: 300,
+     useNativeDriver: false
+   }).start(() => {
+     position.setValue({ x: 0, y: 0 });
+     setCurrentProfileIndex(currentProfileIndex + 1);
+   });
+ };
 
-  const handleLike = () => {
-    swipeRight();
-  };
+ const handleLike = () => {
+   swipeRight();
+ };
 
-  const handlePass = () => {
-    swipeLeft();
-  };
+ const handlePass = () => {
+   swipeLeft();
+ };
 
-  // Components for the top profiles row with distance indicators
-  const renderTrendingProfiles = () => {
-    // Taking first 4 profiles for trending
-    const trendingProfiles = profiles.slice(0, 4);
-    
-    return (
-      <View style={styles.trendingSection}>
-        <Text style={styles.trendingTitle}>Trending profiles</Text>
-        <View style={styles.trendingProfiles}>
-          {trendingProfiles.map((profile, index) => (
-            <View key={index} style={styles.trendingProfileCard}>
-              <View style={styles.trendingProfileImageContainer}>
-                <Image 
-                  source={{ uri: profile.photoURL }} 
-                  style={styles.trendingProfileImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.distanceIndicator}>
-                  <Text style={styles.distanceText}>{profile.distance}km</Text>
-                </View>
-              </View>
-              <Text style={styles.trendingProfileName} numberOfLines={1}>
-                {profile.displayName}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
+ const handleViewDetails = (profile: any) => {
+   setSelectedProfile(profile);
+   setDetailsModalVisible(true);
+ };
 
-  const renderCard = (profile: any, index: number) => {
-    if (!profile) return null;
-    
-    // Convert profile age from string to number for image blur effect factor
-    const ageNum = parseInt(profile.ageRange) || 25;
-    const blurIntensity = Math.min(100, Math.max(10, 100 - ageNum * 2));
-    
-    return (
-      <Animated.View
-      key={profile.id}
-      style={[
-        styles.cardContainer,
-        {
-          transform: [
-            { rotate: index === currentProfileIndex ? rotate : '0deg' },
-            ...position.getTranslateTransform(),
-            { scaleX: index === currentProfileIndex ? 1 : nextCardScale },
-            { scaleY: index === currentProfileIndex ? 1 : nextCardScale }
-          ],
-          opacity: index === currentProfileIndex ? 1 : nextCardOpacity,
-          zIndex: profiles.length - index,
-        }
-      ]}
-      {...(index === currentProfileIndex ? panResponder.panHandlers : {})}
-      >
-        <View style={styles.card}>
-          {/* Profile Image with like/dislike overlay */}
-          <View style={styles.imageContainer}>
-            {profile.photoURL ? (
-              <Image 
-                source={{ uri: profile.photoURL }} 
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.noPhotoContainer}>
-                <Ionicons name="person" size={80} color="#CCCCCC" />
-                <Text style={styles.noPhotoText}>No Photo</Text>
-              </View>
-            )}
-            
-            {/* Like Overlay */}
-            {index === currentProfileIndex && (
-              <Animated.View 
-                style={[
-                  styles.overlayContainer, 
-                  styles.likeOverlay, 
-                  { opacity: likeOpacity }
-                ]}
-              >
-                <View style={styles.overlayButton}>
-                  <Ionicons name="heart" size={80} color="#4CAF50" />
-                </View>
-              </Animated.View>
-            )}
-            
-            {/* Dislike Overlay */}
-            {index === currentProfileIndex && (
-              <Animated.View 
-                style={[
-                  styles.overlayContainer, 
-                  styles.dislikeOverlay, 
-                  { opacity: dislikeOpacity }
-                ]}
-              >
-                <View style={styles.overlayButton}>
-                  <Ionicons name="close" size={80} color="#FF6B6B" />
-                </View>
-              </Animated.View>
-            )}
-            
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.findLoveButton]}
-                onPress={handleLike}
-              >
-                <Ionicons name="heart" size={24} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Find Love</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.popButton]}
-                onPress={handlePass}
-              >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Pop Balloon</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.skipButton]}
-              >
-                <Ionicons name="chevron-forward" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Profile Info */}
-          <View style={styles.profileInfo}>
-            <View style={styles.nameAgeContainer}>
-              <Text style={styles.profileName}>
-                {profile.displayName || 'User'}, {profile.ageRange}
-              </Text>
-            </View>
-            
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-outline" size={16} color="#666" />
-              <Text style={styles.locationText}>
-                {profile.location || 'Unknown location'}
-              </Text>
-            </View>
-            
-            {profile.profession && (
-              <View style={styles.professionContainer}>
-                <Text style={styles.professionText}>{profile.profession}</Text>
-              </View>
-            )}
-            
-            {/* Interests/Tags */}
-            {profile.interests && profile.interests.length > 0 && (
-              <View style={styles.interestsContainer}>
-                {profile.interests.slice(0, 3).map((interest: string, idx: number) => (
-                  <View key={idx} style={styles.interestTag}>
-                    <Text style={styles.interestText}>{interest}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-      </Animated.View>
-    );
-  };
+ const handleTrendingProfilePress = (profile: any) => {
+   console.log("Trending profile pressed:", profile.id);
+   setSelectedProfile(profile);
+   setDetailsModalVisible(true);
+ };
 
-  const renderNoMoreCards = () => (
-    <View style={styles.noMoreCardsContainer}>
-      <Ionicons name="search" size={50} color="#ccc" />
-      <Text style={styles.noMoreCardsText}>
-        No more profiles available right now
-      </Text>
-      <Text style={styles.noMoreCardsSubtext}>
-        Check back later for more matches
-      </Text>
-    </View>
-  );
+ const renderNoMoreCards = () => (
+   <View style={styles.noMoreCardsContainer}>
+     <Ionicons name="search" size={50} color="#ccc" />
+     <Text style={styles.noMoreCardsText}>
+       No more profiles available right now
+     </Text>
+     <Text style={styles.noMoreCardsSubtext}>
+       Check back later for more matches
+     </Text>
+   </View>
+ );
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {user?.photoURL ? (
-            <Image source={{ uri: user.photoURL }} style={styles.userAvatar} />
-          ) : (
-            <View style={styles.userAvatarPlaceholder}>
-              <Ionicons name="person" size={18} color="#999" />
-            </View>
-          )}
-          <Text style={styles.headerText}>
-            Hi, {user?.displayName?.split(' ')[0] || 'User'}
-          </Text>
-        </View>
-        
-        <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="options-outline" size={24} color="#FF6B6B" />
-        </TouchableOpacity>
-      </View>
-      
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B6B" />
-          <Text style={styles.loadingText}>Finding people near you...</Text>
-        </View>
-      ) : (
-        <View style={styles.content}>
-          {profiles.length > 0 && renderTrendingProfiles()}
-          
-          <View style={styles.cardsContainer}>
-            {profiles.length > currentProfileIndex ? (
-              profiles
-                .slice(currentProfileIndex, currentProfileIndex + 2)
-                .reverse()
-                .map((profile, index) => 
-                  renderCard(profile, currentProfileIndex + 1 - index)
-                )
-            ) : (
-              renderNoMoreCards()
-            )}
-          </View>
-        </View>
-      )}
-    </SafeAreaView>
-  );
+ return (
+   <SafeAreaView style={styles.container}>
+     <View style={styles.header}>
+       <View style={styles.headerLeft}>
+         {user?.photoURL ? (
+           <Image source={{ uri: user.photoURL }} style={styles.userAvatar} />
+         ) : (
+           <View style={styles.userAvatarPlaceholder}>
+             <Ionicons name="person" size={18} color="#999" />
+           </View>
+         )}
+         <Text style={styles.headerText}>
+           Hi, {user?.displayName?.split(' ')[0] || 'User'}
+         </Text>
+       </View>
+       
+       <TouchableOpacity style={styles.filterButton}>
+         <Ionicons name="options-outline" size={24} color="#FF6B6B" />
+       </TouchableOpacity>
+     </View>
+     
+     {loading ? (
+       <View style={styles.loadingContainer}>
+         <ActivityIndicator size="large" color="#FF6B6B" />
+         <Text style={styles.loadingText}>Finding people near you...</Text>
+       </View>
+     ) : (
+       <View style={styles.content}>
+         {profiles.length > 0 && (
+           <TrendingProfiles 
+             profiles={profiles} 
+             onProfilePress={handleTrendingProfilePress} 
+           />
+         )}
+         
+         <View style={styles.cardsContainer}>
+           {profiles.length > currentProfileIndex ? (
+             profiles
+               .slice(currentProfileIndex, currentProfileIndex + 2)
+               .reverse()
+               .map((profile, index) => {
+                 const isTopCard = index === 0;
+                 
+                 return (
+                   <Animated.View
+                     key={profile.id}
+                     style={[
+                       styles.cardContainer,
+                       {
+                         transform: [
+                           { rotate: isTopCard ? rotate : '0deg' },
+                           ...position.getTranslateTransform(),
+                           { scaleX: isTopCard ? 1 : nextCardScale },
+                           { scaleY: isTopCard ? 1 : nextCardScale }
+                         ],
+                         opacity: isTopCard ? 1 : nextCardOpacity,
+                         zIndex: profiles.length - index,
+                         position: 'absolute',
+                       }
+                     ]}
+                     {...(isTopCard ? panResponder.panHandlers : {})}
+                   >
+                     <View style={styles.card}>
+                       {/* Like/Heart icon in top left */}
+                       <View style={styles.favoriteIcon}>
+                         <Ionicons name="heart" size={24} color="#FF6B6B" />
+                       </View>
+                       
+                       {/* Main Image */}
+                       <Image 
+                         source={{ uri: profile.photoURL }} 
+                         style={styles.profileImage}
+                         resizeMode="cover"
+                       />
+                       
+                       {/* Like Overlay */}
+                       {isTopCard && (
+                         <Animated.View 
+                           style={[
+                             styles.overlayContainer, 
+                             styles.likeOverlay, 
+                             { opacity: likeOpacity }
+                           ]}
+                         >
+                           <View style={styles.overlayButton}>
+                             <Ionicons name="heart" size={80} color="#4CAF50" />
+                           </View>
+                         </Animated.View>
+                       )}
+                       
+                       {/* Dislike Overlay */}
+                       {isTopCard && (
+                         <Animated.View 
+                           style={[
+                             styles.overlayContainer, 
+                             styles.dislikeOverlay, 
+                             { opacity: dislikeOpacity }
+                           ]}
+                         >
+                           <View style={styles.overlayButton}>
+                             <Ionicons name="close" size={80} color="#FF6B6B" />
+                           </View>
+                         </Animated.View>
+                       )}
+                       
+                       {/* Right-side Action Buttons */}
+                       <View style={styles.actionButtons}>
+                         {/* Find Love (Green Heart) Button */}
+                         <TouchableOpacity 
+                           style={styles.actionButton}
+                           onPress={handleLike}
+                         >
+                           <View style={styles.findLoveCircle}>
+                             <Ionicons name="heart-outline" size={24} color="white" />
+                           </View>
+                           <Text style={styles.actionButtonText}>Find Love</Text>
+                         </TouchableOpacity>
+                         
+                         {/* Pop Balloon (Red X) Button */}
+                         <TouchableOpacity 
+                           style={styles.actionButton}
+                           onPress={handlePass}
+                         >
+                           <View style={styles.popBalloonCircle}>
+                             <Ionicons name="heart-dislike-outline" size={20} color="white" />
+                           </View>
+                           <Text style={styles.actionButtonText}>Pop Balloon</Text>
+                         </TouchableOpacity>
+                         
+                         {/* Details Button */}
+                         <TouchableOpacity 
+                           style={styles.actionButton}
+                           onPress={() => handleViewDetails(profile)}
+                         >
+                           <View style={styles.skipCircle}>
+                             <Ionicons name="chevron-forward" size={20} color="#000" />
+                           </View>
+                         </TouchableOpacity>
+                       </View>
+                       
+                       {/* Profile Info Card - Bottom text overlay */}
+                       <View style={styles.profileInfo}>
+                         <Text style={styles.profileName}>
+                           {profile.displayName || 'User'}, {profile.ageRange}
+                         </Text>
+                         
+                         <View style={styles.locationContainer}>
+                           <Ionicons name="location-outline" size={16} color="#888" />
+                           <Text style={styles.locationText}>
+                             {profile.location || 'Unknown location'}
+                           </Text>
+                         </View>
+                         
+                         {/* Interests/Tags */}
+                         {profile.interests && profile.interests.length > 0 && (
+                           <View style={styles.interestsContainer}>
+                             {profile.interests.slice(0, 3).map((interest: string, idx: number) => (
+                               <View key={idx} style={styles.interestTag}>
+                                 <Text style={styles.interestText}>
+                                   {interest}
+                                 </Text>
+                               </View>
+                             ))}
+                           </View>
+                         )}
+                       </View>
+                     </View>
+                   </Animated.View>
+                 );
+               })
+           ) : (
+             renderNoMoreCards()
+           )}
+         </View>
+       </View>
+     )}
+     
+     {/* Profile Details Modal */}
+     <ProfileDetailsModal
+       visible={detailsModalVisible}
+       onClose={() => setDetailsModalVisible(false)}
+       profile={selectedProfile}
+       vibePercentage={Math.floor(Math.random() * 30) + 70} // Random vibe percentage between 70-100
+       actionButton={{
+         text: "Start Chat",
+         onPress: () => {
+           setDetailsModalVisible(false);
+           // TODO: Navigate to chat
+         }
+       }}
+       secondaryButton={{
+         text: "Share Profile",
+         onPress: () => {
+           // TODO: Implement share functionality
+           setDetailsModalVisible(false);
+         },
+         color: "#f0f0f0",
+         textColor: "#333"
+       }}
+     />
+   </SafeAreaView>
+ );
 }
 
 const styles = StyleSheet.create({
@@ -534,53 +535,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  trendingSection: {
-    width: '100%',
-    paddingHorizontal: 20,
-    marginBottom: 15,
-  },
-  trendingTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  trendingProfiles: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  trendingProfileCard: {
-    width: (width - 60) / 4,
-    alignItems: 'center',
-  },
-  trendingProfileImageContainer: {
-    position: 'relative',
-    width: (width - 60) / 4,
-    height: (width - 60) / 4,
-    borderRadius: 8,
-    marginBottom: 5,
-    overflow: 'hidden',
-  },
-  trendingProfileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  distanceIndicator: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  distanceText: {
-    color: '#fff',
-    fontSize: 10,
-  },
-  trendingProfileName: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -599,35 +553,39 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: width * 0.9,
-    height: CARD_HEIGHT,
-    position: 'absolute',
-    borderRadius: 20,
+    height: height * 0.63,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   card: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    position: 'relative',
+    backgroundColor: '#000',
+    borderRadius: 12,
     overflow: 'hidden',
   },
-  imageContainer: {
-    width: '100%',
-    height: '80%',
-    position: 'relative',
+  favoriteIcon: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 40, 
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
   },
   profileImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   noPhotoContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#222',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -643,13 +601,13 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   likeOverlay: {
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    backgroundColor: 'rgba(76, 175, 80, 0.3)',
   },
   dislikeOverlay: {
-    backgroundColor: 'rgba(255, 107, 107, 0.2)',
+    backgroundColor: 'rgba(255, 107, 107, 0.3)',
   },
   overlayButton: {
     transform: [{ rotate: '-30deg' }],
@@ -657,25 +615,40 @@ const styles = StyleSheet.create({
   actionButtons: {
     position: 'absolute',
     right: 15,
-    top: '40%',
+    bottom: '20%',
     alignItems: 'center',
+    gap: 15,
+    zIndex: 10,
   },
   actionButton: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  findLoveCircle: {
     width: 50,
     height: 50,
     borderRadius: 25,
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 4,
   },
-  findLoveButton: {
-    backgroundColor: '#4CAF50',
-  },
-  popButton: {
+  popBalloonCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  skipButton: {
+  skipCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
     backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -684,41 +657,39 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    marginTop: 5,
+    fontSize: 12,
+    marginTop: 4,
     textAlign: 'center',
-    position: 'absolute',
-    bottom: -20,
-    width: 60,
   },
   profileInfo: {
-    padding: 15,
-  },
-  nameAgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   profileName: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: 'white',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 5,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   locationText: {
     fontSize: 14,
-    color: '#666',
+    color: 'white',
     marginLeft: 4,
-  },
-  professionContainer: {
-    marginBottom: 5,
-  },
-  professionText: {
-    fontSize: 14,
-    color: '#666',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   interestsContainer: {
     flexDirection: 'row',
@@ -726,31 +697,16 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   interestTag: {
-    backgroundColor: '#F0F0F0',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(80, 80, 80, 0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
   },
   interestText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  footer: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-  },
-  quickMatchButton: {
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickMatchText: {
+    fontSize: 14,
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   noMoreCardsContainer: {
     alignItems: 'center',
