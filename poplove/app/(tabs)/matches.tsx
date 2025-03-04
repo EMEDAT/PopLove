@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, getDocs, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuthContext } from '../../components/auth/AuthProvider';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function MatchesScreen() {
   const { user } = useAuthContext();
@@ -26,6 +27,19 @@ export default function MatchesScreen() {
   const [activeChat, setActiveChat] = useState<any>(null);
   const [messageText, setMessageText] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const route = useLocalSearchParams();
+  const matchId = route.matchId;
+
+  useEffect(() => {
+    if (matchId && typeof matchId === 'string') {
+      // Find match in the matches array
+      const match = matches.find(m => m.id === matchId);
+      if (match) {
+        handleSelectMatch(match);
+      }
+    }
+  }, [matchId, matches]);
 
   useEffect(() => {
     if (user) {
