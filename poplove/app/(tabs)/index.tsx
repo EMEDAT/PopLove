@@ -555,14 +555,16 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     height: height * 0.62,
     borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'transparent', // Make transparent to avoid white flash
+    overflow: 'hidden', 
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent', // Remove any shadow
+    elevation: 0, // Remove Android elevation
   },
   card: {
     width: '100%',
     height: '100%',
     position: 'relative',
-    backgroundColor: '#000',
+    backgroundColor: 'transparent', // Was #000 before
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -582,6 +584,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+    backgroundColor: '#f0f0f0', // Light gray as fallback
   },
   noPhotoContainer: {
     width: '100%',
