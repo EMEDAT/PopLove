@@ -398,88 +398,93 @@ const handlePass = async () => {
                   Current index: {currentProfileIndex}, Showing: {profiles[currentProfileIndex].displayName}
                 </Text> */}
                 
-                {/* Only show the current profile - no stacking to avoid confusion */}
-                <View
-                  key={profiles[currentProfileIndex].id}
-                  style={[styles.cardContainer]}
-                >
-                  <View style={styles.card}>
-                    {/* Like/Heart icon in top left */}
-                    <View style={styles.favoriteIcon}>
-                      <Ionicons name="heart" size={24} color="#EC5F61" />
-                    </View>
-                    
-                    {/* Main Image */}
-                    <Image 
-                      source={{ uri: profiles[currentProfileIndex].photoURL }} 
-                      style={styles.profileImage}
-                      resizeMode="cover"
-                    />
-                    
-                    {/* Right-side Action Buttons */}
-                    <View style={styles.actionButtons}>
-                      {/* Find Love Button */}
-                      <TouchableOpacity 
-                        style={styles.actionButton}
-                        onPress={handleLike}
-                      >
-                        <Image 
-                          source={require('../../assets/images/main/LoveSuccess.png')} 
-                          style={styles.actionButtonImage}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.actionButtonText}>Find Love</Text>
-                      </TouchableOpacity>
-                      
-                      {/* Pop Balloon Button */}
-                      <TouchableOpacity 
-                        style={styles.actionButton}
-                        onPress={handlePass}
-                      >
-                        <Image 
-                          source={require('../../assets/images/main/LoveError.png')} 
-                          style={styles.actionButtonImage}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.actionButtonText}>Pop Balloon</Text>
-                      </TouchableOpacity>
-                        
-                      {/* Details Button */}
-                      <TouchableOpacity 
-                        style={styles.actionButton}
-                        onPress={() => handleViewDetails(profiles[currentProfileIndex])}
-                      >
-                        <View style={styles.skipCircle}>
-                          <Ionicons name="chevron-forward" size={20} color="#000" />
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                    
-                    {/* Profile Info Card - Bottom text overlay */}
-                    <View style={styles.profileInfo}>
-                      <Text style={styles.profileName}>
-                        {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].ageRange}
-                      </Text>
-                      
-                      <View style={styles.locationContainer}>
-                        <Ionicons name="location-outline" size={30} color="#FFFFFF" />
-                        <Text style={styles.locationText}>
-                          {profiles[currentProfileIndex].location || 'Unknown location'}
-                        </Text>
+                <View style={styles.cardStackContainer}>
+                  {/* Background card that shows behind */}
+                  <View style={styles.backgroundCard} />
+                  
+                  {/* Only show the current profile - no stacking to avoid confusion */}
+                  <View
+                    key={profiles[currentProfileIndex].id}
+                    style={[styles.cardContainer]}
+                  >
+                    <View style={styles.card}>
+                      {/* Like/Heart icon in top left */}
+                      <View style={styles.favoriteIcon}>
+                        <Ionicons name="heart" size={24} color="#EC5F61" />
                       </View>
                       
-                      {/* Interests/Tags */}
-                      {profiles[currentProfileIndex].interests && profiles[currentProfileIndex].interests.length > 0 && (
-                        <View style={styles.interestsContainer}>
-                          {profiles[currentProfileIndex].interests.slice(0, 3).map((interest: string, idx: number) => (
-                            <View key={idx} style={styles.interestTag}>
-                              <Text style={styles.interestText}>
-                                {interest}
-                              </Text>
-                            </View>
-                          ))}
+                      {/* Main Image */}
+                      <Image 
+                        source={{ uri: profiles[currentProfileIndex].photoURL }} 
+                        style={styles.profileImage}
+                        resizeMode="cover"
+                      />
+                      
+                      {/* Right-side Action Buttons */}
+                      <View style={styles.actionButtons}>
+                        {/* Find Love Button */}
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={handleLike}
+                        >
+                          <Image 
+                            source={require('../../assets/images/main/LoveSuccess.png')} 
+                            style={styles.actionButtonImage}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.actionButtonText}>Find Love</Text>
+                        </TouchableOpacity>
+                        
+                        {/* Pop Balloon Button */}
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={handlePass}
+                        >
+                          <Image 
+                            source={require('../../assets/images/main/LoveError.png')} 
+                            style={styles.actionButtonImage}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.actionButtonText}>Pop Balloon</Text>
+                        </TouchableOpacity>
+                          
+                        {/* Details Button */}
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={() => handleViewDetails(profiles[currentProfileIndex])}
+                        >
+                          <View style={styles.skipCircle}>
+                            <Ionicons name="chevron-forward" size={20} color="#000" />
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                      
+                      {/* Profile Info Card - Bottom text overlay */}
+                      <View style={styles.profileInfo}>
+                        <Text style={styles.profileName}>
+                          {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].ageRange}
+                        </Text>
+                        
+                        <View style={styles.locationContainer}>
+                          <Ionicons name="location-outline" size={30} color="#FFFFFF" />
+                          <Text style={styles.locationText}>
+                            {profiles[currentProfileIndex].location || 'Unknown location'}
+                          </Text>
                         </View>
-                      )}
+                        
+                        {/* Interests/Tags */}
+                        {profiles[currentProfileIndex].interests && profiles[currentProfileIndex].interests.length > 0 && (
+                          <View style={styles.interestsContainer}>
+                            {profiles[currentProfileIndex].interests.slice(0, 3).map((interest: string, idx: number) => (
+                              <View key={idx} style={styles.interestTag}>
+                                <Text style={styles.interestText}>
+                                  {interest}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -571,19 +576,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
     position: 'relative', // Ensure position relative for absolute children
     width: '100%',
-    height: height * 0.62 // Match card height
+    height: height * 0.605 // Match card height
   },
   cardContainer: {
     width: width * 0.9,
-    height: height * 0.62,
-    borderRadius: 12,
+    height: height * 0.605,
+    borderRadius: 18,
     overflow: 'hidden', 
     backgroundColor: 'transparent',
     shadowColor: 'transparent', // Remove any shadow
     elevation: 0, // Remove Android elevation
+    marginTop: 0,
+    zIndex: 2
   },
   card: {
     width: '100%',
@@ -592,6 +598,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent', // Was #000 before
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  cardStackContainer: {
+    width: width * 0.9,
+    height: height * 0.59,
+    position: 'relative',
+    alignItems: 'center',
+  },
+  backgroundCard: {
+    width: '93%',
+    height: '98%',
+    backgroundColor: '#F6B5B6',
+    borderRadius: 30,
+    position: 'absolute',
+    top: -13,
+    transform: [{ rotate: '-0deg' }],
+    zIndex: 1
   },
   favoriteIcon: {
     position: 'absolute',

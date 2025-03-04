@@ -21,8 +21,8 @@ export default function TabsLayout() {
           fontWeight: 900,
         },
         tabBarStyle: {
-          height: 65 + insets.bottom,
-          paddingTop: 5,
+          height: 68 + insets.bottom,
+          paddingTop: 2,
           paddingBottom: insets.bottom,
           backgroundColor: 'white',
           borderTopWidth: 0,
