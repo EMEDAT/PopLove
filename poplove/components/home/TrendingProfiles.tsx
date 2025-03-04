@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     color: '#fff', // Ensuring white text
-    textShadowColor: 'rgba(0, 0, 0, 0.6)', // Soft shadow for better readability
-    textShadowOffset: { width: 0.5, height: 0.5 },
+    textShadowColor: 'rgba(0, 0, 0, 0.8)', // Soft shadow for better readability
+    textShadowOffset: { width: 0.4, height: 0.4 },
     textShadowRadius: 1,
     textAlign: 'left', // Align text to the left
     alignSelf: 'flex-start', // Ensures text stays aligned left inside the container
