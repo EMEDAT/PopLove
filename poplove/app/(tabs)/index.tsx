@@ -20,6 +20,7 @@ import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDo
 import { firestore } from '../../lib/firebase';
 import TrendingProfiles from '../../components/home/TrendingProfiles';
 import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
+import ProfilePopup from '../../components/home/ProfilePopup';
 
 
 const { width, height } = Dimensions.get('window');
@@ -38,6 +39,8 @@ export default function HomeScreen() {
  const [isAnimating, setIsAnimating] = useState(false);
  const [likeLoading, setLikeLoading] = useState(false);
  const [passLoading, setPassLoading] = useState(false);
+ const [profilePopupVisible, setProfilePopupVisible] = useState(false);
+ const [popupProfile, setPopupProfile] = useState<any>(null);
  
  // Swipe animation values
  const position = useRef(new Animated.ValueXY()).current;
@@ -355,6 +358,33 @@ const handlePass = async () => {
    </View>
  );
 
+ const handleFindLovePressed = () => {
+  if (profiles.length <= currentProfileIndex) return;
+  
+  const currentProfile = profiles[currentProfileIndex];
+  if (currentProfile) {
+    setPopupProfile(currentProfile);
+    setProfilePopupVisible(true);
+  }
+};
+
+const handleSendMessage = async (message: string) => {
+  // Add your message sending logic here
+  console.log(`Sending message to ${popupProfile?.displayName}: ${message}`);
+  setProfilePopupVisible(false);
+};
+
+const handleSendLike = async () => {
+  await swipeRight();
+  setProfilePopupVisible(false);
+};
+
+const handleSendFlower = async () => {
+  // Add your flower sending logic here
+  Alert.alert('Flower Sent!', 'You sent a flower to ' + popupProfile?.displayName);
+  setProfilePopupVisible(false);
+};
+
  return (
    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -425,7 +455,7 @@ const handlePass = async () => {
                         {/* Find Love Button */}
                         <TouchableOpacity 
                           style={styles.actionButton}
-                          onPress={handleLike}
+                          onPress={handleFindLovePressed}
                         >
                           <Image 
                             source={require('../../assets/images/main/LoveSuccess.png')} 
@@ -519,6 +549,17 @@ const handlePass = async () => {
          textColor: "#333"
        }}
      />
+
+
+     {/* Add ProfilePopup component here */}
+      <ProfilePopup
+        visible={profilePopupVisible}
+        onClose={() => setProfilePopupVisible(false)}
+        profile={popupProfile}
+        onSendLike={handleSendLike}
+        onSendFlower={handleSendFlower}
+        onSendMessage={handleSendMessage}
+      />
    </SafeAreaView>
  );
 }
