@@ -16,7 +16,7 @@ import {
   } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, where, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -104,29 +104,37 @@ export default function LoveActionsScreen() {
         status: 'matched'
       });
   
-      // Create a match
-      const userUid = user?.uid;
-      if (userUid) {
+        // Create a match
+        const userUid = user?.uid;
+        if (userUid) {
         const newMatchRef = doc(collection(firestore, 'matches'));
         const matchId = newMatchRef.id;
         
         const userProfiles: Record<string, { displayName?: string | null, photoURL?: string | null }> = {};
         
         userProfiles[userUid] = {
-          displayName: user?.displayName,
-          photoURL: user?.photoURL,
+            displayName: user?.displayName,
+            photoURL: user?.photoURL,
         };
         
         userProfiles[like.fromUserId] = {
-          displayName: like.profile.displayName,
-          photoURL: like.profile.photoURL,
+            displayName: like.profile.displayName,
+            photoURL: like.profile.photoURL,
         };
         
         await setDoc(newMatchRef, {
-          users: [userUid, like.fromUserId],
-          userProfiles,
-          createdAt: serverTimestamp(),
-          lastMessageTime: serverTimestamp() 
+            users: [userUid, like.fromUserId],
+            userProfiles,
+            createdAt: serverTimestamp(),
+            lastMessageTime: serverTimestamp() 
+        });
+        
+        // ADD THE NEW CODE HERE, AFTER CREATING THE MATCH DOCUMENT
+        // Create initial system message
+        await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
+            text: "You matched! Start a conversation.",
+            senderId: "system",
+            createdAt: serverTimestamp()
         });
         
         // Remove from local state

@@ -156,7 +156,6 @@ export default function MatchesScreen() {
       </Text>
     </View>
   );
-
   // Generate some mock messages for active chat
   const generateMockMessages = () => {
     if (!activeChat) return [];

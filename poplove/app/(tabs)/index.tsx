@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import TrendingProfiles from '../../components/home/TrendingProfiles';
 import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
@@ -382,9 +382,43 @@ const handlePass = async () => {
 };
 
 const handleSendMessage = async (message: string) => {
-  // Add your message sending logic here
-  console.log(`Sending message to ${popupProfile?.displayName}: ${message}`);
-  setProfilePopupVisible(false);
+  if (!popupProfile || !message.trim() || !user?.uid) return;
+  
+  try {
+    // First create match document if it doesn't exist
+    const matchRef = doc(collection(firestore, 'matches'));
+    const matchId = matchRef.id;
+    
+    await setDoc(matchRef, {
+      users: [user.uid, popupProfile.id],
+      userProfiles: {
+        [user.uid]: {
+          displayName: user.displayName,
+          photoURL: user.photoURL
+        },
+        [popupProfile.id]: {
+          displayName: popupProfile.displayName,
+          photoURL: popupProfile.photoURL
+        }
+      },
+      createdAt: serverTimestamp(),
+      lastMessageTime: serverTimestamp()
+    });
+    
+    // Then add the first message
+    const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+    await addDoc(messagesRef, {
+      text: message,
+      senderId: user.uid,
+      createdAt: serverTimestamp()
+    });
+    
+    console.log('Message sent successfully');
+    setProfilePopupVisible(false);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    Alert.alert('Error', 'Failed to send message');
+  }
 };
 
 const handleSendLike = async () => {
