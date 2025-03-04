@@ -83,106 +83,96 @@ export default function HomeScreen() {
 
  // Fetch user preferences and profiles
  useEffect(() => {
-   const loadData = async () => {
-     if (!user) return;
-     
-     try {
-       setLoading(true);
-       setError(null);
-       
-       // First get the user's preferences
-       const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-       let blockedUsers: string[] = [];
-     
-       if (userDoc.exists()) {
-         const userData = userDoc.data();
-         setUserPreferences(userData);
-         blockedUsers = userData.blockedUsers || [];
-         
-         // Get location info if available
-         if (userData.latitude && userData.longitude) {
-           setUserLocation({
-             lat: userData.latitude,
-             lon: userData.longitude
-           });
-         }
-     
-         // Log user gender for debugging
-         console.log('Current user gender:', userData.gender);
-       }
-       
-       // Then fetch potential matches
-       const profilesRef = collection(firestore, 'users');
-       
-       // Build query based on preferences if they exist
-       let profilesQuery;
-       if (userPreferences && userPreferences.gender) {
-         // Get gender preference (opposite of user's gender by default)
-         const genderPreference = userPreferences.gender === 'male' ? 'female' : 'male';
-         console.log('Looking for gender:', genderPreference);
-         
-         profilesQuery = query(
-           profilesRef,
-           where('gender', '==', genderPreference),
-           where('hasCompletedOnboarding', '==', true),
-           limit(20)
-         );
-       } else {
-         // Default query
-         console.log('No gender preference found, showing all profiles');
-         profilesQuery = query(
-           profilesRef,
-           where('hasCompletedOnboarding', '==', true),
-           limit(20)
-         );
-       }
-       
-       const querySnapshot = await getDocs(profilesQuery);
-
-        // Define a type for the user data
-        interface UserData {
-          displayName?: string;
-          photoURL?: string;
-          bio?: string;
-          location?: string;
-          ageRange?: string;
-          interests?: string[];
-          gender?: string;
-          profession?: string;
-          [key: string]: any; // For any other fields in the document
+  const loadData = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // First get the user's preferences
+      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+      let blockedUsers: string[] = [];
+      let userGender = null;
+    
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserPreferences(userData);
+        blockedUsers = userData.blockedUsers || [];
+        userGender = userData.gender; // Extract user gender
+        
+        // Get location info if available
+        if (userData.latitude && userData.longitude) {
+          setUserLocation({
+            lat: userData.latitude,
+            lon: userData.longitude
+          });
         }
-       
-       // Map the documents to a more usable format
-       const fetchedProfiles = querySnapshot.docs
-       .map(doc => {
-         const data = doc.data() as UserData;
-         console.log(`Profile: ${data.displayName}, Gender: ${data.gender}`);
-         
-         return {
-           id: doc.id,
-           displayName: data.displayName || 'User',
-           photoURL: data.photoURL,
-           bio: data.bio || '',
-           location: data.location || 'Unknown',
-           ageRange: data.ageRange?.split(' ')[0] || '??',
-           interests: data.interests || [],
-           gender: data.gender || '',
-           profession: data.profession || '',
-           distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
-         };
-       })
-       .filter(profile => 
-         profile.id !== user.uid && // Exclude current user
-         !blockedUsers.includes(profile.id) && // Exclude blocked users
-         (userPreferences?.gender ? 
-           // Double check gender filtering in JavaScript as well
-           (userPreferences.gender === 'male' ? profile.gender === 'female' : profile.gender === 'male') 
-           : true)
-       );
-     
-     console.log(`Filtered to ${fetchedProfiles.length} profiles`);
-     setProfiles(fetchedProfiles);
-       
+    
+        // Enhanced logging
+        console.log('Current user gender:', userGender);
+        console.log('Current user ID:', user.uid);
+      }
+      
+      // Check if we have a valid gender to filter by
+      if (!userGender) {
+        console.error('User gender not set in profile. Please complete onboarding properly.');
+        setError('Please complete your profile setup to see matches');
+        setLoading(false);
+        return;
+      }
+      
+      // Then fetch potential matches
+      const profilesRef = collection(firestore, 'users');
+      
+      // Get gender preference (opposite of user's gender) and make sure it's well-defined
+      const genderPreference = userGender === 'male' ? 'female' : 'male';
+      console.log('Looking for gender:', genderPreference);
+      
+      // Use a more specific query
+      const profilesQuery = query(
+        profilesRef,
+        where('gender', '==', genderPreference), // Must match the expected gender
+        where('hasCompletedOnboarding', '==', true),
+        limit(20)
+      );
+      
+      const querySnapshot = await getDocs(profilesQuery);
+      console.log(`Raw profiles count: ${querySnapshot.docs.length}`);
+  
+      // Map the documents and add additional debugging
+      const fetchedProfiles = querySnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        console.log(`Profile: ${data.displayName}, Gender: ${data.gender}, ID: ${doc.id}`);
+        
+        return {
+          id: doc.id,
+          displayName: data.displayName || 'User',
+          photoURL: data.photoURL,
+          bio: data.bio || '',
+          location: data.location || 'Unknown',
+          ageRange: data.ageRange?.split(' ')[0] || '??',
+          interests: data.interests || [],
+          gender: data.gender || '',
+          profession: data.profession || '',
+          distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
+        };
+      })
+      .filter(profile => {
+        // Triple check gender filtering here
+        const includeProfile = 
+          profile.id !== user.uid && // Exclude current user
+          !blockedUsers.includes(profile.id) && // Exclude blocked users
+          profile.gender === genderPreference; // Must match gender preference
+        
+        console.log(`Including profile ${profile.displayName}? ${includeProfile} (Gender: ${profile.gender})`);
+        return includeProfile;
+      });
+    
+      console.log(`Filtered to ${fetchedProfiles.length} profiles`);
+      setProfiles(fetchedProfiles);
+      
       if (fetchedProfiles.length === 0) {
         setError('No profiles available right now. Check back soon!');
       }
@@ -192,7 +182,7 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-   };
+  };
    
    loadData();
  }, [user]);
@@ -402,114 +392,102 @@ const handlePass = async () => {
          
          <View style={styles.cardsContainer}>
             {profiles.length > currentProfileIndex ? (
-              // Render multiple cards at once from the stack
-              profiles
-                .slice(currentProfileIndex, currentProfileIndex + 3) // Render 3 cards instead of 2
-                .reverse() // Reverse to get correct z-index stacking
-                .map((profile, index) => {
-                  const isFirstCard = index === 0;
-                  const isSecondCard = index === 1;
-                  
-                  // Position each card with different scales and opacities
-                  return (
-                        <View
-                          key={profile.id}
-                          style={[
-                            styles.cardContainer,
-                            {
-                              zIndex: profiles.length - index,
-                              position: 'absolute',
-                              top: isSecondCard ? 10 : isFirstCard ? 0 : 20,
-                              opacity: isFirstCard ? 1 : isSecondCard ? 0.8 : 0.7,
-                            }
-                          ]}
-                        >
-                      <View style={styles.card}>
-                       {/* Like/Heart icon in top left */}
-                       <View style={styles.favoriteIcon}>
-                         <Ionicons name="heart" size={24} color="#EC5F61" />
-                       </View>
-                       
-                       {/* Main Image */}
-                       <Image 
-                         source={{ uri: profile.photoURL }} 
-                         style={styles.profileImage}
-                         resizeMode="cover"
-                       />
-                       
-                       {/* Right-side Action Buttons */}
-                       <View style={styles.actionButtons}>
-                          {/* Find Love Button - using custom image */}
-                          <TouchableOpacity 
-                            style={styles.actionButton}
-                            onPress={handleLike}
-                          >
-                            <Image 
-                              source={require('../../assets/images/main/LoveSuccess.png')} 
-                              style={styles.actionButtonImage}
-                              resizeMode="contain"
-                            />
-                            <Text style={styles.actionButtonText}>Find Love</Text>
-                          </TouchableOpacity>
-                         
-                        {/* Pop Balloon Button - using custom image */}
-                        <TouchableOpacity 
-                          style={styles.actionButton}
-                          onPress={handlePass}
-                        >
-                          <Image 
-                            source={require('../../assets/images/main/LoveError.png')} 
-                            style={styles.actionButtonImage}
-                            resizeMode="contain"
-                          />
-                          <Text style={styles.actionButtonText}>Pop Balloon</Text>
-                        </TouchableOpacity>
-                         
-                          {/* Details Button */}
-                          <TouchableOpacity 
-                            style={styles.actionButton}
-                            onPress={() => handleViewDetails(profile)}
-                          >
-                            <View style={styles.skipCircle}>
-                              <Ionicons name="chevron-forward" size={20} color="#000" />
+              <>
+                {/* Debug info - remove in production */}
+                <Text style={{position: 'absolute', top: -30, left: 10, fontSize: 10, color: 'gray'}}>
+                  Current index: {currentProfileIndex}, Showing: {profiles[currentProfileIndex].displayName}
+                </Text>
+                
+                {/* Only show the current profile - no stacking to avoid confusion */}
+                <View
+                  key={profiles[currentProfileIndex].id}
+                  style={[styles.cardContainer]}
+                >
+                  <View style={styles.card}>
+                    {/* Like/Heart icon in top left */}
+                    <View style={styles.favoriteIcon}>
+                      <Ionicons name="heart" size={24} color="#EC5F61" />
+                    </View>
+                    
+                    {/* Main Image */}
+                    <Image 
+                      source={{ uri: profiles[currentProfileIndex].photoURL }} 
+                      style={styles.profileImage}
+                      resizeMode="cover"
+                    />
+                    
+                    {/* Right-side Action Buttons */}
+                    <View style={styles.actionButtons}>
+                      {/* Find Love Button */}
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleLike}
+                      >
+                        <Image 
+                          source={require('../../assets/images/main/LoveSuccess.png')} 
+                          style={styles.actionButtonImage}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.actionButtonText}>Find Love</Text>
+                      </TouchableOpacity>
+                      
+                      {/* Pop Balloon Button */}
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handlePass}
+                      >
+                        <Image 
+                          source={require('../../assets/images/main/LoveError.png')} 
+                          style={styles.actionButtonImage}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.actionButtonText}>Pop Balloon</Text>
+                      </TouchableOpacity>
+                        
+                      {/* Details Button */}
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={() => handleViewDetails(profiles[currentProfileIndex])}
+                      >
+                        <View style={styles.skipCircle}>
+                          <Ionicons name="chevron-forward" size={20} color="#000" />
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Profile Info Card - Bottom text overlay */}
+                    <View style={styles.profileInfo}>
+                      <Text style={styles.profileName}>
+                        {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].ageRange}
+                      </Text>
+                      
+                      <View style={styles.locationContainer}>
+                        <Ionicons name="location-outline" size={30} color="#FFFFFF" />
+                        <Text style={styles.locationText}>
+                          {profiles[currentProfileIndex].location || 'Unknown location'}
+                        </Text>
+                      </View>
+                      
+                      {/* Interests/Tags */}
+                      {profiles[currentProfileIndex].interests && profiles[currentProfileIndex].interests.length > 0 && (
+                        <View style={styles.interestsContainer}>
+                          {profiles[currentProfileIndex].interests.slice(0, 3).map((interest: string, idx: number) => (
+                            <View key={idx} style={styles.interestTag}>
+                              <Text style={styles.interestText}>
+                                {interest}
+                              </Text>
                             </View>
-                          </TouchableOpacity>
-                       </View>
-                       
-                       {/* Profile Info Card - Bottom text overlay */}
-                       <View style={styles.profileInfo}>
-                         <Text style={styles.profileName}>
-                           {profile.displayName || 'User'}, {profile.ageRange}
-                         </Text>
-                         
-                         <View style={styles.locationContainer}>
-                           <Ionicons name="location-outline" size={30} color="#FFFFFF" />
-                           <Text style={styles.locationText}>
-                             {profile.location || 'Unknown location'}
-                           </Text>
-                         </View>
-                         
-                         {/* Interests/Tags */}
-                         {profile.interests && profile.interests.length > 0 && (
-                           <View style={styles.interestsContainer}>
-                             {profile.interests.slice(0, 3).map((interest: string, idx: number) => (
-                               <View key={idx} style={styles.interestTag}>
-                                 <Text style={styles.interestText}>
-                                   {interest}
-                                 </Text>
-                               </View>
-                             ))}
-                           </View>
-                         )}
-                       </View>
-                     </View>
-                   </View>
-                 );
-               })
-           ) : (
-             renderNoMoreCards()
-           )}
-         </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </>
+            ) : (
+              renderNoMoreCards()
+            )}
+          </View>
        </View>
      )}
      

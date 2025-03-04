@@ -1,10 +1,11 @@
-// components/onboarding/GenderSelection.tsx
+// Updated components/onboarding/GenderSelection.tsx 
 import React from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -14,17 +15,28 @@ interface GenderSelectionProps {
 }
 
 export default function GenderSelection({ selectedGender, onSelectGender }: GenderSelectionProps) {
+  const handleSelectGender = (gender: string) => {
+    console.log(`Gender selected: ${gender}`);
+    
+    // Add validation to ensure the gender is set correctly
+    if (gender !== 'male' && gender !== 'female') {
+      Alert.alert('Invalid Selection', 'Please select either male or female');
+      return;
+    }
+    
+    // Call the parent handler
+    onSelectGender(gender);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Select your Gender</Text>
       
       <View style={styles.optionsContainer}>
         <TouchableOpacity
-          onPress={() => {
-            console.log('Male option selected'); // Add this log
-            onSelectGender('male');
-          }}
+          onPress={() => handleSelectGender('male')}
           style={styles.optionButton}
+          testID="male-option"
         >
           <LinearGradient
             colors={selectedGender === 'male' ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
@@ -42,11 +54,9 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
         </TouchableOpacity>
         
         <TouchableOpacity
-          onPress={() => {
-            console.log('Female option selected'); // Add this log
-            onSelectGender('female');
-          }}
+          onPress={() => handleSelectGender('female')}
           style={styles.optionButton}
+          testID="female-option"
         >
           <LinearGradient
             colors={selectedGender === 'female' ? ['#EC5F61', '#F0B433'] : ['#E5E5E5', '#E5E5E5']}

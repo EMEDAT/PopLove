@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useAuthContext } from './AuthProvider';
+import { router } from 'expo-router';
 
 interface EmailSignInProps {
   mode: 'signup' | 'login';
@@ -28,7 +29,7 @@ export function EmailSignIn({ mode }: EmailSignInProps) {
       return;
     }
 
-    // Password strength check
+    // Password strength check (optional, but recommended)
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
@@ -41,9 +42,11 @@ export function EmailSignIn({ mode }: EmailSignInProps) {
       if (mode === 'signup') {
         await signUp(email, password);
         console.log('Sign up successful');
+        // Don't navigate here - let AuthProvider handle it
       } else {
         await signIn(email, password);
         console.log('Sign in successful');
+        // Don't navigate here - let AuthProvider handle it
       }
     } catch (err: any) {
       console.error('Authentication Error:', err);
@@ -115,6 +118,7 @@ export function EmailSignIn({ mode }: EmailSignInProps) {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

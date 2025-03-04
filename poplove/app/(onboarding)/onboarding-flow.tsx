@@ -198,10 +198,36 @@ export default function OnboardingFlow() {
         setError(null);
         
         if (user) {
+          // Validate critical profile fields
+          if (!profileData.gender) {
+            setError('Gender selection is required');
+            Alert.alert('Missing Information', 'Please select your gender to continue');
+            // Go back to gender selection step
+            const genderStepIndex = STEPS.indexOf('gender');
+            if (genderStepIndex >= 0) {
+              setCurrentStep(genderStepIndex);
+            }
+            setLoading(false);
+            return;
+          }
+  
+          // Check for valid gender value
+          if (profileData.gender !== 'male' && profileData.gender !== 'female') {
+            console.error(`Invalid gender value: ${profileData.gender}`);
+            setError('Please select either male or female');
+            Alert.alert('Invalid Selection', 'Please select either male or female');
+            const genderStepIndex = STEPS.indexOf('gender');
+            if (genderStepIndex >= 0) {
+              setCurrentStep(genderStepIndex);
+            }
+            setLoading(false);
+            return;
+          }
+          
           // Let's add logs to verify data being saved
           console.log('Saving profile data:', {
             displayName: profileData.displayName,
-            gender: profileData.gender, // Verify this is 'male' or 'female'
+            gender: profileData.gender, 
             ageRange: profileData.ageRange
           });
           
@@ -227,6 +253,18 @@ export default function OnboardingFlow() {
           }, { merge: true });
           
           await setHasCompletedOnboarding(true);
+          
+          // Verify the gender was properly set
+          const verifyDoc = await getDoc(userRef);
+          if (verifyDoc.exists()) {
+            const userData = verifyDoc.data();
+            console.log('Verified saved gender:', userData.gender);
+            
+            if (!userData.gender) {
+              console.error('Gender not saved properly!');
+            }
+          }
+          
           router.replace('/(tabs)');
         } else {
           throw new Error('User not authenticated');
