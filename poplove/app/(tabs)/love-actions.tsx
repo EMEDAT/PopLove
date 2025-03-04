@@ -94,7 +94,7 @@ export default function LoveActionsScreen() {
         status: 'matched',
         updatedAt: serverTimestamp()
       });
-
+  
       // Create a reverse like
       const reverselikeRef = doc(firestore, 'likes', `${user?.uid}_${like.fromUserId}`);
       await setDoc(reverselikeRef, {
@@ -103,41 +103,58 @@ export default function LoveActionsScreen() {
         createdAt: serverTimestamp(),
         status: 'matched'
       });
-
-    // Create a match
-    const userUid = user?.uid;
-    if (userUid) {
-    const newMatchRef = doc(collection(firestore, 'matches'));
-    const userProfiles: Record<string, { displayName?: string | null, photoURL?: string | null }> = {};
-    
-    userProfiles[userUid] = {
-        displayName: user?.displayName,
-        photoURL: user?.photoURL,
-    };
-    
-    userProfiles[like.fromUserId] = {
-        displayName: like.profile.displayName,
-        photoURL: like.profile.photoURL,
-    };
-    
-    await setDoc(newMatchRef, {
-        users: [userUid, like.fromUserId],
-        userProfiles,
-        createdAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp() // Add this line to make the match appear in chat list
-    });
-    
-    // Remove from local state
-    setPendingLikes(pendingLikes.filter(pendingLike => pendingLike.id !== like.id));
-    setModalVisible(false);
-    
-    // Navigate to chat
-    router.push({
-        pathname: '/(tabs)/matches',
-        params: { matchId: newMatchRef.id }
-    });
-    }
-      
+  
+      // Create a match
+      const userUid = user?.uid;
+      if (userUid) {
+        const newMatchRef = doc(collection(firestore, 'matches'));
+        const matchId = newMatchRef.id;
+        
+        const userProfiles: Record<string, { displayName?: string | null, photoURL?: string | null }> = {};
+        
+        userProfiles[userUid] = {
+          displayName: user?.displayName,
+          photoURL: user?.photoURL,
+        };
+        
+        userProfiles[like.fromUserId] = {
+          displayName: like.profile.displayName,
+          photoURL: like.profile.photoURL,
+        };
+        
+        await setDoc(newMatchRef, {
+          users: [userUid, like.fromUserId],
+          userProfiles,
+          createdAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp() 
+        });
+        
+        // Remove from local state
+        setPendingLikes(pendingLikes.filter(pendingLike => pendingLike.id !== like.id));
+        setModalVisible(false);
+        
+        // Display a match notification
+        Alert.alert(
+          "It's a Match! 💖",
+          `You and ${like.profile.displayName} like each other!`,
+          [
+            { 
+              text: "Keep Browsing", 
+              style: "cancel" 
+            },
+            { 
+              text: "Message Now", 
+              onPress: () => {
+                // Direct navigation to chat screen with the specific match ID
+                router.push({
+                    pathname: '/chat/[id]',
+                    params: { id: matchId }
+                  });
+              }
+            }
+          ]
+        );
+      }
     } catch (err) {
       console.error('Error accepting like:', err);
       Alert.alert('Error', 'Failed to accept like. Please try again.');

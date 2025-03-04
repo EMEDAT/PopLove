@@ -120,9 +120,9 @@ export function ChatList() {
 
   const navigateToChat = (chat: ChatPreview) => {
     router.push({
-      pathname: '/(tabs)/chat/[id]',
-      params: { id: chat.id }
-    });
+        pathname: '/chat/[id]',
+        params: { id: chat.id }
+      });
   };
 
   // Format time for last message
