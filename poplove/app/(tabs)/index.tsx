@@ -394,9 +394,9 @@ const handlePass = async () => {
             {profiles.length > currentProfileIndex ? (
               <>
                 {/* Debug info - remove in production */}
-                <Text style={{position: 'absolute', top: -30, left: 10, fontSize: 10, color: 'gray'}}>
+                {/* <Text style={{position: 'absolute', top: -30, left: 10, fontSize: 10, color: 'gray'}}>
                   Current index: {currentProfileIndex}, Showing: {profiles[currentProfileIndex].displayName}
-                </Text>
+                </Text> */}
                 
                 {/* Only show the current profile - no stacking to avoid confusion */}
                 <View
@@ -536,8 +536,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   userAvatar: {
-    width: 40,
-    height: 40,
+    width: 35,
+    height: 35,
     borderRadius: 20,
     marginRight: 10,
   },
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   headerText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
   },
   content: {

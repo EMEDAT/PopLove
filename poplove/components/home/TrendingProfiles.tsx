@@ -6,10 +6,11 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Dimensions,
-  ImageBackground,
-  Platform 
+  ImageBackground 
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -48,30 +49,26 @@ export function TrendingProfiles({ profiles, onProfilePress }: TrendingProfilesP
             >
               {/* Distance Indicator */}
               <View style={styles.distanceIndicator}>
-                <Text style={styles.distanceText}>{profile.distance}km</Text>
-              </View>
-              
-              {/* Real blur effect at the bottom */}
+                <BlurView intensity={60} tint="light" style={styles.blur2}>
+                    <View style={styles.distanceContent}>
+                    <Ionicons name="location-outline" size={10} color="white" />
+                    <Text style={styles.distanceText}>{profile.distance}km</Text>
+                    </View>
+                </BlurView>
+                </View>
+
+              {/* Frosted Glass Name Section */}
               <View style={styles.bottomSection}>
-                {Platform.OS === 'ios' ? (
-                  // iOS uses native BlurView
-                  <BlurView 
-                    style={styles.blur}
-                    intensity={90}
-                    tint="dark"
-                  >
-                    <Text style={styles.trendingProfileName} numberOfLines={1}>
-                      {profile.displayName}
-                    </Text>
-                  </BlurView>
-                ) : (
-                  // Android fallback with semi-transparent background
-                  <View style={[styles.blur, styles.androidBlur]}>
-                    <Text style={styles.trendingProfileName} numberOfLines={1}>
-                      {profile.displayName}
-                    </Text>
-                  </View>
-                )}
+                <BlurView style={styles.blur} intensity={80} tint="light">
+                  {/* White Gradient to Ensure Visibility */}
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.4)', 'rgba(255, 255, 255, 0.6)', 'transparent']}
+                    style={styles.gradientOverlay}
+                  />
+                  <Text style={styles.trendingProfileName} numberOfLines={1}>
+                    {profile.displayName}
+                  </Text>
+                </BlurView>
               </View>
             </ImageBackground>
           </TouchableOpacity>
@@ -88,8 +85,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   trendingTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
     marginBottom: 10,
   },
   trendingProfiles: {
@@ -98,21 +95,21 @@ const styles = StyleSheet.create({
   },
   trendingProfileCard: {
     width: (width - 55) / 4,
-    height: (width - 120) / 2, // Increased height for rectangular cards
+    height: (width - 120) / 2,
     borderRadius: 12,
     overflow: 'hidden',
   },
   trendingProfileImage: {
     width: '100%',
     height: '100%',
-    justifyContent: 'flex-end', // Align children to bottom
+    justifyContent: 'flex-end',
   },
   bottomSection: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 24, // Adjust based on your design
+    height: 25,
     overflow: 'hidden',
   },
   blur: {
@@ -121,8 +118,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  androidBlur: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
   distanceIndicator: {
     position: 'absolute',
@@ -130,22 +129,39 @@ const styles = StyleSheet.create({
     left: 5,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
     zIndex: 1,
+    overflow: 'hidden',
   },
+  blur2: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },  
   distanceText: {
     color: '#fff',
     fontSize: 10,
   },
+  distanceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
   trendingProfileName: {
     fontSize: 12,
-    fontWeight: '500',
-    color: 'white',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    fontWeight: '400',
+    color: '#fff', // Ensuring white text
+    textShadowColor: 'rgba(0, 0, 0, 0.6)', // Soft shadow for better readability
     textShadowOffset: { width: 0.5, height: 0.5 },
     textShadowRadius: 1,
-  },
+    textAlign: 'left', // Align text to the left
+    alignSelf: 'flex-start', // Ensures text stays aligned left inside the container
+    paddingLeft: 8, // Adds spacing from the left edge
+    paddingBottom: 6, // More bottom padding for better visual balance
+  },  
 });
 
-export default TrendingProfiles
+export default TrendingProfiles;
