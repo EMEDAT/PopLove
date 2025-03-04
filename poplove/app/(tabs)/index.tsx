@@ -15,10 +15,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, limit, where, doc, getDoc, updateDoc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import TrendingProfiles from '../../components/home/TrendingProfiles';
 import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
+
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
@@ -95,10 +96,19 @@ export default function HomeScreen() {
        
        // First get the user's preferences
        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-       if (userDoc.exists()) {
-         const userData = userDoc.data();
-         setUserPreferences(userData);
-       }
+       let blockedUsers = [];
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserPreferences(userData);
+        blockedUsers = userData.blockedUsers || [];
+        
+        // Get location info if available
+        if (userData.latitude && userData.longitude) {
+          userLocation.lat = userData.latitude;
+          userLocation.lon = userData.longitude;
+        }
+      }
        
        // Then fetch potential matches
        const profilesRef = collection(firestore, 'users');
@@ -110,19 +120,19 @@ export default function HomeScreen() {
          const genderPreference = userPreferences.gender === 'male' ? 'female' : 'male';
          
          profilesQuery = query(
-           profilesRef,
-           where('gender', '==', genderPreference),
-           where('hasCompletedOnboarding', '==', true),
-           limit(10)
-         );
-       } else {
-         // Default query if no preferences yet
-         profilesQuery = query(
-           profilesRef,
-           where('hasCompletedOnboarding', '==', true),
-           limit(10)
-         );
-       }
+          profilesRef,
+          where('gender', '==', genderPreference),
+          where('hasCompletedOnboarding', '==', true),
+          limit(20) // Increased limit to account for filtering
+        );
+      } else {
+        // Default query
+        profilesQuery = query(
+          profilesRef,
+          where('hasCompletedOnboarding', '==', true),
+          limit(20)
+        );
+      }
        
        const querySnapshot = await getDocs(profilesQuery);
        
@@ -153,7 +163,10 @@ export default function HomeScreen() {
            distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
          };
        })
-       .filter(profile => profile.id !== user.uid); // Exclude current user
+       .filter(profile => 
+        profile.id !== user.uid && // Exclude current user
+        !blockedUsers.includes(profile.id) // Exclude blocked users
+      );
        
        setProfiles(fetchedProfiles);
        
@@ -180,83 +193,133 @@ export default function HomeScreen() {
  };
 
  const swipeRight = async () => {
-   if (profiles.length <= currentProfileIndex) return;
-   
-   const currentProfile = profiles[currentProfileIndex];
-   console.log('Liked profile:', currentProfile?.id);
-   
-   // Save the like to Firestore
-   try {
-     if (user && currentProfile) {
-       // Create a like document
-       const likeRef = doc(firestore, 'likes', `${user.uid}_${currentProfile.id}`);
-       await setDoc(likeRef, {
-         fromUserId: user.uid,
-         toUserId: currentProfile.id,
-         createdAt: serverTimestamp(),
-         status: 'pending' // pending until the other user likes back
-       });
-       
-       // Check if there's a matching like
-       const matchingLikeRef = doc(firestore, 'likes', `${currentProfile.id}_${user.uid}`);
-       const matchingLike = await getDoc(matchingLikeRef);
-       
-       if (matchingLike.exists()) {
-         // Create a match
-         const newMatchRef = doc(collection(firestore, 'matches'));
-         await setDoc(newMatchRef, {
-           users: [user.uid, currentProfile.id],
-           userProfiles: {
-             [user.uid]: {
-               displayName: user.displayName,
-               photoURL: user.photoURL,
-             },
-             [currentProfile.id]: {
-               displayName: currentProfile.displayName,
-               photoURL: currentProfile.photoURL,
-             }
-           },
-           createdAt: serverTimestamp(),
-         });
-         
-         // Update both likes to matched
-         await updateDoc(likeRef, { status: 'matched' });
-         await updateDoc(matchingLikeRef, { status: 'matched' });
-         
-         // TODO: Show match notification
-       }
-     }
-   } catch (err) {
-     console.error('Error saving like:', err);
-   }
-   
-   Animated.timing(position, {
-     toValue: { x: width + 100, y: 0 },
-     duration: 300,
-     useNativeDriver: false
-   }).start(() => {
-     position.setValue({ x: 0, y: 0 });
-     setCurrentProfileIndex(currentProfileIndex + 1);
-   });
- };
+  if (profiles.length <= currentProfileIndex) return;
+  
+  const currentProfile = profiles[currentProfileIndex];
+  console.log('Liked profile:', currentProfile?.id);
+  
+  // Create a variable to track if we need to show a match dialog
+  let isMatch = false;
+  
+  // Save the like to Firestore
+  try {
+    if (user && currentProfile) {
+      // Create a like document
+      const likeRef = doc(firestore, 'likes', `${user.uid}_${currentProfile.id}`);
+      await setDoc(likeRef, {
+        fromUserId: user.uid,
+        toUserId: currentProfile.id,
+        createdAt: serverTimestamp(),
+        status: 'pending' // pending until the other user likes back
+      });
+      
+      // Check if there's a matching like
+      const matchingLikeRef = doc(firestore, 'likes', `${currentProfile.id}_${user.uid}`);
+      const matchingLike = await getDoc(matchingLikeRef);
+      
+      if (matchingLike.exists()) {
+        // It's a match!
+        isMatch = true;
+        
+        // Create a match
+        const newMatchRef = doc(collection(firestore, 'matches'));
+        await setDoc(newMatchRef, {
+          users: [user.uid, currentProfile.id],
+          userProfiles: {
+            [user.uid]: {
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+            },
+            [currentProfile.id]: {
+              displayName: currentProfile.displayName,
+              photoURL: currentProfile.photoURL,
+            }
+          },
+          createdAt: serverTimestamp(),
+        });
+        
+        // Update both likes to matched
+        await updateDoc(likeRef, { status: 'matched' });
+        await updateDoc(matchingLikeRef, { status: 'matched' });
+      }
+    }
+  } catch (err) {
+    console.error('Error saving like:', err);
+  }
+  
+  // Improve animation with a sequence and completion callback
+  Animated.sequence([
+    Animated.spring(position, {
+      toValue: { x: width + 100, y: 0 },
+      useNativeDriver: false,
+      friction: 4,
+      tension: 40
+    }),
+    Animated.timing(position, {
+      toValue: { x: 0, y: 0 },
+      duration: 0,
+      useNativeDriver: false
+    })
+  ]).start(() => {
+    setCurrentProfileIndex(currentProfileIndex + 1);
+    
+    // If it was a match, show the match dialog
+    if (isMatch) {
+      // TODO: Show match notification/dialog
+      Alert.alert('It\'s a Match!', 'You and this person like each other!');
+      // You could navigate to a match screen or show a modal here
+    }
+  });
+};
 
- const swipeLeft = () => {
-   if (profiles.length <= currentProfileIndex) return;
-   
-   const currentProfile = profiles[currentProfileIndex];
-   console.log('Passed on profile:', currentProfile?.id);
-   
-   // In a real app, you could save this pass to Firestore
-   
-   Animated.timing(position, {
-     toValue: { x: -width - 100, y: 0 },
-     duration: 300,
-     useNativeDriver: false
-   }).start(() => {
-     position.setValue({ x: 0, y: 0 });
-     setCurrentProfileIndex(currentProfileIndex + 1);
-   });
- };
+ const swipeLeft = async () => {
+  if (profiles.length <= currentProfileIndex) return;
+  
+  const currentProfile = profiles[currentProfileIndex];
+  console.log('Passed on profile:', currentProfile?.id);
+  
+  // Save the pass to Firestore
+  try {
+    if (user && currentProfile) {
+      // 1. Create a "pass" document in the "passes" collection
+      const passRef = doc(firestore, 'passes', `${user.uid}_${currentProfile.id}`);
+      await setDoc(passRef, {
+        fromUserId: user.uid,
+        toUserId: currentProfile.id,
+        createdAt: serverTimestamp()
+      });
+      
+      // 2. Add this user to the blocked list in the user's document
+      const userRef = doc(firestore, 'users', user.uid);
+      
+      // Use arrayUnion to add the ID to the blockedUsers array
+      // This avoids duplicates if the user already exists in the array
+      await updateDoc(userRef, {
+        blockedUsers: arrayUnion(currentProfile.id),
+        updatedAt: serverTimestamp()
+      });
+    }
+  } catch (err) {
+    console.error('Error saving pass:', err);
+  }
+  
+  // Animation sequence
+  Animated.sequence([
+    Animated.spring(position, {
+      toValue: { x: -width - 100, y: 0 },
+      useNativeDriver: false,
+      friction: 4,
+      tension: 40
+    }),
+    Animated.timing(position, {
+      toValue: { x: 0, y: 0 },
+      duration: 0,
+      useNativeDriver: false
+    })
+  ]).start(() => {
+    setCurrentProfileIndex(currentProfileIndex + 1);
+  });
+};
 
  const handleLike = () => {
    swipeRight();
@@ -291,24 +354,24 @@ export default function HomeScreen() {
 
  return (
    <SafeAreaView style={styles.container}>
-     <View style={styles.header}>
-       <View style={styles.headerLeft}>
-         {user?.photoURL ? (
-           <Image source={{ uri: user.photoURL }} style={styles.userAvatar} />
-         ) : (
-           <View style={styles.userAvatarPlaceholder}>
-             <Ionicons name="person" size={18} color="#999" />
-           </View>
-         )}
-         <Text style={styles.headerText}>
-           Hi, {user?.displayName?.split(' ')[0] || 'User'}
-         </Text>
-       </View>
-       
-       <TouchableOpacity style={styles.filterButton}>
-         <Ionicons name="options-outline" size={24} color="#FF6B6B" />
-       </TouchableOpacity>
-     </View>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          {user?.photoURL ? (
+            <Image source={{ uri: user.photoURL }} style={styles.userAvatar} />
+          ) : (
+            <View style={styles.userAvatarPlaceholder}>
+              <Ionicons name="person" size={18} color="#999" />
+            </View>
+          )}
+          <Text style={styles.headerText}>
+            Hi, {user?.displayName?.split(' ')[0] || 'User'}
+          </Text>
+        </View>
+        
+        <TouchableOpacity style={styles.filterButton}>
+          <Ionicons name="options" size={20} color="#FF6B6B" />
+        </TouchableOpacity>
+      </View>
      
      {loading ? (
        <View style={styles.loadingContainer}>
@@ -354,7 +417,7 @@ export default function HomeScreen() {
                      <View style={styles.card}>
                        {/* Like/Heart icon in top left */}
                        <View style={styles.favoriteIcon}>
-                         <Ionicons name="heart" size={24} color="#FF6B6B" />
+                         <Ionicons name="heart" size={24} color="#EC5F61" />
                        </View>
                        
                        {/* Main Image */}
@@ -396,37 +459,41 @@ export default function HomeScreen() {
                        
                        {/* Right-side Action Buttons */}
                        <View style={styles.actionButtons}>
-                         {/* Find Love (Green Heart) Button */}
-                         <TouchableOpacity 
-                           style={styles.actionButton}
-                           onPress={handleLike}
-                         >
-                           <View style={styles.findLoveCircle}>
-                             <Ionicons name="heart-outline" size={24} color="white" />
-                           </View>
-                           <Text style={styles.actionButtonText}>Find Love</Text>
-                         </TouchableOpacity>
+                          {/* Find Love Button - using custom image */}
+                          <TouchableOpacity 
+                            style={styles.actionButton}
+                            onPress={handleLike}
+                          >
+                            <Image 
+                              source={require('../../assets/images/main/LoveSuccess.png')} 
+                              style={styles.actionButtonImage}
+                              resizeMode="contain"
+                            />
+                            <Text style={styles.actionButtonText}>Find Love</Text>
+                          </TouchableOpacity>
                          
-                         {/* Pop Balloon (Red X) Button */}
-                         <TouchableOpacity 
-                           style={styles.actionButton}
-                           onPress={handlePass}
-                         >
-                           <View style={styles.popBalloonCircle}>
-                             <Ionicons name="heart-dislike-outline" size={20} color="white" />
-                           </View>
-                           <Text style={styles.actionButtonText}>Pop Balloon</Text>
-                         </TouchableOpacity>
+                        {/* Pop Balloon Button - using custom image */}
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={handlePass}
+                        >
+                          <Image 
+                            source={require('../../assets/images/main/LoveError.png')} 
+                            style={styles.actionButtonImage}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.actionButtonText}>Pop Balloon</Text>
+                        </TouchableOpacity>
                          
-                         {/* Details Button */}
-                         <TouchableOpacity 
-                           style={styles.actionButton}
-                           onPress={() => handleViewDetails(profile)}
-                         >
-                           <View style={styles.skipCircle}>
-                             <Ionicons name="chevron-forward" size={20} color="#000" />
-                           </View>
-                         </TouchableOpacity>
+                          {/* Details Button */}
+                          <TouchableOpacity 
+                            style={styles.actionButton}
+                            onPress={() => handleViewDetails(profile)}
+                          >
+                            <View style={styles.skipCircle}>
+                              <Ionicons name="chevron-forward" size={20} color="#000" />
+                            </View>
+                          </TouchableOpacity>
                        </View>
                        
                        {/* Profile Info Card - Bottom text overlay */}
@@ -528,9 +595,6 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 18,
     fontWeight: '500',
-  },
-  filterButton: {
-    padding: 8,
   },
   content: {
     flex: 1,
@@ -659,6 +723,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
+  },
+  actionButtonImage: {
+    width: 50,
+    height: 50,
+    marginBottom: 4,
+  },
+  // Update filter button to match the design
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F9F9F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   profileInfo: {
     position: 'absolute',

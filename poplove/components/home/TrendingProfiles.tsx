@@ -6,9 +6,10 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Dimensions,
-  ImageBackground 
+  ImageBackground,
+  Platform 
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
@@ -50,15 +51,28 @@ export function TrendingProfiles({ profiles, onProfilePress }: TrendingProfilesP
                 <Text style={styles.distanceText}>{profile.distance}km</Text>
               </View>
               
-              {/* Gradient overlay for better text visibility */}
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                style={styles.imageGradient}
-              >
-                <Text style={styles.trendingProfileName} numberOfLines={1}>
-                  {profile.displayName}
-                </Text>
-              </LinearGradient>
+              {/* Real blur effect at the bottom */}
+              <View style={styles.bottomSection}>
+                {Platform.OS === 'ios' ? (
+                  // iOS uses native BlurView
+                  <BlurView 
+                    style={styles.blur}
+                    intensity={90}
+                    tint="dark"
+                  >
+                    <Text style={styles.trendingProfileName} numberOfLines={1}>
+                      {profile.displayName}
+                    </Text>
+                  </BlurView>
+                ) : (
+                  // Android fallback with semi-transparent background
+                  <View style={[styles.blur, styles.androidBlur]}>
+                    <Text style={styles.trendingProfileName} numberOfLines={1}>
+                      {profile.displayName}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </ImageBackground>
           </TouchableOpacity>
         ))}
@@ -93,11 +107,22 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'flex-end', // Align children to bottom
   },
-  imageGradient: {
+  bottomSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 24, // Adjust based on your design
+    overflow: 'hidden',
+  },
+  blur: {
     width: '100%',
-    height: '50%', // Half height gradient from bottom
-    justifyContent: 'flex-end',
-    padding: 5,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  androidBlur: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   distanceIndicator: {
     position: 'absolute',
@@ -123,4 +148,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TrendingProfiles;
+export default TrendingProfiles
