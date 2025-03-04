@@ -172,6 +172,22 @@ export default function OnboardingFlow() {
     updateProfile('prompts', updatedPrompts);
   };
 
+  // Define the type for profile data
+  interface ProfileData {
+    displayName: string;
+    photoURL: string;
+    bio: string;
+    location: string;
+    gender: string;
+    ageRange: string;
+    lifestyle: string[];
+    interests: string[];
+    dealBreaker: boolean;
+    prompts: Array<{question: string; answer: string}>;
+    subscriptionPlan: string;
+    [key: string]: any; // For any other fields
+  }
+
   const handleNext = async () => {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -182,6 +198,13 @@ export default function OnboardingFlow() {
         setError(null);
         
         if (user) {
+          // Let's add logs to verify data being saved
+          console.log('Saving profile data:', {
+            displayName: profileData.displayName,
+            gender: profileData.gender, // Verify this is 'male' or 'female'
+            ageRange: profileData.ageRange
+          });
+          
           // Update Firestore with complete profile data
           const userRef = doc(firestore, 'users', user.uid);
           await setDoc(userRef, {
@@ -189,7 +212,7 @@ export default function OnboardingFlow() {
             photoURL: profileData.photoURL,
             bio: profileData.bio,
             location: profileData.location,
-            gender: profileData.gender,
+            gender: profileData.gender, // Make sure this is properly set
             ageRange: profileData.ageRange,
             lifestyle: profileData.lifestyle,
             interests: profileData.interests,
@@ -298,77 +321,82 @@ export default function OnboardingFlow() {
     );
   };
 
-  const renderStep = () => {
-    const step = STEPS[currentStep];
-    
-    switch (step) {
-      case 'profile':
-        return (
-          <ProfileSetup 
-            data={{
-              displayName: profileData.displayName,
-              photoURL: profileData.photoURL,
-              bio: profileData.bio,
-              location: profileData.location
-            }}
-            onUpdate={updateProfile}
-            onNext={handleNext}
-          />
-        );
-      case 'gender':
-        return (
-          <GenderSelection 
-            selectedGender={profileData.gender}
-            onSelectGender={(gender) => updateProfile('gender', gender)}
-          />
-        );
-      case 'age':
-        return (
-          <AgeSelection 
-            selectedAgeRange={profileData.ageRange}
-            onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
-          />
-        );
-      case 'lifestyle':
-        return (
-          <ExpectationsLifestyle 
-            selectedLifestyle={profileData.lifestyle}
-            onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
-          />
-        );
-      case 'interests':
-        return (
-          <InterestsSelection 
-            selectedInterests={profileData.interests}
-            onSelectInterests={(interests) => updateProfile('interests', interests)}
-            dealBreaker={profileData.dealBreaker}
-            onToggleDealBreaker={(value) => updateProfile('dealBreaker', value)}
-          />
-        );
-      case 'prompts':
-        return (
-          <ProfilePrompts 
-            prompts={profileData.prompts}
-            onUpdatePrompt={updatePrompt}
-          />
-        );
-      case 'subscription':
-        return (
-          <SubscriptionPlan 
-            selectedPlan={profileData.subscriptionPlan}
-            onSelectPlan={(planId) => updateProfile('subscriptionPlan', planId)}
-            onSkip={handleNext}
-            onContinue={handleNext}
-          />
-        );
-      case 'welcome':
-        return (
-          <Welcome onContinue={handleNext} />
-        );
-      default:
-        return null;
-    }
-  };
+// Replace the renderStep function in onboarding-flow.tsx
+
+const renderStep = () => {
+  const step = STEPS[currentStep];
+  
+  switch (step) {
+    case 'profile':
+      return (
+        <ProfileSetup 
+          data={{
+            displayName: profileData.displayName,
+            photoURL: profileData.photoURL,
+            bio: profileData.bio,
+            location: profileData.location
+          }}
+          onUpdate={updateProfile}
+          onNext={handleNext}
+        />
+      );
+    case 'gender':
+      return (
+        <GenderSelection 
+          selectedGender={profileData.gender}
+          onSelectGender={(gender) => {
+            console.log('Gender selected:', gender); // Add this log
+            updateProfile('gender', gender);
+          }}
+        />
+      );
+    case 'age':
+      return (
+        <AgeSelection 
+          selectedAgeRange={profileData.ageRange}
+          onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
+        />
+      );
+    case 'lifestyle':
+      return (
+        <ExpectationsLifestyle 
+          selectedLifestyle={profileData.lifestyle}
+          onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
+        />
+      );
+    case 'interests':
+      return (
+        <InterestsSelection 
+          selectedInterests={profileData.interests}
+          onSelectInterests={(interests) => updateProfile('interests', interests)}
+          dealBreaker={profileData.dealBreaker}
+          onToggleDealBreaker={(value) => updateProfile('dealBreaker', value)}
+        />
+      );
+    case 'prompts':
+      return (
+        <ProfilePrompts 
+          prompts={profileData.prompts}
+          onUpdatePrompt={updatePrompt}
+        />
+      );
+    case 'subscription':
+      return (
+        <SubscriptionPlan 
+          selectedPlan={profileData.subscriptionPlan}
+          onSelectPlan={(planId) => updateProfile('subscriptionPlan', planId)}
+          onSkip={handleNext}
+          onContinue={handleNext}
+        />
+      );
+    case 'welcome':
+      return (
+        <Welcome onContinue={handleNext} />
+      );
+    default:
+      return null;
+  }
+};
 
   // If user is not authenticated, redirect to auth screen
   if (!user && !loading && !initialLoading) {

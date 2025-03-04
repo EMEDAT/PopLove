@@ -36,6 +36,8 @@ export default function HomeScreen() {
  const [selectedProfile, setSelectedProfile] = useState<any>(null);
  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
  const [isAnimating, setIsAnimating] = useState(false);
+ const [likeLoading, setLikeLoading] = useState(false);
+ const [passLoading, setPassLoading] = useState(false);
  
  // Swipe animation values
  const position = useRef(new Animated.ValueXY()).current;
@@ -91,20 +93,23 @@ export default function HomeScreen() {
        // First get the user's preferences
        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
        let blockedUsers: string[] = [];
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUserPreferences(userData);
-        blockedUsers = userData.blockedUsers || [];
-        
-        // Get location info if available
-        if (userData.latitude && userData.longitude) {
-          setUserLocation({
-            lat: userData.latitude,
-            lon: userData.longitude
-          });
-        }
-      }
+     
+       if (userDoc.exists()) {
+         const userData = userDoc.data();
+         setUserPreferences(userData);
+         blockedUsers = userData.blockedUsers || [];
+         
+         // Get location info if available
+         if (userData.latitude && userData.longitude) {
+           setUserLocation({
+             lat: userData.latitude,
+             lon: userData.longitude
+           });
+         }
+     
+         // Log user gender for debugging
+         console.log('Current user gender:', userData.gender);
+       }
        
        // Then fetch potential matches
        const profilesRef = collection(firestore, 'users');
@@ -114,37 +119,44 @@ export default function HomeScreen() {
        if (userPreferences && userPreferences.gender) {
          // Get gender preference (opposite of user's gender by default)
          const genderPreference = userPreferences.gender === 'male' ? 'female' : 'male';
+         console.log('Looking for gender:', genderPreference);
          
          profilesQuery = query(
-          profilesRef,
-          where('gender', '==', genderPreference),
-          where('hasCompletedOnboarding', '==', true),
-          limit(20) // Increased limit to account for filtering
-        );
-      } else {
-        // Default query
-        profilesQuery = query(
-          profilesRef,
-          where('hasCompletedOnboarding', '==', true),
-          limit(20)
-        );
-      }
+           profilesRef,
+           where('gender', '==', genderPreference),
+           where('hasCompletedOnboarding', '==', true),
+           limit(20)
+         );
+       } else {
+         // Default query
+         console.log('No gender preference found, showing all profiles');
+         profilesQuery = query(
+           profilesRef,
+           where('hasCompletedOnboarding', '==', true),
+           limit(20)
+         );
+       }
        
        const querySnapshot = await getDocs(profilesQuery);
+
+        // Define a type for the user data
+        interface UserData {
+          displayName?: string;
+          photoURL?: string;
+          bio?: string;
+          location?: string;
+          ageRange?: string;
+          interests?: string[];
+          gender?: string;
+          profession?: string;
+          [key: string]: any; // For any other fields in the document
+        }
        
        // Map the documents to a more usable format
        const fetchedProfiles = querySnapshot.docs
        .map(doc => {
-         const data = doc.data() as {
-           displayName?: string;
-           photoURL?: string;
-           bio?: string;
-           location?: string;
-           ageRange?: string;
-           interests?: string[];
-           gender?: string;
-           profession?: string;
-         };
+         const data = doc.data() as UserData;
+         console.log(`Profile: ${data.displayName}, Gender: ${data.gender}`);
          
          return {
            id: doc.id,
@@ -160,25 +172,44 @@ export default function HomeScreen() {
          };
        })
        .filter(profile => 
-        profile.id !== user.uid && // Exclude current user
-        !blockedUsers.includes(profile.id) // Exclude blocked users
-      );
+         profile.id !== user.uid && // Exclude current user
+         !blockedUsers.includes(profile.id) && // Exclude blocked users
+         (userPreferences?.gender ? 
+           // Double check gender filtering in JavaScript as well
+           (userPreferences.gender === 'male' ? profile.gender === 'female' : profile.gender === 'male') 
+           : true)
+       );
+     
+     console.log(`Filtered to ${fetchedProfiles.length} profiles`);
+     setProfiles(fetchedProfiles);
        
-       setProfiles(fetchedProfiles);
-       
-       if (fetchedProfiles.length === 0) {
-         setError('No profiles available right now. Check back soon!');
-       }
-     } catch (err: any) {
-       console.error('Error fetching profiles:', err);
-       setError('Failed to load profiles');
-     } finally {
-       setLoading(false);
-     }
+      if (fetchedProfiles.length === 0) {
+        setError('No profiles available right now. Check back soon!');
+      }
+    } catch (err) {
+      console.error('Error fetching profiles:', err);
+      setError('Failed to load profiles');
+    } finally {
+      setLoading(false);
+    }
    };
    
    loadData();
  }, [user]);
+
+ useEffect(() => {
+  if (profiles.length > 0) {
+    console.log(`PROFILE INDEX: ${currentProfileIndex} of ${profiles.length}`);
+    
+    // Log info about the current profile
+    if (currentProfileIndex < profiles.length) {
+      const currentProfile = profiles[currentProfileIndex];
+      console.log(`CURRENT PROFILE: ${currentProfile.displayName} (ID: ${currentProfile.id}, Gender: ${currentProfile.gender})`);
+    } else {
+      console.log('No more profiles to display');
+    }
+  }
+}, [currentProfileIndex, profiles]);
 
  const resetPosition = () => {
    Animated.spring(position, {
@@ -241,14 +272,15 @@ export default function HomeScreen() {
     }
   } catch (err) {
     console.error('Error saving like:', err);
-  }
-  
-  // Simply increment the index without animation
-  setCurrentProfileIndex(currentProfileIndex + 1);
-  
-  // If it was a match, show the match dialog
-  if (isMatch) {
-    Alert.alert('It\'s a Match!', 'You and this person like each other!');
+  } finally {
+    // IMPORTANT: Always advance to the next profile, even if there was an error
+    // This ensures the UI always moves forward
+    setCurrentProfileIndex(prevIndex => prevIndex + 1);
+    
+    // If it was a match, show the match dialog
+    if (isMatch) {
+      Alert.alert('It\'s a Match!', 'You and this person like each other!');
+    }
   }
 };
 
@@ -280,20 +312,35 @@ const swipeLeft = async () => {
     }
   } catch (err) {
     console.error('Error saving pass:', err);
+  } finally {
+    // IMPORTANT: Always advance to the next profile, even if there was an error
+    // This ensures the UI always moves forward
+    setCurrentProfileIndex(prevIndex => prevIndex + 1);
   }
-  
-  // Simply increment the index without animation
-  setCurrentProfileIndex(currentProfileIndex + 1);
 };
 
 
- const handleLike = () => {
-   swipeRight();
- };
+const handleLike = async () => {
+  if (likeLoading || passLoading) return; // Prevent multiple clicks
+  
+  setLikeLoading(true);
+  try {
+    await swipeRight();
+  } finally {
+    setLikeLoading(false);
+  }
+};
 
- const handlePass = () => {
-   swipeLeft();
- };
+const handlePass = async () => {
+  if (likeLoading || passLoading) return; // Prevent multiple clicks
+  
+  setPassLoading(true);
+  try {
+    await swipeLeft();
+  } finally {
+    setPassLoading(false);
+  }
+};
 
  const handleViewDetails = (profile: any) => {
    setSelectedProfile(profile);

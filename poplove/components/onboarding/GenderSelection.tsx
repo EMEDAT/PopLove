@@ -20,7 +20,10 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
       
       <View style={styles.optionsContainer}>
         <TouchableOpacity
-          onPress={() => onSelectGender('male')}
+          onPress={() => {
+            console.log('Male option selected'); // Add this log
+            onSelectGender('male');
+          }}
           style={styles.optionButton}
         >
           <LinearGradient
@@ -39,7 +42,10 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
         </TouchableOpacity>
         
         <TouchableOpacity
-          onPress={() => onSelectGender('female')}
+          onPress={() => {
+            console.log('Female option selected'); // Add this log
+            onSelectGender('female');
+          }}
           style={styles.optionButton}
         >
           <LinearGradient
