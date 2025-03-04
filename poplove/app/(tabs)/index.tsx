@@ -224,17 +224,30 @@ export default function HomeScreen() {
   // Save the like to Firestore
   try {
     if (user && currentProfile) {
-      // Create a like document
-      const likeRef = doc(firestore, 'likes', `${user.uid}_${currentProfile.id}`);
+      // Create a like document with a predictable ID format for easy querying
+      const likeId = `${user.uid}_${currentProfile.id}`;
+      const likeRef = doc(firestore, 'likes', likeId); // Use consistent ID format
+      
       await setDoc(likeRef, {
         fromUserId: user.uid,
         toUserId: currentProfile.id,
         createdAt: serverTimestamp(),
-        status: 'pending' // pending until the other user likes back
+        status: 'pending',
+        // Store profile data directly for easy access
+        profileData: {
+          id: currentProfile.id,
+          displayName: currentProfile.displayName,
+          photoURL: currentProfile.photoURL,
+          ageRange: currentProfile.ageRange,
+          location: currentProfile.location,
+          interests: currentProfile.interests,
+          bio: currentProfile.bio
+        }
       });
       
-      // Check if there's a matching like
-      const matchingLikeRef = doc(firestore, 'likes', `${currentProfile.id}_${user.uid}`);
+      // Check if there's a matching like (when the other person already liked current user)
+      const matchingLikeId = `${currentProfile.id}_${user.uid}`;
+      const matchingLikeRef = doc(firestore, 'likes', matchingLikeId);
       const matchingLike = await getDoc(matchingLikeRef);
       
       if (matchingLike.exists()) {
@@ -256,6 +269,7 @@ export default function HomeScreen() {
             }
           },
           createdAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp()
         });
         
         // Update both likes to matched
@@ -266,8 +280,7 @@ export default function HomeScreen() {
   } catch (err) {
     console.error('Error saving like:', err);
   } finally {
-    // IMPORTANT: Always advance to the next profile, even if there was an error
-    // This ensures the UI always moves forward
+    // Always advance to the next profile, even if there was an error
     setCurrentProfileIndex(prevIndex => prevIndex + 1);
     
     // If it was a match, show the match dialog
@@ -439,9 +452,12 @@ const handleSendFlower = async () => {
                   >
                     <View style={styles.card}>
                       {/* Like/Heart icon in top left */}
-                      <View style={styles.favoriteIcon}>
+                      <TouchableOpacity 
+                        style={styles.favoriteIcon}
+                        onPress={handleLike}
+                      >
                         <Ionicons name="heart" size={24} color="#EC5F61" />
-                      </View>
+                      </TouchableOpacity>
                       
                       {/* Main Image */}
                       <Image 

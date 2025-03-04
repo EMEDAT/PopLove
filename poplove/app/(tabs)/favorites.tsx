@@ -14,11 +14,11 @@ import {
   Modal,
   Alert
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { collection, query, getDocs, where, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +35,14 @@ export default function FavoritesScreen() {
       fetchFavorites();
     }
   }, [user]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reload data when screen comes into focus
+      fetchFavorites();
+      return () => {};
+    }, [])
+  );
 
   const fetchFavorites = async () => {
     try {
