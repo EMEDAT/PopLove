@@ -35,6 +35,7 @@ export default function HomeScreen() {
  const [error, setError] = useState<string | null>(null);
  const [selectedProfile, setSelectedProfile] = useState<any>(null);
  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+ const [isAnimating, setIsAnimating] = useState(false);
  
  // Swipe animation values
  const position = useRef(new Animated.ValueXY()).current;
@@ -70,22 +71,13 @@ export default function HomeScreen() {
 
  // PanResponder for swipe gestures
  const panResponder = useRef(
-   PanResponder.create({
-     onStartShouldSetPanResponder: () => true,
-     onPanResponderMove: (_, gestureState) => {
-       position.setValue({ x: gestureState.dx, y: gestureState.dy });
-     },
-     onPanResponderRelease: (_, gestureState) => {
-       if (gestureState.dx > SWIPE_THRESHOLD) {
-         swipeRight();
-       } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-         swipeLeft();
-       } else {
-         resetPosition();
-       }
-     }
-   })
- ).current;
+  PanResponder.create({
+    onStartShouldSetPanResponder: () => false, // Disable swipe gestures completely
+    onMoveShouldSetPanResponder: () => false,
+    onPanResponderMove: () => {}, // Empty function
+    onPanResponderRelease: () => {}
+  })
+).current;
 
  // Fetch user preferences and profiles
  useEffect(() => {
@@ -251,32 +243,16 @@ export default function HomeScreen() {
     console.error('Error saving like:', err);
   }
   
-  // Improve animation with a sequence and completion callback
-  Animated.sequence([
-    Animated.spring(position, {
-      toValue: { x: width + 100, y: 0 },
-      useNativeDriver: false,
-      friction: 4,
-      tension: 40
-    }),
-    Animated.timing(position, {
-      toValue: { x: 0, y: 0 },
-      duration: 0,
-      useNativeDriver: false
-    })
-  ]).start(() => {
-    setCurrentProfileIndex(currentProfileIndex + 1);
-    
-    // If it was a match, show the match dialog
-    if (isMatch) {
-      // TODO: Show match notification/dialog
-      Alert.alert('It\'s a Match!', 'You and this person like each other!');
-      // You could navigate to a match screen or show a modal here
-    }
-  });
+  // Simply increment the index without animation
+  setCurrentProfileIndex(currentProfileIndex + 1);
+  
+  // If it was a match, show the match dialog
+  if (isMatch) {
+    Alert.alert('It\'s a Match!', 'You and this person like each other!');
+  }
 };
 
- const swipeLeft = async () => {
+const swipeLeft = async () => {
   if (profiles.length <= currentProfileIndex) return;
   
   const currentProfile = profiles[currentProfileIndex];
@@ -297,7 +273,6 @@ export default function HomeScreen() {
       const userRef = doc(firestore, 'users', user.uid);
       
       // Use arrayUnion to add the ID to the blockedUsers array
-      // This avoids duplicates if the user already exists in the array
       await updateDoc(userRef, {
         blockedUsers: arrayUnion(currentProfile.id),
         updatedAt: serverTimestamp()
@@ -307,23 +282,10 @@ export default function HomeScreen() {
     console.error('Error saving pass:', err);
   }
   
-  // Animation sequence
-  Animated.sequence([
-    Animated.spring(position, {
-      toValue: { x: -width - 100, y: 0 },
-      useNativeDriver: false,
-      friction: 4,
-      tension: 40
-    }),
-    Animated.timing(position, {
-      toValue: { x: 0, y: 0 },
-      duration: 0,
-      useNativeDriver: false
-    })
-  ]).start(() => {
-    setCurrentProfileIndex(currentProfileIndex + 1);
-  });
+  // Simply increment the index without animation
+  setCurrentProfileIndex(currentProfileIndex + 1);
 };
+
 
  const handleLike = () => {
    swipeRight();
@@ -403,24 +365,18 @@ export default function HomeScreen() {
                   
                   // Position each card with different scales and opacities
                   return (
-                    <Animated.View
-                      key={profile.id}
-                      style={[
-                        styles.cardContainer,
-                        {
-                          transform: [
-                            { rotate: isFirstCard ? rotate : '0deg' },
-                            ...(isFirstCard ? position.getTranslateTransform() : []),
-                            { scale: isFirstCard ? 1 : isSecondCard ? nextCardScale : 0.9 }
-                          ],
-                          opacity: isFirstCard ? 1 : isSecondCard ? nextCardOpacity : 0.7,
-                          zIndex: profiles.length - index,
-                          position: 'absolute',
-                          top: isSecondCard ? 10 : isFirstCard ? 0 : 20, // Stack cards with slight offset
-                        }
-                      ]}
-                      {...(isFirstCard ? panResponder.panHandlers : {})}
-                    >
+                        <View
+                          key={profile.id}
+                          style={[
+                            styles.cardContainer,
+                            {
+                              zIndex: profiles.length - index,
+                              position: 'absolute',
+                              top: isSecondCard ? 10 : isFirstCard ? 0 : 20,
+                              opacity: isFirstCard ? 1 : isSecondCard ? 0.8 : 0.7,
+                            }
+                          ]}
+                        >
                       <View style={styles.card}>
                        {/* Like/Heart icon in top left */}
                        <View style={styles.favoriteIcon}>
@@ -500,7 +456,7 @@ export default function HomeScreen() {
                          )}
                        </View>
                      </View>
-                   </Animated.View>
+                   </View>
                  );
                })
            ) : (
