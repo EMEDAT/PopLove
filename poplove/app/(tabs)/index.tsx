@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
  View, 
  Text, 
- StyleSheet, 
+ StyleSheet,
+ Alert,  
  Image, 
  TouchableOpacity, 
  ActivityIndicator,
@@ -30,6 +31,7 @@ export default function HomeScreen() {
  const [profiles, setProfiles] = useState<any[]>([]);
  const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
  const [userPreferences, setUserPreferences] = useState<any>(null);
+ const [userLocation, setUserLocation] = useState({ lat: 0, lon: 0 });
  const [error, setError] = useState<string | null>(null);
  const [selectedProfile, setSelectedProfile] = useState<any>(null);
  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -96,7 +98,7 @@ export default function HomeScreen() {
        
        // First get the user's preferences
        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-       let blockedUsers = [];
+       let blockedUsers: string[] = [];
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -105,8 +107,10 @@ export default function HomeScreen() {
         
         // Get location info if available
         if (userData.latitude && userData.longitude) {
-          userLocation.lat = userData.latitude;
-          userLocation.lon = userData.longitude;
+          setUserLocation({
+            lat: userData.latitude,
+            lon: userData.longitude
+          });
         }
       }
        
@@ -388,33 +392,36 @@ export default function HomeScreen() {
          )}
          
          <View style={styles.cardsContainer}>
-           {profiles.length > currentProfileIndex ? (
-             profiles
-               .slice(currentProfileIndex, currentProfileIndex + 2)
-               .reverse()
-               .map((profile, index) => {
-                 const isTopCard = index === 0;
-                 
-                 return (
-                   <Animated.View
-                     key={profile.id}
-                     style={[
-                       styles.cardContainer,
-                       {
-                         transform: [
-                           { rotate: isTopCard ? rotate : '0deg' },
-                           ...position.getTranslateTransform(),
-                           { scaleX: isTopCard ? 1 : nextCardScale },
-                           { scaleY: isTopCard ? 1 : nextCardScale }
-                         ],
-                         opacity: isTopCard ? 1 : nextCardOpacity,
-                         zIndex: profiles.length - index,
-                         position: 'absolute',
-                       }
-                     ]}
-                     {...(isTopCard ? panResponder.panHandlers : {})}
-                   >
-                     <View style={styles.card}>
+            {profiles.length > currentProfileIndex ? (
+              // Render multiple cards at once from the stack
+              profiles
+                .slice(currentProfileIndex, currentProfileIndex + 3) // Render 3 cards instead of 2
+                .reverse() // Reverse to get correct z-index stacking
+                .map((profile, index) => {
+                  const isFirstCard = index === 0;
+                  const isSecondCard = index === 1;
+                  
+                  // Position each card with different scales and opacities
+                  return (
+                    <Animated.View
+                      key={profile.id}
+                      style={[
+                        styles.cardContainer,
+                        {
+                          transform: [
+                            { rotate: isFirstCard ? rotate : '0deg' },
+                            ...(isFirstCard ? position.getTranslateTransform() : []),
+                            { scale: isFirstCard ? 1 : isSecondCard ? nextCardScale : 0.9 }
+                          ],
+                          opacity: isFirstCard ? 1 : isSecondCard ? nextCardOpacity : 0.7,
+                          zIndex: profiles.length - index,
+                          position: 'absolute',
+                          top: isSecondCard ? 10 : isFirstCard ? 0 : 20, // Stack cards with slight offset
+                        }
+                      ]}
+                      {...(isFirstCard ? panResponder.panHandlers : {})}
+                    >
+                      <View style={styles.card}>
                        {/* Like/Heart icon in top left */}
                        <View style={styles.favoriteIcon}>
                          <Ionicons name="heart" size={24} color="#EC5F61" />
@@ -426,36 +433,6 @@ export default function HomeScreen() {
                          style={styles.profileImage}
                          resizeMode="cover"
                        />
-                       
-                       {/* Like Overlay */}
-                       {isTopCard && (
-                         <Animated.View 
-                           style={[
-                             styles.overlayContainer, 
-                             styles.likeOverlay, 
-                             { opacity: likeOpacity }
-                           ]}
-                         >
-                           <View style={styles.overlayButton}>
-                             <Ionicons name="heart" size={80} color="#4CAF50" />
-                           </View>
-                         </Animated.View>
-                       )}
-                       
-                       {/* Dislike Overlay */}
-                       {isTopCard && (
-                         <Animated.View 
-                           style={[
-                             styles.overlayContainer, 
-                             styles.dislikeOverlay, 
-                             { opacity: dislikeOpacity }
-                           ]}
-                         >
-                           <View style={styles.overlayButton}>
-                             <Ionicons name="close" size={80} color="#FF6B6B" />
-                           </View>
-                         </Animated.View>
-                       )}
                        
                        {/* Right-side Action Buttons */}
                        <View style={styles.actionButtons}>
@@ -614,12 +591,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
+    position: 'relative', // Ensure position relative for absolute children
+    width: '100%',
+    height: height * 0.62 // Match card height
   },
   cardContainer: {
     width: width * 0.9,
     height: height * 0.62,
     borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: 'transparent', // Make transparent to avoid white flash
   },
   card: {
     width: '100%',
