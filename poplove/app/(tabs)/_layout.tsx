@@ -25,8 +25,8 @@ export default function TabsLayout() {
           paddingTop: 5,
           paddingBottom: insets.bottom,
           backgroundColor: 'white',
-          borderTopWidth: 1,
-          borderTopColor: '#F3F4F6',
+          borderTopWidth: 0,
+          borderTopColor: 'white',
         },
       }}
     >

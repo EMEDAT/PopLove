@@ -436,7 +436,7 @@ export default function HomeScreen() {
                          </Text>
                          
                          <View style={styles.locationContainer}>
-                           <Ionicons name="location-outline" size={16} color="#888" />
+                           <Ionicons name="location-outline" size={30} color="#FFFFFF" />
                            <Text style={styles.locationText}>
                              {profile.location || 'Unknown location'}
                            </Text>
@@ -549,11 +549,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 2,
   },
   cardContainer: {
     width: width * 0.9,
-    height: height * 0.63,
+    height: height * 0.62,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -615,14 +615,13 @@ const styles = StyleSheet.create({
   actionButtons: {
     position: 'absolute',
     right: 15,
-    bottom: '20%',
+    bottom: '10%',
     alignItems: 'center',
     gap: 15,
     zIndex: 10,
   },
   actionButton: {
     alignItems: 'center',
-    marginBottom: 15,
   },
   findLoveCircle: {
     width: 50,
@@ -663,15 +662,15 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 45,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingVertical: 15,
   },
   profileName: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '400',
     color: 'white',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
@@ -681,10 +680,11 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 2,
   },
   locationText: {
     fontSize: 14,
+    fontWeight: '500',
     color: 'white',
     marginLeft: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
@@ -697,15 +697,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   interestTag: {
-    backgroundColor: 'rgba(80, 80, 80, 0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(80, 80, 80, 0.7)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
   },
   interestText: {
-    fontSize: 14,
+    fontSize: 12,
     color: 'white',
   },
   noMoreCardsContainer: {

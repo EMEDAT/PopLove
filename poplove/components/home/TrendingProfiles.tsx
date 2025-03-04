@@ -4,7 +4,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Image, 
   TouchableOpacity, 
   Dimensions,
   ImageBackground 
@@ -84,9 +83,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   trendingProfileCard: {
-    width: (width - 60) / 4,
-    height: (width - 60) / 3, // Increased height for rectangular cards
-    borderRadius: 8,
+    width: (width - 55) / 4,
+    height: (width - 120) / 2, // Increased height for rectangular cards
+    borderRadius: 12,
     overflow: 'hidden',
   },
   trendingProfileImage: {
