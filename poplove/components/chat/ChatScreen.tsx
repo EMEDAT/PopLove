@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import { router } from 'expo-router';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 
@@ -33,9 +32,10 @@ interface ChatScreenProps {
     photoURL: string;
     status?: string;
   };
+  onGoBack?: () => void; // Add this prop
 }
 
-export function ChatScreen({ matchId, otherUser }: ChatScreenProps) {
+export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const { user } = useAuthContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -125,7 +125,10 @@ export function ChatScreen({ matchId, otherUser }: ChatScreenProps) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={onGoBack} 
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         
@@ -209,12 +212,8 @@ export function ChatScreen({ matchId, otherUser }: ChatScreenProps) {
             placeholderTextColor="#999"
           />
           
-          <TouchableOpacity style={styles.inputButton} onPress={sendMessage}>
-            <Ionicons name="camera" size={24} color="#999" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="mic" size={24} color="#999" />
+          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+            <Ionicons name="send" size={24} color="#FF6B6B" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -223,6 +222,7 @@ export function ChatScreen({ matchId, otherUser }: ChatScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  // Your existing styles
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -327,14 +327,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9f9f9',
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
     maxHeight: 100,
     fontSize: 16,
   },
-  inputButton: {
+  sendButton: {
     padding: 8,
   },
 });

@@ -1,7 +1,7 @@
-// app/(tabs)/chat/[id].tsx
+// app/chat/[id].tsx
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuthContext } from '../../components/auth/AuthProvider';
@@ -63,6 +63,11 @@ export default function ChatDetail() {
     fetchMatchData();
   }, [matchId, user]);
 
+  const handleGoBack = () => {
+    // Navigate to matches tab instead of home
+    router.replace('/(tabs)/matches');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -88,6 +93,7 @@ export default function ChatDetail() {
     <ChatScreen
       matchId={matchId}
       otherUser={otherUser}
+      onGoBack={handleGoBack}
     />
   );
 }

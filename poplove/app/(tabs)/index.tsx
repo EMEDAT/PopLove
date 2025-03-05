@@ -307,6 +307,7 @@ export default function HomeScreen() {
           { 
             text: "Message Now", 
             onPress: () => {
+              // Use direct linking to chat route instead of router.replace
               router.push({
                 pathname: '/chat/[id]',
                 params: { id: matchId }

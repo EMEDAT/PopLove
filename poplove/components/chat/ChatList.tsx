@@ -7,8 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  ScrollView,
-  SafeAreaView
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
@@ -26,104 +25,134 @@ interface ChatPreview {
   unreadCount: number;
 }
 
-interface MatchData {
-    id: string;
-    users: string[];
-    userProfiles: {
-      [key: string]: {
-        displayName?: string;
-        photoURL?: string;
-      };
-    };
-    lastMessageTime: any;
-    // Add other properties as needed
-  }
-
 export function ChatList() {
   const { user } = useAuthContext();
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    // Fetch matches
-    const fetchMatches = async () => {
-      const matchesRef = collection(firestore, 'matches');
-      const q = query(
-        matchesRef,
-        where('users', 'array-contains', user.uid),
-        orderBy('lastMessageTime', 'desc')
-      );
+    setLoading(true);
+    
+    // Use onSnapshot to listen for real-time updates
+    const matchesRef = collection(firestore, 'matches');
+    const q = query(
+      matchesRef,
+      where('users', 'array-contains', user.uid),
+      orderBy('lastMessageTime', 'desc')
+    );
 
-      const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const matchesData = snapshot.docs.map(doc => ({
+    const unsubscribe = onSnapshot(q, 
+      async (snapshot) => {
+        try {
+          if (snapshot.empty) {
+            setChats([]);
+            setError('No matches yet');
+            setLoading(false);
+            return;
+          }
+
+          const matchesData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-          }) as MatchData);
-      
-        // Process matches to get chat previews
-        const chatPreviews = await Promise.all(
-          matchesData.map(async (match) => {
-            // Find the other user's ID
-            const otherUserId = match.users.find((id: string) => id !== user.uid) || '';
-            
-            // Get user profile data
-            const userProfile = otherUserId ? match.userProfiles?.[otherUserId] || {} : {};
-      
-            // Get last message
-            let lastMessage = '';
-            let lastMessageTime = match.lastMessageTime || null;
-            let unreadCount = 0;
-      
-            // Fetch the last message from the messages subcollection
-            try {
-              const messagesRef = collection(firestore, 'matches', match.id, 'messages');
-              const msgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-              const messageSnap = await getDocs(msgQuery);
+          }));
+          
+          // Process matches to get chat previews
+          const chatPreviews = await Promise.all(
+            matchesData.map(async (match: any) => {
+              // Find the other user's ID
+              const otherUserId = match.users.find((id: string) => id !== user.uid) || '';
               
-              if (!messageSnap.empty) {
-                const messageData = messageSnap.docs[0].data();
-                lastMessage = messageData.text || '';
-                lastMessageTime = messageData.createdAt;
+              // Get user profile data
+              const userProfile = otherUserId ? match.userProfiles?.[otherUserId] || {} : {};
+        
+              // Get last message
+              let lastMessage = '';
+              let lastMessageTime = match.lastMessageTime || null;
+              let unreadCount = 0;
+        
+              try {
+                const messagesRef = collection(firestore, 'matches', match.id, 'messages');
+                const msgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+                const messageSnap = await getDocs(msgQuery);
                 
-                // Check if the message is unread
-                if (messageData.senderId !== user.uid && !messageData.read) {
-                  unreadCount = 1;
+                if (!messageSnap.empty) {
+                  const messageData = messageSnap.docs[0].data();
+                  lastMessage = messageData.text || '';
+                  lastMessageTime = messageData.createdAt;
+                  
+                  // Check if the message is unread
+                  if (messageData.senderId !== user.uid && !messageData.read) {
+                    unreadCount = 1;
+                  }
                 }
+              } catch (error) {
+                console.error('Error fetching messages:', error);
               }
-            } catch (error) {
-              console.error('Error fetching messages:', error);
-            }
-      
-            return {
-              id: match.id,
-              otherUserId,
-              otherUserName: userProfile.displayName || 'User',
-              otherUserPhoto: userProfile.photoURL || '',
-              lastMessage,
-              lastMessageTime,
-              unreadCount
-            };
-          })
-        );
-      
-        setChats(chatPreviews);
+        
+              return {
+                id: match.id,
+                otherUserId,
+                otherUserName: userProfile.displayName || 'User',
+                otherUserPhoto: userProfile.photoURL || '',
+                lastMessage,
+                lastMessageTime,
+                unreadCount
+              };
+            })
+          );
+        
+          setChats(chatPreviews);
+          
+          if (chatPreviews.length === 0) {
+            setError('No matches yet');
+          } else {
+            setError(null);
+          }
+        } catch (err) {
+          console.error('Error processing matches:', err);
+          setError('Failed to load chats');
+        } finally {
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error('Error fetching matches:', err);
+        setError('Failed to load chats');
         setLoading(false);
-      });
+      }
+    );
 
-      return unsubscribe;
-    };
-
-    fetchMatches();
+    return unsubscribe;
   }, [user]);
 
   const navigateToChat = (chat: ChatPreview) => {
     router.push({
-        pathname: '/chat/[id]',
-        params: { id: chat.id }
-      });
+      pathname: '/chat/[id]',
+      params: { id: chat.id }
+    });
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.loadingText}>Loading chats...</Text>
+      </View>
+    );
+  }
+
+  if (error && chats.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="chatbubble-ellipses-outline" size={60} color="#ccc" />
+        <Text style={styles.emptyTitle}>No matches yet</Text>
+        <Text style={styles.emptySubtitle}>Start swiping to find your matches!</Text>
+      </View>
+    );
+  }
 
   // Format time for last message
   const formatLastMessageTime = (timestamp: any) => {
@@ -148,59 +177,7 @@ export function ChatList() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Chats</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.searchButton}>
-            <Ionicons name="search" size={22} color="#000" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="#000" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Profile circles at top */}
-      <View style={styles.profileCirclesContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.profileCirclesScroll}
-        >
-          {chats.map(chat => (
-            <TouchableOpacity 
-              key={chat.id} 
-              style={styles.profileCircle}
-              onPress={() => navigateToChat(chat)}
-            >
-              {chat.otherUserPhoto ? (
-                <Image 
-                  source={{ uri: chat.otherUserPhoto }} 
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={styles.placeholderImage}>
-                  <Text style={styles.placeholderText}>
-                    {chat.otherUserName.charAt(0)}
-                  </Text>
-                </View>
-              )}
-              {chat.unreadCount > 0 && (
-                <View style={styles.unreadDot} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.tabSelector}>
-        <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-          <Text style={[styles.tabText, styles.activeTabText]}>Messages</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Chat list */}
+    <View style={styles.container}>
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
@@ -209,7 +186,6 @@ export function ChatList() {
             style={styles.chatItem}
             onPress={() => navigateToChat(item)}
           >
-            {/* Profile pic */}
             <View style={styles.avatarContainer}>
               {item.otherUserPhoto ? (
                 <Image 
@@ -223,9 +199,11 @@ export function ChatList() {
                   </Text>
                 </View>
               )}
+              {item.unreadCount > 0 && (
+                <View style={styles.unreadDot} />
+              )}
             </View>
             
-            {/* Chat details */}
             <View style={styles.chatDetails}>
               <View style={styles.chatHeader}>
                 <Text style={styles.chatName}>{item.otherUserName}</Text>
@@ -254,7 +232,7 @@ export function ChatList() {
         )}
         contentContainerStyle={styles.chatList}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -263,96 +241,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  searchButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  moreButton: {
-    padding: 8,
-  },
-  profileCirclesContainer: {
-    height: 90,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  profileCirclesScroll: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-  },
-  profileCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginHorizontal: 8,
-    borderWidth: 2,
-    borderColor: '#FF6B6B',
-    position: 'relative',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 30,
-  },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 30,
-    backgroundColor: '#f5f5f5',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  placeholderText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#999',
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
   },
-  unreadDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#FF6B6B',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  tabSelector: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  tab: {
+  emptyContainer: {
     flex: 1,
-    paddingVertical: 15,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#FF6B6B',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  activeTabText: {
-    color: '#FF6B6B',
+  emptyTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    marginTop: 20,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
   },
   chatList: {
     paddingTop: 10,
@@ -364,6 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
+    position: 'relative',
     marginRight: 15,
   },
   avatar: {
@@ -375,9 +289,25 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#999',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FF6B6B',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   chatDetails: {
     flex: 1,
