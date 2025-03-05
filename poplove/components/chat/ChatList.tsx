@@ -11,9 +11,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import { collection, query, where, orderBy, onSnapshot, getDocs, doc, limit } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  getDocs, 
+  doc, 
+  limit, 
+  getDoc, 
+  updateDoc, 
+  serverTimestamp,
+  writeBatch
+} from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
+import { MessageStatus } from './MessageStatus';
 
 interface ChatPreview {
   id: string;
@@ -23,6 +37,7 @@ interface ChatPreview {
   lastMessage: string;
   lastMessageTime: any;
   unreadCount: number;
+  lastMessageSenderId: string;
 }
 
 export function ChatList() {
@@ -67,11 +82,14 @@ export function ChatList() {
               
               // Get user profile data
               const userProfile = otherUserId ? match.userProfiles?.[otherUserId] || {} : {};
+              
+              // Get unread count (defaults to 0)
+              const unreadCount = match.unreadCount?.[user.uid] || 0;
         
               // Get last message
-              let lastMessage = '';
+              let lastMessage = match.lastMessage || '';
               let lastMessageTime = match.lastMessageTime || null;
-              let unreadCount = 0;
+              let lastMessageSenderId = '';
         
               try {
                 const messagesRef = collection(firestore, 'matches', match.id, 'messages');
@@ -82,11 +100,7 @@ export function ChatList() {
                   const messageData = messageSnap.docs[0].data();
                   lastMessage = messageData.text || '';
                   lastMessageTime = messageData.createdAt;
-                  
-                  // Check if the message is unread
-                  if (messageData.senderId !== user.uid && !messageData.read) {
-                    unreadCount = 1;
-                  }
+                  lastMessageSenderId = messageData.senderId;
                 }
               } catch (error) {
                 console.error('Error fetching messages:', error);
@@ -99,7 +113,8 @@ export function ChatList() {
                 otherUserPhoto: userProfile.photoURL || '',
                 lastMessage,
                 lastMessageTime,
-                unreadCount
+                unreadCount,
+                lastMessageSenderId
               };
             })
           );
@@ -129,6 +144,44 @@ export function ChatList() {
   }, [user]);
 
   const navigateToChat = (chat: ChatPreview) => {
+    // Update message statuses to 'delivered' when opening the chat
+    // But only for messages sent by the other user
+    const updateMessagesStatus = async () => {
+      try {
+        const messagesRef = collection(firestore, 'matches', chat.id, 'messages');
+        const q = query(
+          messagesRef,
+          where('senderId', '==', chat.otherUserId),
+          where('status', '==', MessageStatus.SENT)
+        );
+        
+        const snapshot = await getDocs(q);
+        
+        // Update messages in batch
+        const batch = writeBatch(firestore);
+        snapshot.docs.forEach(doc => {
+          batch.update(doc.ref, { 
+            status: MessageStatus.DELIVERED,
+            deliveredAt: serverTimestamp()
+          });
+        });
+        
+        await batch.commit();
+        
+        // Reset unread count
+        await updateDoc(doc(firestore, 'matches', chat.id), {
+          [`unreadCount.${user?.uid}`]: 0
+        });
+        
+      } catch (error) {
+        console.error('Error updating message status:', error);
+      }
+    };
+    
+    // Update message status
+    updateMessagesStatus();
+    
+    // Navigate to chat
     router.push({
       pathname: '/chat/[id]',
       params: { id: chat.id }
@@ -206,7 +259,7 @@ export function ChatList() {
             
             <View style={styles.chatDetails}>
               <View style={styles.chatHeader}>
-                <Text style={styles.chatName}>{item.otherUserName}</Text>
+                <Text style={styles.chatName} numberOfLines={1}>{item.otherUserName}</Text>
                 <Text style={styles.chatTime}>
                   {formatLastMessageTime(item.lastMessageTime)}
                 </Text>
@@ -219,7 +272,7 @@ export function ChatList() {
                   ]}
                   numberOfLines={1}
                 >
-                  {item.lastMessage || "Start a conversation"}
+                  {item.lastMessageSenderId === user?.uid ? `You: ${item.lastMessage}` : item.lastMessage || "Start a conversation"}
                 </Text>
                 {item.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>

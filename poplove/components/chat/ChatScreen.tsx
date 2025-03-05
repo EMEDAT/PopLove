@@ -10,21 +10,36 @@ import {
   KeyboardAvoidingView, 
   Platform,
   SafeAreaView,
-  Image
+  Image,
+  AppState
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, where, getDocs, writeBatch } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  serverTimestamp, 
+  where, 
+  getDocs, 
+  writeBatch,
+  Timestamp
+} from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
+import { MessageStatus, MessageStatusIndicator } from './MessageStatus';
 
 interface Message {
-    id: string;
-    text: string;
-    senderId: string;
-    createdAt: any;
-    delivered: boolean; // Add this
-    read: boolean;      // Add this
-  }
+  id: string;
+  text: string;
+  senderId: string;
+  createdAt: Timestamp;
+  status: MessageStatus;
+  unreadCount?: number;
+}
 
 interface ChatScreenProps {
   matchId: string;
@@ -34,7 +49,7 @@ interface ChatScreenProps {
     photoURL: string;
     status?: string;
   };
-  onGoBack?: () => void; // Add this prop
+  onGoBack?: () => void;
 }
 
 export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
@@ -42,7 +57,27 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [appActive, setAppActive] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const appStateRef = useRef(AppState.currentState);
+
+  // Listen for app state changes (foreground/background)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const isActive = nextAppState === 'active';
+      appStateRef.current = nextAppState;
+      setAppActive(isActive);
+      
+      // When app comes to foreground, mark messages as read
+      if (isActive) {
+        markMessagesAsRead();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Subscribe to messages
   useEffect(() => {
@@ -55,7 +90,8 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newMessages = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        status: doc.data().status || MessageStatus.SENT
       })) as Message[];
       
       setMessages(newMessages);
@@ -67,103 +103,113 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 200);
       }
+      
+      // If app is active and chat is open, mark messages as read
+      if (appActive) {
+        markMessagesAsRead();
+      }
     });
 
     return unsubscribe;
   }, [matchId]);
 
+  // Mark messages as read when chat is opened
+  useEffect(() => {
+    markMessagesAsRead();
+    
+    // When chat screen is opened, set up periodic status check
+    const intervalId = setInterval(() => {
+      if (appActive) {
+        markMessagesAsRead();
+      }
+    }, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [matchId, appActive]);
 
-  // Add this function to mark messages as read
-const markMessagesAsRead = async () => {
-    if (!matchId || !user) return;
+  // Mark messages as read
+  const markMessagesAsRead = async () => {
+    if (!matchId || !user || !appActive) return;
     
     try {
+      // Find all unread messages from the other user
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
       const q = query(
         messagesRef,
-        where('senderId', '!=', user.uid),
-        where('read', '==', false)
+        where('senderId', '==', otherUser.id),
+        where('status', 'in', [MessageStatus.SENT, MessageStatus.DELIVERED])
       );
       
       const unreadMessages = await getDocs(q);
       
-      // Batch update all unread messages
+      if (unreadMessages.empty) return;
+      
+      // Update all to read in a batch
       const batch = writeBatch(firestore);
-      unreadMessages.docs.forEach(doc => {
-        batch.update(doc.ref, { read: true });
+      unreadMessages.docs.forEach(messageDoc => {
+        batch.update(messageDoc.ref, { 
+          status: MessageStatus.READ,
+          readAt: serverTimestamp()
+        });
       });
       
       await batch.commit();
+      
+      // Update unreadCount in the match document
+      await updateDoc(doc(firestore, 'matches', matchId), {
+        [`unreadCount.${otherUser.id}`]: 0
+      });
+      
+      console.log('Marked messages as read');
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
   };
-  
-  // Call this on initial load and whenever you return to the screen
-  useEffect(() => {
-    markMessagesAsRead();
-    
-    // Set up an interval to repeatedly mark messages as read while chat is open
-    const interval = setInterval(markMessagesAsRead, 5000);
-    
-    return () => clearInterval(interval);
-  }, [matchId, user]);
-  
-  // Update your message rendering to show status indicators
-  const renderMessageStatus = (message: Message) => {
-    if (message.senderId !== user?.uid) return null;
-    
-    // Position the ticks at the end of message
-    return (
-      <View style={styles.messageStatus}>
-        {!message.delivered ? (
-          <Ionicons name="checkmark" size={12} color="#aaa" /> // Single gray tick
-        ) : !message.read ? (
-          <View style={styles.doubleTick}>
-            <Ionicons name="checkmark" size={12} color="#aaa" style={styles.firstTick} />
-            <Ionicons name="checkmark" size={12} color="#aaa" />
-          </View> // Double gray tick
-        ) : (
-          <View style={styles.doubleTick}>
-            <Ionicons name="checkmark" size={12} color="#5B93FF" style={styles.firstTick} />
-            <Ionicons name="checkmark" size={12} color="#5B93FF" />
-          </View> // Double blue tick
-        )}
-      </View>
-    );
+
+  // Send message
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || !user?.uid || !matchId) return;
+
+    try {
+      // Create message with initial status
+      const messageData = {
+        text: inputMessage.trim(),
+        senderId: user.uid,
+        createdAt: serverTimestamp(),
+        status: MessageStatus.SENDING
+      };
+      
+      // Reset input field right away for better UX
+      setInputMessage('');
+      
+      // Add message to Firestore
+      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const messageDoc = await addDoc(messagesRef, messageData);
+      
+      // Update message status to SENT after adding
+      await updateDoc(doc(firestore, 'matches', matchId, 'messages', messageDoc.id), {
+        status: MessageStatus.SENT
+      });
+      
+      // Update match with last message and increment unread count for recipient
+      await updateDoc(doc(firestore, 'matches', matchId), {
+        lastMessageTime: serverTimestamp(),
+        lastMessage: inputMessage.trim(),
+        [`unreadCount.${otherUser.id}`]: (messages.filter(m => 
+          m.senderId === user.uid && 
+          (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
+        ).length || 0) + 1
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
-
-const sendMessage = async () => {
-  if (!inputMessage.trim() || !user?.uid || !matchId) return;
-
-  try {
-    const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-    await addDoc(messagesRef, {
-      text: inputMessage.trim(),
-      senderId: user.uid,
-      createdAt: serverTimestamp(),
-      delivered: false,
-      read: false
-    });
-
-    // Update lastMessageTime in the match document
-    await updateDoc(doc(firestore, 'matches', matchId), {
-      lastMessageTime: serverTimestamp()
-    });
-
-    // Clear input
-    setInputMessage('');
-  } catch (error) {
-    console.error('Error sending message:', error);
-  }
-};
-
-  // Format time for messages
-  const formatMessageTime = (timestamp: any) => {
+  // Format message time
+  const formatMessageTime = (timestamp: Timestamp | null) => {
     if (!timestamp) return '';
     
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.toMillis());
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -176,6 +222,8 @@ const sendMessage = async () => {
 
   // Group messages by date
   const groupedMessages = messages.reduce((groups: any, message) => {
+    if (!message.createdAt) return groups;
+    
     const date = message.createdAt?.toDate ? message.createdAt.toDate() : new Date();
     const dateStr = isToday(date) ? 'Today' : date.toLocaleDateString();
     
@@ -205,7 +253,7 @@ const sendMessage = async () => {
         
         <View style={styles.headerUserInfo}>
           <Image 
-            source={{ uri: otherUser.photoURL }} 
+            source={{ uri: otherUser.photoURL || 'https://via.placeholder.com/40' }} 
             style={styles.headerAvatar} 
           />
           <View>
@@ -246,11 +294,28 @@ const sendMessage = async () => {
               styles.messageContainer,
               isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
             ]}>
-            <View style={[styles.messageBubble, isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble]}>
-                <Text style={[styles.messageText, isCurrentUser ? styles.currentUserText : styles.otherUserText]}>
+              <View style={[
+                styles.messageBubble, 
+                isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+              ]}>
+                <Text style={[
+                  styles.messageText, 
+                  isCurrentUser ? styles.currentUserText : styles.otherUserText
+                ]}>
                   {message.text}
                 </Text>
-                {isCurrentUser && renderMessageStatus(message)}
+                
+                <View style={styles.messageFooter}>
+                  <Text style={styles.messageTime}>
+                    {formatMessageTime(message.createdAt)}
+                  </Text>
+                  
+                  {isCurrentUser && (
+                    <View style={styles.statusIndicator}>
+                      <MessageStatusIndicator status={message.status} />
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           );
@@ -278,8 +343,16 @@ const sendMessage = async () => {
             placeholderTextColor="#999"
           />
           
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-            <Ionicons name="send" size={24} color="#FF6B6B" />
+          <TouchableOpacity 
+            style={styles.sendButton} 
+            onPress={sendMessage}
+            disabled={!inputMessage.trim()}
+          >
+            <Ionicons 
+              name="send" 
+              size={24} 
+              color={inputMessage.trim() ? "#FF6B6B" : "#ccc"} 
+            />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -288,7 +361,6 @@ const sendMessage = async () => {
 }
 
 const styles = StyleSheet.create({
-  // Your existing styles
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -363,20 +435,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 10,
-  },
-  messageStatus: {
-    position: 'absolute',
-    right: 4,
-    bottom: -14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  doubleTick: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  firstTick: {
-    marginRight: -5,
+    minWidth: 80,
   },
   currentUserBubble: {
     backgroundColor: '#FF6B6B',
@@ -386,12 +445,27 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
+    marginBottom: 2,
   },
   currentUserText: {
     color: '#fff',
   },
   otherUserText: {
     color: '#000',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  messageTime: {
+    fontSize: 10,
+    color: 'rgba(0, 0, 0, 0.4)',
+    marginRight: 4,
+  },
+  statusIndicator: {
+    marginLeft: 2,
   },
   inputContainer: {
     borderTopWidth: 1,
