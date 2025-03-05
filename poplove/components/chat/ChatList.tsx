@@ -1,14 +1,15 @@
 // components/chat/ChatList.tsx
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator
-} from 'react-native';
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    Image,
+    ActivityIndicator,
+    Alert  // Add this import
+  } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
 import { 
@@ -20,7 +21,7 @@ import {
   getDocs, 
   doc, 
   limit, 
-  getDoc, 
+  deleteDoc, 
   updateDoc, 
   serverTimestamp,
   writeBatch
@@ -170,8 +171,8 @@ export function ChatList() {
         
         // Reset unread count
         await updateDoc(doc(firestore, 'matches', chat.id), {
-          [`unreadCount.${user?.uid}`]: 0
-        });
+            [`unreadCount.${user?.uid}`]: 0
+          });
         
       } catch (error) {
         console.error('Error updating message status:', error);
@@ -229,16 +230,49 @@ export function ChatList() {
     return date.toLocaleDateString();
   };
 
+  const handleDeleteChat = async (chatId: string) => {
+  try {
+    // Delete messages subcollection first
+    const messagesRef = collection(firestore, 'matches', chatId, 'messages');
+    const messagesSnapshot = await getDocs(messagesRef);
+    
+    const batch = writeBatch(firestore);
+    messagesSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+    
+    // Then delete the match document
+    await deleteDoc(doc(firestore, 'matches', chatId));
+    
+    // Update local state
+    setChats(currentChats => currentChats.filter(chat => chat.id !== chatId));
+  } catch (error) {
+    console.error('Error deleting chat:', error);
+    Alert.alert('Error', 'Failed to delete conversation');
+  }
+}
+
   return (
     <View style={styles.container}>
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.chatItem}
-            onPress={() => navigateToChat(item)}
-          >
+        <TouchableOpacity 
+        style={styles.chatItem}
+        onPress={() => navigateToChat(item)}
+        onLongPress={() => {
+            Alert.alert(
+            'Delete Conversation',
+            'Are you sure you want to delete this conversation?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChat(item.id) }
+            ]
+            );
+        }}
+        >
             <View style={styles.avatarContainer}>
               {item.otherUserPhoto ? (
                 <Image 

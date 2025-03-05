@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, doc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
 
@@ -56,27 +56,47 @@ export function ProfilePopup({
     if (!message.trim() || !user?.uid || !profile) return;
     
     try {
-      // First create match document if it doesn't exist
-      const matchRef = doc(collection(firestore, 'matches'));
-      const matchId = matchRef.id;
+      // Check if a match already exists between these users
+      const matchesRef = collection(firestore, 'matches');
+      const q = query(
+        matchesRef,
+        where('users', 'array-contains', user.uid),
+        where('userProfiles', 'array-contains', profile.id)
+      );
       
-      await setDoc(matchRef, {
-        users: [user.uid, profile.id],
-        userProfiles: {
-          [user.uid]: {
-            displayName: user.displayName,
-            photoURL: user.photoURL
-          },
-          [profile.id]: {
-            displayName: profile.displayName,
-            photoURL: profile.photoURL
-          }
-        },
-        createdAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp()
-      });
+      const existingMatches = await getDocs(q);
+      let matchId;
       
-      // Then add the first message
+      if (!existingMatches.empty) {
+        // Use existing match
+        matchId = existingMatches.docs[0].id;
+      } else {
+        // Create new match if none exists
+        const matchRef = doc(collection(firestore, 'matches'));
+        matchId = matchRef.id;
+        
+        await setDoc(matchRef, {
+            users: [user.uid, profile.id],
+            userProfiles: {
+              [user.uid]: {
+                displayName: user.displayName,
+                photoURL: user.photoURL
+              },
+              [profile.id]: {
+                displayName: profile.displayName,
+                photoURL: profile.photoURL
+              }
+            },
+            unreadCount: {
+              [user.uid]: 0,
+              [profile.id]: 1  // Initialize with 1 unread for recipient
+            },
+            createdAt: serverTimestamp(),
+            lastMessageTime: serverTimestamp()
+          });
+      }
+      
+      // Then add the message to the correct match
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
       await addDoc(messagesRef, {
         text: message,
@@ -84,11 +104,9 @@ export function ProfilePopup({
         createdAt: serverTimestamp()
       });
       
-      console.log('Message sent successfully');
       setMessage('');
       onClose();
       
-      // Navigate to the chat
       router.push({
         pathname: '/chat/[id]',
         params: { id: matchId }
