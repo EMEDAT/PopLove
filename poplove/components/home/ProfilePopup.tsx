@@ -19,6 +19,7 @@ import { collection, doc, addDoc, updateDoc, setDoc, serverTimestamp, query, whe
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
+import { SubscriptionGate } from '../shared/SubscriptionGate';
 
 const { width, height } = Dimensions.get('window');
 
@@ -50,7 +51,7 @@ export function ProfilePopup({
   const rotateValue = useSharedValue(0);
 
   // Create animated styles:
-const heartAnimatedStyle = useAnimatedStyle(() => {
+  const heartAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         { scale: scaleValue.value },
@@ -59,9 +60,8 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
     };
   });
   
-  // Add this function to start the beating animation:
+  // Existing emoji animation function
   const animateEmoji = () => {
-    // Heart beating animation
     scaleValue.value = withRepeat(
       withSequence(
         withTiming(1.3, { duration: 300 }),
@@ -70,7 +70,6 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
       3
     );
     
-    // Flower slight rotation
     rotateValue.value = withRepeat(
       withSequence(
         withTiming(15, { duration: 500 }),
@@ -83,16 +82,16 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
 
   if (!profile) return null;
 
-  // Extract first name and age from display name (assuming format: "Name,Age")
+  // Extract first name and age from display name
   const nameParts = profile.displayName.split(',');
   const firstName = nameParts[0].trim();
   const age = profile.age || (nameParts.length > 1 ? nameParts[1].trim() : '');
 
+  // Existing message sending logic
   const handleSendMessage = async () => {
     if (!message.trim() || !user?.uid || !profile) return;
     
     try {
-      // Check if a match already exists between these users
       const matchesRef = collection(firestore, 'matches');
       const q = query(
         matchesRef,
@@ -103,10 +102,8 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
       let matchId;
       
       if (!existingMatches.empty) {
-        // Use existing match
         matchId = existingMatches.docs[0].id;
       } else {
-        // Create new match if none exists
         const matchRef = doc(collection(firestore, 'matches'));
         matchId = matchRef.id;
         
@@ -124,14 +121,13 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
             },
             unreadCount: {
               [user.uid]: 0,
-              [profile.id]: 1  // Initialize with 1 unread for recipient
+              [profile.id]: 1
             },
             createdAt: serverTimestamp(),
             lastMessageTime: serverTimestamp()
           });
       }
       
-      // Then add the message to the correct match
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
       await addDoc(messagesRef, {
         text: message,
@@ -152,6 +148,7 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
     }
   };
 
+  // Existing enhanced interaction methods
   const handleEnhancedLike = async () => {
     if (!user || !profile) return;
     
@@ -165,22 +162,20 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
       );
       
       if (existingMatch) {
-        // Add heart emoji with special type
         await addDoc(collection(firestore, 'matches', existingMatch.id, 'messages'), {
           text: "❤️",
           senderId: user.uid,
           createdAt: serverTimestamp(),
           status: MessageStatus.SENT,
-          messageType: "animated-emoji", // Add this field
-          emojiSize: 48, // Make it larger
-          animationType: "heartbeat" // Specify animation type
+          messageType: "animated-emoji",
+          emojiSize: 48,
+          animationType: "heartbeat"
         });
         
-        // Update match document
         await updateDoc(doc(firestore, 'matches', existingMatch.id), {
           lastMessage: "❤️",
           lastMessageTime: serverTimestamp(),
-          lastMessageType: "animated-emoji" // Add this field here too
+          lastMessageType: "animated-emoji"
         });
         
         onClose();
@@ -209,7 +204,6 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
       );
       
       if (existingMatch) {
-        // Add flower emoji with animation properties
         await addDoc(collection(firestore, 'matches', existingMatch.id, 'messages'), {
           text: "🌹",
           senderId: user.uid,
@@ -220,7 +214,6 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
           animationType: "bloomingFlower"
         });
         
-        // Update match with last message info
         await updateDoc(doc(firestore, 'matches', existingMatch.id), {
           lastMessage: "🌹",
           lastMessageTime: serverTimestamp(),
@@ -269,45 +262,59 @@ const heartAnimatedStyle = useAnimatedStyle(() => {
             <Text style={styles.bioText}>{profile.bio || 'No bio available'}</Text>
           </View>
 
-          {/* Message input */}
-          <View style={styles.messageInputContainer}>
-            <TextInput
-              style={styles.messageInput}
-              placeholder="Message"
-              value={message}
-              onChangeText={setMessage}
-              placeholderTextColor="#999"
-            />
-            <TouchableOpacity 
-              style={styles.sendButton}
-              onPress={handleSendMessage}
+          {/* Gated Message Input - Premium Feature */}
+          <SubscriptionGate 
+            requiredTier="premium" 
+            featureName="Direct Messaging"
+            onClose={onClose}  // Pass the existing onClose method
             >
-              <Ionicons name="paper-plane" size={20} color="#FF6B6B" />
-            </TouchableOpacity>
-          </View>
+            <View style={styles.messageInputContainer}>
+              <TextInput
+                style={styles.messageInput}
+                placeholder="Message"
+                value={message}
+                onChangeText={setMessage}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity 
+                style={styles.sendButton}
+                onPress={handleSendMessage}
+              >
+                <Ionicons name="paper-plane" size={20} color="#FF6B6B" />
+              </TouchableOpacity>
+            </View>
+          </SubscriptionGate>
 
           {/* Action buttons */}
           <View style={styles.actionButtons}>
-          <TouchableOpacity 
-            style={styles.likeButton}
-            onPress={handleEnhancedLike}  // Use the new function here
+            {/* Basic like always available */}
+            <TouchableOpacity 
+              style={styles.likeButton}
+              onPress={onSendLike}
             >
-            <Text style={styles.likeButtonText}>Send a like 💖</Text>
+              <Text style={styles.likeButtonText}>Send a like 💖</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-            style={styles.flowerButton}
-            onPress={handleEnhancedFlower}  // Use the new function here
-            >
-            <LinearGradient
-                colors={['#EC5F61', '#F0B433']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-            >
-                <Text style={styles.flowerButtonText}>Send a flower 🌹</Text>
-            </LinearGradient>
-            </TouchableOpacity>
+            {/* Flower is a premium feature */}
+            <SubscriptionGate 
+                requiredTier="premium" 
+                featureName="Direct Messaging"
+                onClose={onClose}  // Pass the existing onClose method
+                >
+              <TouchableOpacity 
+                style={styles.flowerButton}
+                onPress={onSendFlower}
+              >
+                <LinearGradient
+                  colors={['#EC5F61', '#F0B433']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientButton}
+                >
+                  <Text style={styles.flowerButtonText}>Send a flower 🌹</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </SubscriptionGate>
           </View>
         </View>
       </View>
