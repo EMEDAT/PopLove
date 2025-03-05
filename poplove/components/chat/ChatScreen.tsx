@@ -542,9 +542,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    marginTop: 30,
   },
   backButton: {
-    padding: 5,
+    padding: 10,
   },
   headerUserInfo: {
     flex: 1,

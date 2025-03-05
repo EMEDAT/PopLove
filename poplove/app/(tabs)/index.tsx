@@ -21,6 +21,7 @@ import { firestore } from '../../lib/firebase';
 import TrendingProfiles from '../../components/home/TrendingProfiles';
 import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
 import ProfilePopup from '../../components/home/ProfilePopup';
+import { MessageStatus } from '../../components/chat/MessageStatus';
 import { router } from 'expo-router';
 
 
@@ -411,6 +412,80 @@ const handlePass = async () => {
   }
 };
 
+const sendEmojiMessage = async (emoji: string) => {
+  // Add null checks
+  if (!user || profiles.length <= currentProfileIndex) return;
+  
+  const currentProfile = profiles[currentProfileIndex];
+  
+  try {
+    // Existing implementation with added null safety
+    const matchesRef = collection(firestore, 'matches');
+    const q = query(
+      matchesRef, 
+      where('users', 'array-contains', user.uid)
+    );
+    
+    const matchSnapshot = await getDocs(q);
+    let matchId: string;
+    
+    const existingMatch = matchSnapshot.docs.find(doc => 
+      doc.data().users.includes(currentProfile.id)
+    );
+    
+    // Existing match creation logic
+    if (!existingMatch) {
+      const newMatchRef = doc(matchesRef);
+      matchId = newMatchRef.id;
+      
+      await setDoc(newMatchRef, {
+        users: [user.uid, currentProfile.id],
+        userProfiles: {
+          [user.uid]: {
+            displayName: user.displayName || 'User',
+            photoURL: user.photoURL || ''
+          },
+          [currentProfile.id]: {
+            displayName: currentProfile.displayName,
+            photoURL: currentProfile.photoURL
+          }
+        },
+        createdAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp()
+      });
+    } else {
+      matchId = existingMatch.id;
+    }
+    
+    // Existing emoji message sending logic
+    await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
+      text: emoji,
+      senderId: user.uid,
+      createdAt: serverTimestamp(),
+      status: MessageStatus.SENT,
+      messageType: 'animated-emoji',
+      emojiSize: emoji === "❤️" ? 48 : 60,
+      animationType: emoji === "❤️" ? "heartbeat" : "bloomingFlower"
+    });
+    
+    // Update match's last message
+    await updateDoc(doc(firestore, 'matches', matchId), {
+      lastMessage: emoji,
+      lastMessageTime: serverTimestamp(),
+      lastMessageType: 'animated-emoji'
+    });
+    
+    // Close popup and navigate to chat
+    setProfilePopupVisible(false);
+    router.push({
+      pathname: '/chat/[id]',
+      params: { id: matchId }
+    });
+  } catch (error) {
+    console.error('Error sending emoji message:', error);
+  }
+};
+
  return (
    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -585,8 +660,8 @@ const handlePass = async () => {
       visible={profilePopupVisible}
       onClose={() => setProfilePopupVisible(false)}
       profile={popupProfile}
-      onSendLike={handleLike}  // Use existing function
-      onSendFlower={handleLike}  // Also use handleLike for now
+      onSendLike={() => sendEmojiMessage("❤️")}
+      onSendFlower={() => sendEmojiMessage("🌹")}
     />
    </SafeAreaView>
  );
