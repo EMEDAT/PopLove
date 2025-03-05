@@ -411,17 +411,6 @@ const handlePass = async () => {
   }
 };
 
-const handleSendLike = async () => {
-  await swipeRight();
-  setProfilePopupVisible(false);
-};
-
-const handleSendFlower = async () => {
-  // Add your flower sending logic here
-  Alert.alert('Flower Sent!', 'You sent a flower to ' + popupProfile?.displayName);
-  setProfilePopupVisible(false);
-};
-
  return (
    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -592,13 +581,13 @@ const handleSendFlower = async () => {
 
 
      {/* Add ProfilePopup component here */}
-      <ProfilePopup
-        visible={profilePopupVisible}
-        onClose={() => setProfilePopupVisible(false)}
-        profile={popupProfile}
-        onSendLike={handleSendLike}
-        onSendFlower={handleSendFlower}
-      />
+     <ProfilePopup
+      visible={profilePopupVisible}
+      onClose={() => setProfilePopupVisible(false)}
+      profile={popupProfile}
+      onSendLike={handleLike}  // Use existing function
+      onSendFlower={handleLike}  // Also use handleLike for now
+    />
    </SafeAreaView>
  );
 }

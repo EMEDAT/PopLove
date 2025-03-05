@@ -12,9 +12,11 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MessageStatus } from '../chat/MessageStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, doc, addDoc, setDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, setDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
 
@@ -44,6 +46,40 @@ export function ProfilePopup({
 }: ProfilePopupProps) {
   const [message, setMessage] = useState('');
   const { user } = useAuthContext();
+  const scaleValue = useSharedValue(1);
+  const rotateValue = useSharedValue(0);
+
+  // Create animated styles:
+const heartAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scale: scaleValue.value },
+        { rotate: `${rotateValue.value}deg` }
+      ]
+    };
+  });
+  
+  // Add this function to start the beating animation:
+  const animateEmoji = () => {
+    // Heart beating animation
+    scaleValue.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 300 }),
+        withTiming(1, { duration: 300 })
+      ), 
+      3
+    );
+    
+    // Flower slight rotation
+    rotateValue.value = withRepeat(
+      withSequence(
+        withTiming(15, { duration: 500 }),
+        withTiming(-15, { duration: 500 }),
+        withTiming(0, { duration: 250 })
+      ),
+      2
+    );
+  };
 
   if (!profile) return null;
 
@@ -60,8 +96,7 @@ export function ProfilePopup({
       const matchesRef = collection(firestore, 'matches');
       const q = query(
         matchesRef,
-        where('users', 'array-contains', user.uid),
-        where('userProfiles', 'array-contains', profile.id)
+        where('users', 'array-contains', user.uid)
       );
       
       const existingMatches = await getDocs(q);
@@ -117,6 +152,94 @@ export function ProfilePopup({
     }
   };
 
+  const handleEnhancedLike = async () => {
+    if (!user || !profile) return;
+    
+    try {
+      const matchesRef = collection(firestore, 'matches');
+      const q = query(matchesRef, where('users', 'array-contains', user.uid));
+      
+      const querySnapshot = await getDocs(q);
+      const existingMatch = querySnapshot.docs.find(doc => 
+        doc.data().users.includes(profile.id)
+      );
+      
+      if (existingMatch) {
+        // Add heart emoji with special type
+        await addDoc(collection(firestore, 'matches', existingMatch.id, 'messages'), {
+          text: "❤️",
+          senderId: user.uid,
+          createdAt: serverTimestamp(),
+          status: MessageStatus.SENT,
+          messageType: "animated-emoji", // Add this field
+          emojiSize: 48, // Make it larger
+          animationType: "heartbeat" // Specify animation type
+        });
+        
+        // Update match document
+        await updateDoc(doc(firestore, 'matches', existingMatch.id), {
+          lastMessage: "❤️",
+          lastMessageTime: serverTimestamp(),
+          lastMessageType: "animated-emoji" // Add this field here too
+        });
+        
+        onClose();
+        router.push({
+          pathname: '/chat/[id]',
+          params: { id: existingMatch.id }
+        });
+      } else {
+        onSendLike();
+      }
+    } catch (error) {
+      console.error('Error sending like:', error);
+    }
+  };
+  
+  const handleEnhancedFlower = async () => {
+    if (!user || !profile) return;
+    
+    try {
+      const matchesRef = collection(firestore, 'matches');
+      const q = query(matchesRef, where('users', 'array-contains', user.uid));
+      
+      const querySnapshot = await getDocs(q);
+      const existingMatch = querySnapshot.docs.find(doc => 
+        doc.data().users.includes(profile.id)
+      );
+      
+      if (existingMatch) {
+        // Add flower emoji with animation properties
+        await addDoc(collection(firestore, 'matches', existingMatch.id, 'messages'), {
+          text: "🌹",
+          senderId: user.uid,
+          createdAt: serverTimestamp(),
+          status: MessageStatus.SENT,
+          messageType: "animated-emoji",
+          emojiSize: 60,
+          animationType: "bloomingFlower"
+        });
+        
+        // Update match with last message info
+        await updateDoc(doc(firestore, 'matches', existingMatch.id), {
+          lastMessage: "🌹",
+          lastMessageTime: serverTimestamp(),
+          lastMessageType: "animated-emoji"
+        });
+        
+        onClose();
+        router.push({
+          pathname: '/chat/[id]',
+          params: { id: existingMatch.id }
+        });
+      } else {
+        onSendFlower();
+      }
+    } catch (error) {
+      console.error('Error sending flower:', error);
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -165,25 +288,25 @@ export function ProfilePopup({
 
           {/* Action buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={styles.likeButton}
-              onPress={onSendLike}
+          <TouchableOpacity 
+            style={styles.likeButton}
+            onPress={handleEnhancedLike}  // Use the new function here
             >
-              <Text style={styles.likeButtonText}>Send a like 💖</Text>
+            <Text style={styles.likeButtonText}>Send a like 💖</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.flowerButton}
-              onPress={onSendFlower}
+            style={styles.flowerButton}
+            onPress={handleEnhancedFlower}  // Use the new function here
             >
-              <LinearGradient
+            <LinearGradient
                 colors={['#EC5F61', '#F0B433']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
-              >
+            >
                 <Text style={styles.flowerButtonText}>Send a flower 🌹</Text>
-              </LinearGradient>
+            </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>

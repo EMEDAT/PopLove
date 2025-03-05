@@ -29,17 +29,28 @@ import {
   writeBatch,
   Timestamp
 } from 'firebase/firestore';
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withRepeat, 
+    withTiming, 
+    withSequence,
+    withDelay
+  } from 'react-native-reanimated';
 import { firestore } from '../../lib/firebase';
 import { MessageStatus, MessageStatusIndicator } from './MessageStatus';
 
 interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: Timestamp;
-  status: MessageStatus;
-  unreadCount?: number;
-}
+    id: string;
+    text: string;
+    senderId: string;
+    createdAt: Timestamp;
+    status: MessageStatus;
+    unreadCount?: number;
+    messageType?: string;
+    emojiSize?: number;
+    animationType?: string;
+  }
 
 interface ChatScreenProps {
   matchId: string;
@@ -60,6 +71,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const [appActive, setAppActive] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   const appStateRef = useRef(AppState.currentState);
+  const [isFocused, setIsFocused] = useState(true);
 
   // Listen for app state changes (foreground/background)
   useEffect(() => {
@@ -78,6 +90,13 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    // Update messages to "DELIVERED" when the app comes to foreground
+    if (appActive && isFocused) {
+      markMessagesAsRead();
+    }
+  }, [appActive, isFocused]);
 
   // Subscribe to messages
   useEffect(() => {
@@ -195,10 +214,10 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       await updateDoc(doc(firestore, 'matches', matchId), {
         lastMessageTime: serverTimestamp(),
         lastMessage: inputMessage.trim(),
-        [`unreadCount.${otherUser.id}`]: (messages.filter(m => 
+        [`unreadCount.${otherUser.id}`]: messages.filter(m => 
           m.senderId === user.uid && 
           (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
-        ).length || 0) + 1
+        ).length + 1
       });
     } catch (error) {
       console.error('Error sending message:', error);
@@ -240,6 +259,71 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     ...(msgs as Message[])
   ]);
 
+  // Create a separate AnimatedEmojiMessage component outside your main component
+  const AnimatedEmojiMessage = ({ message, isCurrentUser, formatMessageTime }) => {
+    const scale = useSharedValue(1);
+    const [animating, setAnimating] = useState(true);
+    
+    // Function to start animation
+    const startAnimation = () => {
+      setAnimating(true);
+      // Very slow animation that lasts a long time
+      if (message.text === "❤️") {
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.3, { duration: 2000 }), // 15 seconds to expand
+            withTiming(1, { duration: 2000 })    // 15 seconds to contract
+          ), 
+          20 // Repeat 20 times = 10 minutes
+        );
+      } else if (message.text === "🌹") {
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(0.8, { duration: 1000 }),
+            withTiming(1.2, { duration: 1000 }),
+            withTiming(1, { duration: 1000 })
+          ), 
+          2 // Repeat very shortly
+        );
+      }
+    };
+  
+    // Start animation on first render
+    useEffect(() => {
+      startAnimation();
+    }, []);
+    
+    const animatedStyle = useAnimatedStyle(() => {
+      return { transform: [{ scale: scale.value }] };
+    });
+    
+    return (
+      <TouchableOpacity 
+        onPress={startAnimation}
+        style={[
+          styles.messageContainer,
+          isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
+        ]}
+      >
+        <Animated.Text style={[
+          { fontSize: message.emojiSize || 60, marginVertical: 10 },
+          animatedStyle
+        ]}>
+          {message.text}
+        </Animated.Text>
+        
+        <View style={styles.messageFooter}>
+          <Text style={styles.messageTime}>{formatMessageTime(message.createdAt)}</Text>
+          {isCurrentUser && (
+            <View style={styles.statusIndicator}>
+              <MessageStatusIndicator status={message.status} />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -278,48 +362,60 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
         data={flattenedMessages}
         keyExtractor={(item) => ('id' in item) ? item.id : Math.random().toString()}
         renderItem={({ item }) => {
-          if ('type' in item && item.type === 'date') {
+            if ('type' in item && item.type === 'date') {
+              return (
+                <View style={styles.dateHeader}>
+                  <Text style={styles.dateHeaderText}>{item.text}</Text>
+                </View>
+              );
+            }
+            
+            const message = item as Message;
+            const isCurrentUser = message.senderId === user?.uid;
+            
+            // Check if this is an animated emoji message
+            if (message.messageType === 'animated-emoji') {
+                return (
+                  <AnimatedEmojiMessage
+                    message={message}
+                    isCurrentUser={isCurrentUser}
+                    formatMessageTime={formatMessageTime}
+                  />
+                );
+              }
+            
+            // Regular message rendering
             return (
-              <View style={styles.dateHeader}>
-                <Text style={styles.dateHeaderText}>{item.text}</Text>
-              </View>
-            );
-          }
-          
-          const message = item as Message;
-          const isCurrentUser = message.senderId === user?.uid;
-          
-          return (
-            <View style={[
-              styles.messageContainer,
-              isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
-            ]}>
               <View style={[
-                styles.messageBubble, 
-                isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+                styles.messageContainer,
+                isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
               ]}>
-                <Text style={[
-                  styles.messageText, 
-                  isCurrentUser ? styles.currentUserText : styles.otherUserText
+                <View style={[
+                  styles.messageBubble, 
+                  isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
                 ]}>
-                  {message.text}
-                </Text>
-                
-                <View style={styles.messageFooter}>
-                  <Text style={styles.messageTime}>
-                    {formatMessageTime(message.createdAt)}
+                  <Text style={[
+                    styles.messageText, 
+                    isCurrentUser ? styles.currentUserText : styles.otherUserText
+                  ]}>
+                    {message.text}
                   </Text>
                   
-                  {isCurrentUser && (
-                    <View style={styles.statusIndicator}>
-                      <MessageStatusIndicator status={message.status} />
-                    </View>
-                  )}
+                  <View style={styles.messageFooter}>
+                    <Text style={styles.messageTime}>
+                      {formatMessageTime(message.createdAt)}
+                    </Text>
+                    
+                    {isCurrentUser && (
+                      <View style={styles.statusIndicator}>
+                        <MessageStatusIndicator status={message.status} />
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
-            </View>
-          );
-        }}
+            );
+          }}
         contentContainerStyle={styles.messageList}
       />
 
@@ -452,6 +548,11 @@ const styles = StyleSheet.create({
   },
   otherUserText: {
     color: '#000',
+  },
+  animatedEmoji: {
+    fontSize: 60,
+    padding: 10,
+    alignSelf: 'center'
   },
   messageFooter: {
     flexDirection: 'row',
