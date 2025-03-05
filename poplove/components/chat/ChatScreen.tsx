@@ -281,6 +281,19 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
           editedAt: serverTimestamp()
         });
         
+        // Check if this is the last message in the chat
+        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+        const lastMessageQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+        const lastMessageSnapshot = await getDocs(lastMessageQuery);
+        
+        if (!lastMessageSnapshot.empty && lastMessageSnapshot.docs[0].id === editingMessageId) {
+          // This is the last message, update the match document
+          await updateDoc(doc(firestore, 'matches', matchId), {
+            lastMessage: messageText,
+            lastMessageTime: serverTimestamp()
+          });
+        }
+        
         // Clear editing state
         setEditingMessageId(null);
       } else {
@@ -447,7 +460,13 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     return (
         <TouchableOpacity 
           onPress={startAnimation}
-          onLongPress={() => isCurrentUser && setLongPressedMessage(message.id)}
+          onLongPress={() => {
+            if (longPressedMessage === message.id) {
+              setLongPressedMessage(null);
+            } else if (isCurrentUser) {
+              setLongPressedMessage(message.id);
+            }
+          }}
           style={[
             styles.messageContainer,
             isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
@@ -466,7 +485,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
             {isCurrentUser && (
               <>
                 {longPressedMessage === message.id ? (
-                  <View style={{flexDirection: 'row', marginLeft: 4}}>
+                <View style={{flexDirection: 'row', marginLeft: 4}}>
                     <TouchableOpacity onPress={() => {
                     // Set the input message to the selected message for editing
                     setInputMessage(message.text);
@@ -477,9 +496,15 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
                     }} style={{marginHorizontal: 6}}>
                     <Ionicons name="pencil" size={16} color="#999" />
                     </TouchableOpacity>
-                  </View>
+                    <TouchableOpacity onPress={() => {
+                    deleteMessage(message.id);
+                    setLongPressedMessage(null);
+                    }} style={{marginHorizontal: 6}}>
+                    <Ionicons name="trash" size={16} color="#999" />
+                    </TouchableOpacity>
+                </View>
                 ) : (
-                  <MessageStatusIndicator status={message.status} />
+                <MessageStatusIndicator status={message.status} />
                 )}
               </>
             )}
@@ -555,7 +580,13 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
                   isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
                 ]}>
                   <TouchableOpacity 
-                    onLongPress={() => isCurrentUser && setLongPressedMessage(message.id)}
+                    onLongPress={() => {
+                        if (longPressedMessage === message.id) {
+                          setLongPressedMessage(null);
+                        } else if (isCurrentUser) {
+                          setLongPressedMessage(message.id);
+                        }
+                      }}
                     activeOpacity={0.8}
                     style={[
                       styles.messageBubble, 
@@ -578,13 +609,16 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
                         <>
                           {longPressedMessage === message.id ? (
                             <View style={{flexDirection: 'row', marginLeft: 4}}>
-                              <TouchableOpacity onPress={() => {
-                                // You can implement actual editing here
-                                Alert.alert("Edit Message", "This feature is coming soon");
-                                setLongPressedMessage(null);
-                              }} style={{marginHorizontal: 6}}>
-                                <Ionicons name="pencil" size={16} color="#999" />
-                              </TouchableOpacity>
+                            <TouchableOpacity onPress={() => {
+                            // Set the input message to the selected message for editing
+                            setInputMessage(message.text);
+                            // Save the message ID being edited
+                            setEditingMessageId(message.id);
+                            // Close the long press menu
+                            setLongPressedMessage(null);
+                            }} style={{marginHorizontal: 6}}>
+                            <Ionicons name="pencil" size={16} color="#999" />
+                            </TouchableOpacity>
                               <TouchableOpacity onPress={() => {
                                 deleteMessage(message.id);
                                 setLongPressedMessage(null);
