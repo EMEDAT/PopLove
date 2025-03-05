@@ -248,43 +248,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setActiveListeners(prev => [...prev, unsubscribe]);
   };
 
+  // const signOut = async () => {
+  //   try {
+  //     // Capture the user ID before signing out
+  //     const currentUserId = user?.uid;
+      
+  //     // First update offline status BEFORE signing out
+  //     if (currentUserId) {
+  //       await setDoc(doc(firestore, 'userStatus', currentUserId), {
+  //         isOnline: false,
+  //         lastActive: serverTimestamp()
+  //       }, { merge: true });
+  //     }
+      
+  //     // Clean up listeners
+  //     activeListeners.forEach(unsubscribe => unsubscribe());
+  //     setActiveListeners([]);
+      
+  //     // Small delay to ensure update completes
+  //     await new Promise(resolve => setTimeout(resolve, 300));
+      
+  //     // NOW sign out
+  //     await authService.signOut();
+      
+  //     // Reset state
+  //     setHasCompletedOnboardingState(false);
+  //     setOnboardingStartTime(null);
+  //     setOnboardingProgress(null);
+  //   } catch (error: unknown) {
+  //     // Type guard to check if error is an object with a message
+  //     const errorMessage = error instanceof Error 
+  //       ? error.message 
+  //       : typeof error === 'string' 
+  //         ? error 
+  //         : 'Signup failed';
+      
+  //     console.error('Signup Error:', errorMessage);
+  //     setError(errorMessage);
+  //     throw error;
+  //   }
+  // };
+
   const signOut = async () => {
     try {
-      // Capture the user ID before signing out
       const currentUserId = user?.uid;
       
-      // First update offline status BEFORE signing out
+      // Optional: Update offline status only if user is authenticated
       if (currentUserId) {
-        await setDoc(doc(firestore, 'userStatus', currentUserId), {
-          isOnline: false,
-          lastActive: serverTimestamp()
-        }, { merge: true });
+        try {
+          await setDoc(
+            doc(firestore, 'userStatus', currentUserId), 
+            { isOnline: false, lastActive: serverTimestamp() }, 
+            { merge: true }
+          );
+        } catch (statusError) {
+          console.warn('Could not update offline status:', statusError);
+        }
       }
       
       // Clean up listeners
       activeListeners.forEach(unsubscribe => unsubscribe());
       setActiveListeners([]);
       
-      // Small delay to ensure update completes
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // NOW sign out
+      // Sign out
       await authService.signOut();
       
       // Reset state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
       setOnboardingProgress(null);
-    } catch (error: unknown) {
-      // Type guard to check if error is an object with a message
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : typeof error === 'string' 
-          ? error 
-          : 'Signup failed';
-      
-      console.error('Signup Error:', errorMessage);
-      setError(errorMessage);
+    } catch (error) {
+      console.error('Sign Out Error:', error);
       throw error;
     }
   };
