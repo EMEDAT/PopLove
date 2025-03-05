@@ -21,6 +21,7 @@ import { firestore } from '../../lib/firebase';
 import TrendingProfiles from '../../components/home/TrendingProfiles';
 import { ProfileDetailsModal } from '../../components/shared/ProfileDetailsModal';
 import ProfilePopup from '../../components/home/ProfilePopup';
+import { router } from 'expo-router';
 
 
 const { width, height } = Dimensions.get('window');
@@ -220,6 +221,7 @@ export default function HomeScreen() {
   
   // Create a variable to track if we need to show a match dialog
   let isMatch = false;
+  let matchId: string | null = null;
   
   // Save the like to Firestore
   try {
@@ -256,6 +258,8 @@ export default function HomeScreen() {
         
         // Create a match
         const newMatchRef = doc(collection(firestore, 'matches'));
+        matchId = newMatchRef.id;
+        
         await setDoc(newMatchRef, {
           users: [user.uid, currentProfile.id],
           userProfiles: {
@@ -272,6 +276,13 @@ export default function HomeScreen() {
           lastMessageTime: serverTimestamp()
         });
         
+        // Add an initial system message
+        await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
+          text: "You matched! Start a conversation.",
+          senderId: "system",
+          createdAt: serverTimestamp()
+        });
+        
         // Update both likes to matched
         await updateDoc(likeRef, { status: 'matched' });
         await updateDoc(matchingLikeRef, { status: 'matched' });
@@ -284,8 +295,26 @@ export default function HomeScreen() {
     setCurrentProfileIndex(prevIndex => prevIndex + 1);
     
     // If it was a match, show the match dialog
-    if (isMatch) {
-      Alert.alert('It\'s a Match!', 'You and this person like each other!');
+    if (isMatch && matchId) {
+      Alert.alert(
+        "It's a Match! 💖",
+        `You and ${currentProfile.displayName} like each other!`,
+        [
+          { 
+            text: "Keep Browsing", 
+            style: "cancel" 
+          },
+          { 
+            text: "Message Now", 
+            onPress: () => {
+              router.push({
+                pathname: '/chat/[id]',
+                params: { id: matchId }
+              });
+            }
+          }
+        ]
+      );
     }
   }
 };
@@ -378,46 +407,6 @@ const handlePass = async () => {
   if (currentProfile) {
     setPopupProfile(currentProfile);
     setProfilePopupVisible(true);
-  }
-};
-
-const handleSendMessage = async (message: string) => {
-  if (!popupProfile || !message.trim() || !user?.uid) return;
-  
-  try {
-    // First create match document if it doesn't exist
-    const matchRef = doc(collection(firestore, 'matches'));
-    const matchId = matchRef.id;
-    
-    await setDoc(matchRef, {
-      users: [user.uid, popupProfile.id],
-      userProfiles: {
-        [user.uid]: {
-          displayName: user.displayName,
-          photoURL: user.photoURL
-        },
-        [popupProfile.id]: {
-          displayName: popupProfile.displayName,
-          photoURL: popupProfile.photoURL
-        }
-      },
-      createdAt: serverTimestamp(),
-      lastMessageTime: serverTimestamp()
-    });
-    
-    // Then add the first message
-    const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-    await addDoc(messagesRef, {
-      text: message,
-      senderId: user.uid,
-      createdAt: serverTimestamp()
-    });
-    
-    console.log('Message sent successfully');
-    setProfilePopupVisible(false);
-  } catch (error) {
-    console.error('Error sending message:', error);
-    Alert.alert('Error', 'Failed to send message');
   }
 };
 
@@ -608,7 +597,6 @@ const handleSendFlower = async () => {
         profile={popupProfile}
         onSendLike={handleSendLike}
         onSendFlower={handleSendFlower}
-        onSendMessage={handleSendMessage}
       />
    </SafeAreaView>
  );

@@ -8,10 +8,14 @@ import {
   Modal, 
   TouchableOpacity, 
   TextInput,
-  Dimensions 
+  Dimensions,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthContext } from '../../components/auth/AuthProvider';
+import { collection, doc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
@@ -29,7 +33,6 @@ interface ProfilePopupProps {
   } | null;
   onSendLike: () => void;
   onSendFlower: () => void;
-  onSendMessage: (message: string) => void;
 }
 
 export function ProfilePopup({ 
@@ -37,10 +40,10 @@ export function ProfilePopup({
   onClose, 
   profile, 
   onSendLike, 
-  onSendFlower,
-  onSendMessage 
+  onSendFlower
 }: ProfilePopupProps) {
   const [message, setMessage] = useState('');
+  const { user } = useAuthContext();
 
   if (!profile) return null;
 
@@ -49,10 +52,50 @@ export function ProfilePopup({
   const firstName = nameParts[0].trim();
   const age = profile.age || (nameParts.length > 1 ? nameParts[1].trim() : '');
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      onSendMessage(message);
+  const handleSendMessage = async () => {
+    if (!message.trim() || !user?.uid || !profile) return;
+    
+    try {
+      // First create match document if it doesn't exist
+      const matchRef = doc(collection(firestore, 'matches'));
+      const matchId = matchRef.id;
+      
+      await setDoc(matchRef, {
+        users: [user.uid, profile.id],
+        userProfiles: {
+          [user.uid]: {
+            displayName: user.displayName,
+            photoURL: user.photoURL
+          },
+          [profile.id]: {
+            displayName: profile.displayName,
+            photoURL: profile.photoURL
+          }
+        },
+        createdAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp()
+      });
+      
+      // Then add the first message
+      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+      await addDoc(messagesRef, {
+        text: message,
+        senderId: user.uid,
+        createdAt: serverTimestamp()
+      });
+      
+      console.log('Message sent successfully');
       setMessage('');
+      onClose();
+      
+      // Navigate to the chat
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: matchId }
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message');
     }
   };
 

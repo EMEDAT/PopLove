@@ -104,44 +104,43 @@ export default function LoveActionsScreen() {
         status: 'matched'
       });
   
-        // Create a match
-        const userUid = user?.uid;
-        if (userUid) {
+      // Create a match
+      const userUid = user?.uid;
+      if (userUid) {
         const newMatchRef = doc(collection(firestore, 'matches'));
         const matchId = newMatchRef.id;
         
-        const userProfiles: Record<string, { displayName?: string | null, photoURL?: string | null }> = {};
+        const userProfiles = {};
         
         userProfiles[userUid] = {
-            displayName: user?.displayName,
-            photoURL: user?.photoURL,
+          displayName: user?.displayName,
+          photoURL: user?.photoURL,
         };
         
         userProfiles[like.fromUserId] = {
-            displayName: like.profile.displayName,
-            photoURL: like.profile.photoURL,
+          displayName: like.profile.displayName,
+          photoURL: like.profile.photoURL,
         };
         
         await setDoc(newMatchRef, {
-            users: [userUid, like.fromUserId],
-            userProfiles,
-            createdAt: serverTimestamp(),
-            lastMessageTime: serverTimestamp() 
+          users: [userUid, like.fromUserId],
+          userProfiles,
+          createdAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp() 
         });
         
-        // ADD THE NEW CODE HERE, AFTER CREATING THE MATCH DOCUMENT
         // Create initial system message
         await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
-            text: "You matched! Start a conversation.",
-            senderId: "system",
-            createdAt: serverTimestamp()
+          text: "You matched! Start a conversation.",
+          senderId: "system",
+          createdAt: serverTimestamp()
         });
         
         // Remove from local state
         setPendingLikes(pendingLikes.filter(pendingLike => pendingLike.id !== like.id));
         setModalVisible(false);
         
-        // Display a match notification
+        // Display a match notification with navigation option
         Alert.alert(
           "It's a Match! 💖",
           `You and ${like.profile.displayName} like each other!`,
@@ -153,11 +152,11 @@ export default function LoveActionsScreen() {
             { 
               text: "Message Now", 
               onPress: () => {
-                // Direct navigation to chat screen with the specific match ID
+                // Navigate to chat screen with match ID
                 router.push({
-                    pathname: '/chat/[id]',
-                    params: { id: matchId }
-                  });
+                  pathname: '/chat/[id]',
+                  params: { id: matchId }
+                });
               }
             }
           ]
