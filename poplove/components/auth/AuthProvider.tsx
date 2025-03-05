@@ -19,6 +19,7 @@ type AuthContextType = {
   setHasCompletedOnboarding: (value: boolean) => Promise<void>;
   startOnboarding: () => void;
   saveOnboardingProgress: (progress: any) => Promise<void>;
+  registerListener: (unsubscribe: Function) => void;
 };
 
 const ONBOARDING_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -36,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   setHasCompletedOnboarding: async () => {},
   startOnboarding: () => {},
   saveOnboardingProgress: async () => {},
+  registerListener: () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboardingState] = useState(false);
   const [onboardingStartTime, setOnboardingStartTime] = useState<number | null>(null);
   const [onboardingProgress, setOnboardingProgress] = useState<any>(null);
+  const [activeListeners, setActiveListeners] = useState<Function[]>([]);
   
   // Use refs to prevent navigation loops
   const initialNavPerformed = useRef(false);
@@ -179,10 +182,19 @@ useEffect(() => {
     }
   };
 
+  const registerListener = (unsubscribe: Function) => {
+    setActiveListeners(prev => [...prev, unsubscribe]);
+  };
+
   const signOut = async () => {
     try {
+      // Clear all listeners first
+      activeListeners.forEach(unsubscribe => unsubscribe());
+      setActiveListeners([]);
+      
+      // Then sign out
       await authService.signOut();
-      // Reset state when signing out
+      // Reset remaining state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
       setOnboardingProgress(null);
@@ -268,7 +280,8 @@ useEffect(() => {
     resetAuth,
     setHasCompletedOnboarding: updateOnboardingStatus,
     startOnboarding,
-    saveOnboardingProgress
+    saveOnboardingProgress,
+    registerListener
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

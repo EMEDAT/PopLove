@@ -8,20 +8,27 @@ import {
   Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthContext } from '../../components/auth/AuthProvider';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { firestore } from '../../lib/firebase';
 
 interface GenderSelectionProps {
   selectedGender: string;
   onSelectGender: (gender: string) => void;
 }
-
 export default function GenderSelection({ selectedGender, onSelectGender }: GenderSelectionProps) {
+  const { user } = useAuthContext();
   const handleSelectGender = (gender: string) => {
     console.log(`Gender selected: ${gender}`);
     
-    // Add validation to ensure the gender is set correctly
-    if (gender !== 'male' && gender !== 'female') {
-      Alert.alert('Invalid Selection', 'Please select either male or female');
-      return;
+    // Store the gender in Firestore immediately after selection
+    if (user && user.uid) {
+      updateDoc(doc(firestore, 'users', user.uid), {
+        gender: gender,
+        updatedAt: serverTimestamp()
+      }).catch(error => {
+        console.error('Error updating gender:', error);
+      });
     }
     
     // Call the parent handler

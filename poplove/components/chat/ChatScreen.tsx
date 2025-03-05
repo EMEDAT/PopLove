@@ -14,15 +14,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, where, getDocs, writeBatch } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 
 interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: any;
-}
+    id: string;
+    text: string;
+    senderId: string;
+    createdAt: any;
+    delivered: boolean; // Add this
+    read: boolean;      // Add this
+  }
 
 interface ChatScreenProps {
   matchId: string;
@@ -70,23 +72,92 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     return unsubscribe;
   }, [matchId]);
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !user?.uid || !matchId) return;
 
+  // Add this function to mark messages as read
+const markMessagesAsRead = async () => {
+    if (!matchId || !user) return;
+    
     try {
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-      await addDoc(messagesRef, {
-        text: inputMessage.trim(),
-        senderId: user.uid,
-        createdAt: serverTimestamp(),
+      const q = query(
+        messagesRef,
+        where('senderId', '!=', user.uid),
+        where('read', '==', false)
+      );
+      
+      const unreadMessages = await getDocs(q);
+      
+      // Batch update all unread messages
+      const batch = writeBatch(firestore);
+      unreadMessages.docs.forEach(doc => {
+        batch.update(doc.ref, { read: true });
       });
-
-      // Clear input
-      setInputMessage('');
+      
+      await batch.commit();
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error marking messages as read:', error);
     }
   };
+  
+  // Call this on initial load and whenever you return to the screen
+  useEffect(() => {
+    markMessagesAsRead();
+    
+    // Set up an interval to repeatedly mark messages as read while chat is open
+    const interval = setInterval(markMessagesAsRead, 5000);
+    
+    return () => clearInterval(interval);
+  }, [matchId, user]);
+  
+  // Update your message rendering to show status indicators
+  const renderMessageStatus = (message: Message) => {
+    if (message.senderId !== user?.uid) return null;
+    
+    // Position the ticks at the end of message
+    return (
+      <View style={styles.messageStatus}>
+        {!message.delivered ? (
+          <Ionicons name="checkmark" size={12} color="#aaa" /> // Single gray tick
+        ) : !message.read ? (
+          <View style={styles.doubleTick}>
+            <Ionicons name="checkmark" size={12} color="#aaa" style={styles.firstTick} />
+            <Ionicons name="checkmark" size={12} color="#aaa" />
+          </View> // Double gray tick
+        ) : (
+          <View style={styles.doubleTick}>
+            <Ionicons name="checkmark" size={12} color="#5B93FF" style={styles.firstTick} />
+            <Ionicons name="checkmark" size={12} color="#5B93FF" />
+          </View> // Double blue tick
+        )}
+      </View>
+    );
+  };
+
+
+const sendMessage = async () => {
+  if (!inputMessage.trim() || !user?.uid || !matchId) return;
+
+  try {
+    const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+    await addDoc(messagesRef, {
+      text: inputMessage.trim(),
+      senderId: user.uid,
+      createdAt: serverTimestamp(),
+      delivered: false,
+      read: false
+    });
+
+    // Update lastMessageTime in the match document
+    await updateDoc(doc(firestore, 'matches', matchId), {
+      lastMessageTime: serverTimestamp()
+    });
+
+    // Clear input
+    setInputMessage('');
+  } catch (error) {
+    console.error('Error sending message:', error);
+  }
+};
 
   // Format time for messages
   const formatMessageTime = (timestamp: any) => {
@@ -175,16 +246,11 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
               styles.messageContainer,
               isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
             ]}>
-              <View style={[
-                styles.messageBubble,
-                isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
-              ]}>
-                <Text style={[
-                  styles.messageText,
-                  isCurrentUser ? styles.currentUserText : styles.otherUserText
-                ]}>
+            <View style={[styles.messageBubble, isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble]}>
+                <Text style={[styles.messageText, isCurrentUser ? styles.currentUserText : styles.otherUserText]}>
                   {message.text}
                 </Text>
+                {isCurrentUser && renderMessageStatus(message)}
               </View>
             </View>
           );
@@ -297,6 +363,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 10,
+  },
+  messageStatus: {
+    position: 'absolute',
+    right: 4,
+    bottom: -14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  doubleTick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  firstTick: {
+    marginRight: -5,
   },
   currentUserBubble: {
     backgroundColor: '#FF6B6B',
