@@ -244,10 +244,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // First update the user's online status BEFORE signing out
-      if (user) {
+      // Capture the user ID before signing out
+      const currentUserId = user?.uid;
+      
+      // First update the user's online status BEFORE signing out but only if we have a valid ID
+      if (currentUserId) {
         try {
-          await setDoc(doc(firestore, 'userStatus', user.uid), {
+          await setDoc(doc(firestore, 'userStatus', currentUserId), {
             isOnline: false,
             lastActive: serverTimestamp()
           }, { merge: true });
@@ -275,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(err.message);
     }
   };
-  
+
   const resetAuth = async () => {
     try {
       await authService.resetAuth();
