@@ -77,6 +77,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const appStateRef = useRef(AppState.currentState);
   const [isFocused, setIsFocused] = useState(true);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [longPressedMessage, setLongPressedMessage] = useState<string | null>(null);
 
   // Listen for app state changes (foreground/background)
@@ -265,39 +266,52 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   // Send message
   const sendMessage = async () => {
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
-
+  
     try {
       // Prevent sending duplicate messages by clearing input immediately
       const messageText = inputMessage.trim();
       setInputMessage('');
       
-      // Create message with initial status
-      const messageData = {
-        text: messageText,
-        senderId: user.uid,
-        createdAt: serverTimestamp(),
-        status: MessageStatus.SENDING
-      };
-      
-      // Add message to Firestore
-      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-      const messageDoc = await addDoc(messagesRef, messageData);
-      
-      // Update message status to SENT after adding
-      await updateDoc(doc(firestore, 'matches', matchId, 'messages', messageDoc.id), {
-        status: MessageStatus.SENT
-      });
-      
-      // Update match with last message and increment unread count for recipient
-      const otherUserId = otherUser.id;
-      await updateDoc(doc(firestore, 'matches', matchId), {
-        lastMessageTime: serverTimestamp(),
-        lastMessage: messageText,
-        [`unreadCount.${otherUserId}`]: messages.filter(m => 
-          m.senderId === user.uid && 
-          (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
-        ).length + 1
-      });
+      // Check if we're editing a message
+      if (editingMessageId) {
+        // Update the existing message
+        await updateDoc(doc(firestore, 'matches', matchId, 'messages', editingMessageId), {
+          text: messageText,
+          isEdited: true,
+          editedAt: serverTimestamp()
+        });
+        
+        // Clear editing state
+        setEditingMessageId(null);
+      } else {
+        // Create a new message with initial status
+        const messageData = {
+          text: messageText,
+          senderId: user.uid,
+          createdAt: serverTimestamp(),
+          status: MessageStatus.SENDING
+        };
+        
+        // Add message to Firestore
+        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+        const messageDoc = await addDoc(messagesRef, messageData);
+        
+        // Update message status to SENT after adding
+        await updateDoc(doc(firestore, 'matches', matchId, 'messages', messageDoc.id), {
+          status: MessageStatus.SENT
+        });
+        
+        // Update match with last message and increment unread count for recipient
+        const otherUserId = otherUser.id;
+        await updateDoc(doc(firestore, 'matches', matchId), {
+          lastMessageTime: serverTimestamp(),
+          lastMessage: messageText,
+          [`unreadCount.${otherUserId}`]: messages.filter(m => 
+            m.senderId === user.uid && 
+            (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
+          ).length + 1
+        });
+      }
       
       // Force status check after sending
       setTimeout(() => {
@@ -454,10 +468,14 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
                 {longPressedMessage === message.id ? (
                   <View style={{flexDirection: 'row', marginLeft: 4}}>
                     <TouchableOpacity onPress={() => {
-                      deleteMessage(message.id);
-                      setLongPressedMessage(null);
+                    // Set the input message to the selected message for editing
+                    setInputMessage(message.text);
+                    // Save the message ID being edited
+                    setEditingMessageId(message.id);
+                    // Close the long press menu
+                    setLongPressedMessage(null);
                     }} style={{marginHorizontal: 6}}>
-                      <Ionicons name="trash" size={16} color="#999" />
+                    <Ionicons name="pencil" size={16} color="#999" />
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -622,6 +640,18 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {editingMessageId && (
+        <View style={styles.editingIndicator}>
+            <Text style={styles.editingText}>Editing message</Text>
+            <TouchableOpacity onPress={() => {
+            setEditingMessageId(null);
+            setInputMessage('');
+            }}>
+            <Ionicons name="close-circle" size={16} color="#666" />
+            </TouchableOpacity>
+        </View>
+        )}
     </SafeAreaView>
   );
 }
@@ -763,6 +793,18 @@ const styles = StyleSheet.create({
   sendButton: {
     padding: 8,
   },
+  editingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    backgroundColor: '#f5f5f5',
+  },
+  editingText: {
+    fontSize: 12,
+    color: '#666',
+  }
 });
 
 export default ChatScreen;
