@@ -253,35 +253,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Capture the user ID before signing out
       const currentUserId = user?.uid;
       
-      // First update the user's online status BEFORE signing out but only if we have a valid ID
+      // First update offline status BEFORE signing out
       if (currentUserId) {
-        try {
-          await setDoc(doc(firestore, 'userStatus', currentUserId), {
-            isOnline: false,
-            lastActive: serverTimestamp()
-          }, { merge: true });
-        } catch (statusError) {
-          console.warn('Failed to update offline status:', statusError);
-          // Continue with signout even if this fails
-        }
+        await setDoc(doc(firestore, 'userStatus', currentUserId), {
+          isOnline: false,
+          lastActive: serverTimestamp()
+        }, { merge: true });
       }
       
-      // Then clean up listeners
+      // Clean up listeners
       activeListeners.forEach(unsubscribe => unsubscribe());
       setActiveListeners([]);
       
-      // Short delay to ensure listeners are closed
+      // Small delay to ensure update completes
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Now sign out
+      // NOW sign out
       await authService.signOut();
       
-      // Reset remaining state
+      // Reset state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
       setOnboardingProgress(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      // Type guard to check if error is an object with a message
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string' 
+          ? error 
+          : 'Signup failed';
+      
+      console.error('Signup Error:', errorMessage);
+      setError(errorMessage);
+      throw error;
     }
   };
 

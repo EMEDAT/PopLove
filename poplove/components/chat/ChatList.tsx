@@ -1,4 +1,3 @@
-// components/chat/ChatList.tsx
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -8,7 +7,8 @@ import {
     TouchableOpacity,
     Image,
     ActivityIndicator,
-    Alert  // Add this import
+    Alert,
+    AppState  // Add AppState import
   } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
@@ -24,7 +24,8 @@ import {
   deleteDoc, 
   updateDoc, 
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  getDoc
 } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
@@ -47,12 +48,67 @@ export function ChatList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // New method for global message status checking
+  const checkGlobalMessageStatus = async () => {
+    if (!user) return;
+
+    try {
+      // Get all matches for the current user
+      const matchesRef = collection(firestore, 'matches');
+      const q = query(matchesRef, where('users', 'array-contains', user.uid));
+      const matchesSnapshot = await getDocs(q);
+
+      for (const matchDoc of matchesSnapshot.docs) {
+        const matchId = matchDoc.id;
+        const matchData = matchDoc.data();
+        
+        // Find the other user in this match
+        const otherUserId = matchData.users.find((id: string) => id !== user.uid);
+        
+        // Check messages that are still in SENT status
+        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+        const pendingQuery = query(
+          messagesRef,
+          where('senderId', '==', user.uid),
+          where('status', '==', MessageStatus.SENT)
+        );
+        
+        const pendingMessages = await getDocs(pendingQuery);
+        
+        if (!pendingMessages.empty) {
+          // Check if recipient is online by checking their status document
+          const statusDoc = await getDoc(doc(firestore, 'userStatus', otherUserId));
+          
+          if (statusDoc.exists() && statusDoc.data().isOnline) {
+            // If recipient is online, update messages to DELIVERED
+            const batch = writeBatch(firestore);
+            pendingMessages.docs.forEach(messageDoc => {
+              batch.update(messageDoc.ref, { 
+                status: MessageStatus.DELIVERED,
+                deliveredAt: serverTimestamp()
+              });
+            });
+            
+            await batch.commit();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Global message status check failed:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
-    setLoading(true);
-    
-    // Use onSnapshot to listen for real-time updates
+    // Existing AppState handler for background/foreground tracking
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        checkGlobalMessageStatus();
+      }
+    });
+
+    // Existing matches query logic
     const matchesRef = collection(firestore, 'matches');
     const q = query(
       matchesRef,
@@ -141,7 +197,17 @@ export function ChatList() {
       }
     );
 
-    return unsubscribe;
+    // Periodic status check interval
+    const statusCheckInterval = setInterval(() => {
+      checkGlobalMessageStatus();
+    }, 30000); // Check every 30 seconds
+
+    // Cleanup function
+    return () => {
+      unsubscribe();
+      clearInterval(statusCheckInterval);
+      appStateSubscription.remove();
+    };
   }, [user]);
 
   const navigateToChat = async (chat: ChatPreview) => {
