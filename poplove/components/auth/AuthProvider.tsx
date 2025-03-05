@@ -192,14 +192,17 @@ useEffect(() => {
       activeListeners.forEach(unsubscribe => unsubscribe());
       setActiveListeners([]);
       
+      // Wait a small delay to ensure listeners are properly closed
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       // Then sign out
       await authService.signOut();
+      
       // Reset remaining state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
       setOnboardingProgress(null);
-      userNavFired.current = false;
-    } catch (err: any) {
+    } catch (err: any) { // Add type annotation here
       setError(err.message);
     }
   };
