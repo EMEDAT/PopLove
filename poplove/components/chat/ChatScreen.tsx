@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
+  Alert,
   StyleSheet, 
   FlatList, 
   TextInput, 
@@ -16,20 +17,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
 import { 
-  collection, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  addDoc, 
-  getDoc,
-  updateDoc, 
-  doc, 
-  serverTimestamp, 
-  where, 
-  getDocs, 
-  writeBatch,
-  Timestamp
-} from 'firebase/firestore';
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    addDoc, 
+    getDoc,
+    updateDoc,
+    deleteDoc, 
+    doc, 
+    serverTimestamp, 
+    where, 
+    getDocs, 
+    writeBatch,
+    Timestamp,
+    limit  // Add this
+  } from 'firebase/firestore';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -40,6 +43,7 @@ import Animated, {
   } from 'react-native-reanimated';
 import { firestore } from '../../lib/firebase';
 import { MessageStatus, MessageStatusIndicator } from './MessageStatus';
+import { router } from 'expo-router';
 
 interface Message {
     id: string;
@@ -73,6 +77,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const appStateRef = useRef(AppState.currentState);
   const [isFocused, setIsFocused] = useState(true);
+  const [longPressedMessage, setLongPressedMessage] = useState<string | null>(null);
 
   // Listen for app state changes (foreground/background)
   useEffect(() => {
@@ -235,11 +240,9 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       const undeliveredMessages = await getDocs(q);
       
       if (!undeliveredMessages.empty) {
-        // Check if recipient has been online recently
+        // Check if recipient is online based on explicit isOnline flag
         const userStatusDoc = await getDoc(doc(firestore, 'userStatus', otherUser.id));
-        const isOnline = userStatusDoc.exists() && 
-          userStatusDoc.data().lastActive && 
-          (new Date().getTime() - userStatusDoc.data().lastActive.toDate().getTime() < 60000); // Within last minute
+        const isOnline = userStatusDoc.exists() && userStatusDoc.data().isOnline === true;
         
         if (isOnline) {
           // Update to DELIVERED in batch
@@ -304,6 +307,53 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       }, 1000);
     } catch (error) {
       console.error('Error sending message:', error);
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!matchId || !user) return;
+    
+    try {
+      await deleteDoc(doc(firestore, 'matches', matchId, 'messages', messageId));
+      
+      // Check if this was the last message in the chat
+      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const remainingMessages = await getDocs(query(messagesRef, orderBy('createdAt', 'desc'), limit(1)));
+  
+      if (remainingMessages.empty) {
+        // No messages left, just delete the entire match document
+        try {
+          await deleteDoc(doc(firestore, 'matches', matchId));
+          router.replace('/(tabs)/matches'); // Navigate back to the chat list
+        } catch (err) {
+          console.error('Error deleting empty chat:', err);
+        }
+      } else {
+        // Update with the content of the new last message
+        const newLastMessage = remainingMessages.docs[0].data();
+        await updateDoc(doc(firestore, 'matches', matchId), {
+          lastMessage: newLastMessage.text,
+          lastMessageTime: newLastMessage.createdAt
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      Alert.alert('Error', 'Failed to delete message');
+    }
+  };
+  
+  const editMessage = async (messageId, newText) => {
+    if (!matchId || !user) return;
+    
+    try {
+      await updateDoc(doc(firestore, 'matches', matchId, 'messages', messageId), {
+        text: newText,
+        isEdited: true,
+        editedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error editing message:', error);
+      Alert.alert('Error', 'Failed to edit message');
     }
   };
 
@@ -381,30 +431,43 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     });
     
     return (
-      <TouchableOpacity 
-        onPress={startAnimation}
-        style={[
-          styles.messageContainer,
-          isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
-        ]}
-      >
-        <Animated.Text style={[
-          { fontSize: message.emojiSize || 60, marginVertical: 10 },
-          animatedStyle
-        ]}>
-          {message.text}
-        </Animated.Text>
-        
-        <View style={styles.messageFooter}>
-          <Text style={styles.messageTime}>{formatMessageTime(message.createdAt)}</Text>
-          {isCurrentUser && (
-            <View style={styles.statusIndicator}>
-              <MessageStatusIndicator status={message.status} />
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
+        <TouchableOpacity 
+          onPress={startAnimation}
+          onLongPress={() => isCurrentUser && setLongPressedMessage(message.id)}
+          style={[
+            styles.messageContainer,
+            isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
+          ]}
+        >
+          <Animated.Text style={[
+            { fontSize: message.emojiSize || 60, marginVertical: 10 },
+            animatedStyle
+          ]}>
+            {message.text}
+          </Animated.Text>
+          
+          <View style={styles.messageFooter}>
+            <Text style={styles.messageTime}>{formatMessageTime(message.createdAt)}</Text>
+            
+            {isCurrentUser && (
+              <>
+                {longPressedMessage === message.id ? (
+                  <View style={{flexDirection: 'row', marginLeft: 4}}>
+                    <TouchableOpacity onPress={() => {
+                      deleteMessage(message.id);
+                      setLongPressedMessage(null);
+                    }} style={{marginHorizontal: 6}}>
+                      <Ionicons name="trash" size={16} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <MessageStatusIndicator status={message.status} />
+                )}
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
   };
 
   return (
@@ -469,35 +532,59 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
             
             // Regular message rendering
             return (
-              <View style={[
-                styles.messageContainer,
-                isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
-              ]}>
                 <View style={[
-                  styles.messageBubble, 
-                  isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+                  styles.messageContainer,
+                  isCurrentUser ? styles.currentUserMessageContainer : styles.otherUserMessageContainer
                 ]}>
-                  <Text style={[
-                    styles.messageText, 
-                    isCurrentUser ? styles.currentUserText : styles.otherUserText
-                  ]}>
-                    {message.text}
-                  </Text>
-                  
-                  <View style={styles.messageFooter}>
-                    <Text style={styles.messageTime}>
-                      {formatMessageTime(message.createdAt)}
+                  <TouchableOpacity 
+                    onLongPress={() => isCurrentUser && setLongPressedMessage(message.id)}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.messageBubble, 
+                      isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+                    ]}
+                  >
+                    <Text style={[
+                      styles.messageText, 
+                      isCurrentUser ? styles.currentUserText : styles.otherUserText
+                    ]}>
+                      {message.text}
                     </Text>
                     
-                    {isCurrentUser && (
-                      <View style={styles.statusIndicator}>
-                        <MessageStatusIndicator status={message.status} />
-                      </View>
-                    )}
-                  </View>
+                    <View style={styles.messageFooter}>
+                      <Text style={styles.messageTime}>
+                        {formatMessageTime(message.createdAt)}
+                      </Text>
+                      
+                      {isCurrentUser && (
+                        <>
+                          {longPressedMessage === message.id ? (
+                            <View style={{flexDirection: 'row', marginLeft: 4}}>
+                              <TouchableOpacity onPress={() => {
+                                // You can implement actual editing here
+                                Alert.alert("Edit Message", "This feature is coming soon");
+                                setLongPressedMessage(null);
+                              }} style={{marginHorizontal: 6}}>
+                                <Ionicons name="pencil" size={16} color="#999" />
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => {
+                                deleteMessage(message.id);
+                                setLongPressedMessage(null);
+                              }} style={{marginHorizontal: 6}}>
+                                <Ionicons name="trash" size={16} color="#999" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <View style={styles.statusIndicator}>
+                              <MessageStatusIndicator status={message.status} />
+                            </View>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </View>
-            );
+              );
           }}
         contentContainerStyle={styles.messageList}
       />

@@ -60,13 +60,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Update user status when app is active
     const updateOnlineStatus = () => {
-      const userStatusRef = doc(firestore, 'userStatus', user.uid);
-      setDoc(userStatusRef, {
-        isOnline: true,
-        lastActive: serverTimestamp()
-      }, { merge: true }).catch(error => {
-        console.error('Error updating online status:', error);
-      });
+      if (!user) return;
+      
+      try {
+        const userStatusRef = doc(firestore, 'userStatus', user.uid);
+        setDoc(userStatusRef, {
+          isOnline: true,
+          lastActive: serverTimestamp()
+        }, { merge: true }).catch(error => {
+          console.warn('Status update failed - check Firestore rules:', error);
+        });
+      } catch (error) {
+        console.warn('Error updating online status:', error);
+      }
     };
 
     // Mark user as offline when app is closed/backgrounded

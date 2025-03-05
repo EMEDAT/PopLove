@@ -99,10 +99,13 @@ export function ProfilePopup({
       );
       
       const existingMatches = await getDocs(q);
-      let matchId;
+      const existingMatch = existingMatches.docs.find(doc => 
+        doc.data().users.includes(profile.id)
+      );
       
-      if (!existingMatches.empty) {
-        matchId = existingMatches.docs[0].id;
+      let matchId;
+      if (existingMatch) {
+        matchId = existingMatch.id;
       } else {
         const matchRef = doc(collection(firestore, 'matches'));
         matchId = matchRef.id;

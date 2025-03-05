@@ -168,36 +168,54 @@ export default function FavoritesScreen() {
     try {
       if (!user) return;
   
-      // It's a match!
-      // Create a match
-      const newMatchRef = doc(collection(firestore, 'matches'));
-      const matchId = newMatchRef.id;
+      // Check if a match already exists
+      const matchesRef = collection(firestore, 'matches');
+      const q = query(
+        matchesRef,
+        where('users', 'array-contains', user.uid)
+      );
       
-      await setDoc(newMatchRef, {
-        users: [user.uid, receivedLike.fromUserId],
-        userProfiles: {
-          [user.uid]: {
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+      const matchesSnapshot = await getDocs(q);
+      const existingMatch = matchesSnapshot.docs.find(doc => 
+        doc.data().users.includes(receivedLike.fromUserId)
+      );
+      
+      let matchId;
+      
+      if (existingMatch) {
+        // Use existing match
+        matchId = existingMatch.id;
+        console.log("Using existing match:", matchId);
+      } else {
+        // Create a new match only if none exists
+        const newMatchRef = doc(collection(firestore, 'matches'));
+        matchId = newMatchRef.id;
+        
+        await setDoc(newMatchRef, {
+          users: [user.uid, receivedLike.fromUserId],
+          userProfiles: {
+            [user.uid]: {
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+            },
+            [receivedLike.fromUserId]: {
+              displayName: receivedLike.profile.displayName,
+              photoURL: receivedLike.profile.photoURL,
+            }
           },
-          [receivedLike.fromUserId]: {
-            displayName: receivedLike.profile.displayName,
-            photoURL: receivedLike.profile.photoURL,
-          }
-        },
-        createdAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp()
-      });
+          createdAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp()
+        });
+        
+        // Add an initial system message
+        await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
+          text: "You matched! Start a conversation.",
+          senderId: "system",
+          createdAt: serverTimestamp()
+        });
+      }
       
-      // Add an initial system message
-      await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
-        text: "You matched! Start a conversation.",
-        senderId: "system",
-        createdAt: serverTimestamp()
-      });
-      
-      // Update both likes to matched
-      // First, the like we're responding to
+      // Update both likes to matched (do this regardless)
       await updateDoc(doc(firestore, 'likes', receivedLike.id), { 
         status: 'matched' 
       });
@@ -214,7 +232,7 @@ export default function FavoritesScreen() {
       // Update local state
       setReceivedLikes(receivedLikes.filter(like => like.id !== receivedLike.id));
       
-      // Show match notification
+      // Show match notification with correct match ID
       Alert.alert(
         "It's a Match! 💖",
         `You and ${receivedLike.profile.displayName} like each other!`,
@@ -239,7 +257,7 @@ export default function FavoritesScreen() {
       Alert.alert('Error', 'Failed to create match. Please try again.');
     }
   };
-
+  
   const rejectLike = async (receivedLike: any) => {
     try {
       // Update like status to rejected
