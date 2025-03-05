@@ -21,6 +21,7 @@ import {
   orderBy, 
   onSnapshot, 
   addDoc, 
+  getDoc,
   updateDoc, 
   doc, 
   serverTimestamp, 
@@ -151,37 +152,110 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     if (!matchId || !user || !appActive) return;
     
     try {
-      // Find all unread messages from the other user
+      // First, find messages that need to be updated to DELIVERED status
+      const deliveredMessagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const deliveredQuery = query(
+        deliveredMessagesRef,
+        where('senderId', '==', otherUser.id),
+        where('status', '==', MessageStatus.SENT)
+      );
+      
+      const deliveredMessages = await getDocs(deliveredQuery);
+      
+      if (!deliveredMessages.empty) {
+        // Update to DELIVERED in a batch
+        const deliveredBatch = writeBatch(firestore);
+        deliveredMessages.docs.forEach(messageDoc => {
+          deliveredBatch.update(messageDoc.ref, { 
+            status: MessageStatus.DELIVERED,
+            deliveredAt: serverTimestamp()
+          });
+        });
+        
+        await deliveredBatch.commit();
+      }
+  
+      // Then, find messages that need to be updated to READ status
+      const readMessagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const readQuery = query(
+        readMessagesRef,
+        where('senderId', '==', otherUser.id),
+        where('status', '==', MessageStatus.DELIVERED)
+      );
+      
+      const readMessages = await getDocs(readQuery);
+      
+      if (!readMessages.empty) {
+        // Update to READ in a batch
+        const readBatch = writeBatch(firestore);
+        readMessages.docs.forEach(messageDoc => {
+          readBatch.update(messageDoc.ref, { 
+            status: MessageStatus.READ,
+            readAt: serverTimestamp()
+          });
+        });
+        
+        await readBatch.commit();
+        
+        // Reset unread count in match document
+        await updateDoc(doc(firestore, 'matches', matchId), {
+          [`unreadCount.${user.uid}`]: 0
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error updating message status:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Check delivery status for sent messages periodically when app is active
+    const checkDeliveryInterval = setInterval(() => {
+      if (appActive) {
+        checkDeliveryStatus();
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(checkDeliveryInterval);
+  }, [appActive]);
+  
+  // Function to update message status to DELIVERED when recipient is online
+  const checkDeliveryStatus = async () => {
+    if (!matchId || !user) return;
+    
+    try {
+      // Get undelivered messages sent by current user
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
       const q = query(
         messagesRef,
-        where('senderId', '==', otherUser.id),
-        where('status', 'in', [MessageStatus.SENT, MessageStatus.DELIVERED])
+        where('senderId', '==', user.uid),
+        where('status', '==', MessageStatus.SENT)
       );
       
-      const unreadMessages = await getDocs(q);
+      const undeliveredMessages = await getDocs(q);
       
-      if (unreadMessages.empty) return;
-      
-      // Update all to read in a batch
-      const batch = writeBatch(firestore);
-      unreadMessages.docs.forEach(messageDoc => {
-        batch.update(messageDoc.ref, { 
-          status: MessageStatus.READ,
-          readAt: serverTimestamp()
-        });
-      });
-      
-      await batch.commit();
-      
-      // Update unreadCount in the match document
-      await updateDoc(doc(firestore, 'matches', matchId), {
-        [`unreadCount.${otherUser.id}`]: 0
-      });
-      
-      console.log('Marked messages as read');
+      if (!undeliveredMessages.empty) {
+        // Check if recipient has been online recently
+        const userStatusDoc = await getDoc(doc(firestore, 'userStatus', otherUser.id));
+        const isOnline = userStatusDoc.exists() && 
+          userStatusDoc.data().lastActive && 
+          (new Date().getTime() - userStatusDoc.data().lastActive.toDate().getTime() < 60000); // Within last minute
+        
+        if (isOnline) {
+          // Update to DELIVERED in batch
+          const batch = writeBatch(firestore);
+          undeliveredMessages.docs.forEach(doc => {
+            batch.update(doc.ref, {
+              status: MessageStatus.DELIVERED,
+              deliveredAt: serverTimestamp()
+            });
+          });
+          
+          await batch.commit();
+        }
+      }
     } catch (error) {
-      console.error('Error marking messages as read:', error);
+      console.error('Error checking delivery status:', error);
     }
   };
 

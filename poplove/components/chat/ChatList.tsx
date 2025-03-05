@@ -144,21 +144,30 @@ export function ChatList() {
     return unsubscribe;
   }, [user]);
 
-  const navigateToChat = (chat: ChatPreview) => {
-    // Update message statuses to 'delivered' when opening the chat
-    // But only for messages sent by the other user
-    const updateMessagesStatus = async () => {
-      try {
-        const messagesRef = collection(firestore, 'matches', chat.id, 'messages');
-        const q = query(
-          messagesRef,
-          where('senderId', '==', chat.otherUserId),
-          where('status', '==', MessageStatus.SENT)
-        );
-        
-        const snapshot = await getDocs(q);
-        
-        // Update messages in batch
+  const navigateToChat = async (chat: ChatPreview) => {
+    if (!user) return;
+    
+    try {
+      // This function needs to reset unread count immediately when entering chat
+      if (chat.unreadCount > 0) {
+        // Reset unread count first
+        await updateDoc(doc(firestore, 'matches', chat.id), {
+          [`unreadCount.${user.uid}`]: 0
+        });
+      }
+      
+      // Get messages that need to be updated to delivered status
+      const messagesRef = collection(firestore, 'matches', chat.id, 'messages');
+      const q = query(
+        messagesRef,
+        where('senderId', '==', chat.otherUserId),
+        where('status', '==', MessageStatus.SENT)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      // Update messages in batch
+      if (!snapshot.empty) {
         const batch = writeBatch(firestore);
         snapshot.docs.forEach(doc => {
           batch.update(doc.ref, { 
@@ -168,19 +177,10 @@ export function ChatList() {
         });
         
         await batch.commit();
-        
-        // Reset unread count
-        await updateDoc(doc(firestore, 'matches', chat.id), {
-            [`unreadCount.${user?.uid}`]: 0
-          });
-        
-      } catch (error) {
-        console.error('Error updating message status:', error);
       }
-    };
-    
-    // Update message status
-    updateMessagesStatus();
+    } catch (error) {
+      console.error('Error updating message status:', error);
+    }
     
     // Navigate to chat
     router.push({

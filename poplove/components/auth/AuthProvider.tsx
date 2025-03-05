@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, firestore, serverTimestamp } from '../../lib/firebase';
 import { authService } from '../../services/auth';
 import { router } from 'expo-router';
+import { AppState } from 'react-native';
 
 type AuthContextType = {
   user: User | null;
@@ -52,6 +53,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use refs to prevent navigation loops
   const initialNavPerformed = useRef(false);
   const userNavFired = useRef(false);
+
+  // Add this function to track user online status
+  const trackUserStatus = () => {
+    if (!user) return;
+
+    // Update user status when app is active
+    const updateOnlineStatus = () => {
+      const userStatusRef = doc(firestore, 'userStatus', user.uid);
+      setDoc(userStatusRef, {
+        isOnline: true,
+        lastActive: serverTimestamp()
+      }, { merge: true }).catch(error => {
+        console.error('Error updating online status:', error);
+      });
+    };
+
+    // Mark user as offline when app is closed/backgrounded
+    const updateOfflineStatus = () => {
+      const userStatusRef = doc(firestore, 'userStatus', user.uid);
+      setDoc(userStatusRef, {
+        isOnline: false,
+        lastActive: serverTimestamp()
+      }, { merge: true }).catch(error => {
+        console.error('Error updating offline status:', error);
+      });
+    };
+
+    // Set up app state listener
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        updateOnlineStatus();
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        updateOfflineStatus();
+      }
+    });
+
+    // Initial status update
+    updateOnlineStatus();
+
+    // Set up cleanup for when component unmounts
+    return () => {
+      subscription.remove();
+      updateOfflineStatus();
+    };
+  };
+
+  // Add this to your useEffect in AuthProvider
+  useEffect(() => {
+    if (user) {
+      const unsubscribeStatus = trackUserStatus();
+      return () => {
+        if (unsubscribeStatus) unsubscribeStatus();
+      };
+    }
+  }, [user]);
 
   // Handle user authentication state changes
   useEffect(() => {
@@ -110,41 +166,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Single navigation effect that runs only once when auth state is determined
-// In the navigation effect
-useEffect(() => {
-  if (loading) return;
-  
-  const performNavigation = async () => {
-    // Always start with splash screen first time
-    if (!initialNavPerformed.current) {
-      router.replace('/(onboarding)/splash');
-      initialNavPerformed.current = true;
-      return;
-    }
+  // In the navigation effect
+  useEffect(() => {
+    if (loading) return;
     
-    // If no user, go directly to auth
-    if (!user) {
-      router.replace('/(auth)');
-      return;
-    }
+    const performNavigation = async () => {
+      // Always start with splash screen first time
+      if (!initialNavPerformed.current) {
+        router.replace('/(onboarding)/splash');
+        initialNavPerformed.current = true;
+        return;
+      }
+      
+      // If no user, go directly to auth
+      if (!user) {
+        router.replace('/(auth)');
+        return;
+      }
+      
+      // CRITICAL CHANGE: ALWAYS redirect to onboarding if not completed
+      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+      const userData = userDoc.data();
+      
+      // STRICT REDIRECT: If onboarding is not complete, ALWAYS go to onboarding flow
+      if (!userData?.hasCompletedOnboarding) {
+        router.replace('/(onboarding)/onboarding-flow');
+        return;
+      }
+      
+      // Signed-in user with completed onboarding goes to dashboard
+      router.replace('/(tabs)');
+    };
     
-    // CRITICAL CHANGE: ALWAYS redirect to onboarding if not completed
-    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-    const userData = userDoc.data();
-    
-    // STRICT REDIRECT: If onboarding is not complete, ALWAYS go to onboarding flow
-    if (!userData?.hasCompletedOnboarding) {
-      router.replace('/(onboarding)/onboarding-flow');
-      return;
-    }
-    
-    // Signed-in user with completed onboarding goes to dashboard
-    router.replace('/(tabs)');
-  };
-  
-  // Small delay to ensure state stability
-  setTimeout(performNavigation, 100);
-}, [loading, user, hasCompletedOnboarding]);
+    // Small delay to ensure state stability
+    setTimeout(performNavigation, 100);
+  }, [loading, user, hasCompletedOnboarding]);
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -188,25 +244,38 @@ useEffect(() => {
 
   const signOut = async () => {
     try {
-      // Clear all listeners first
+      // First update the user's online status BEFORE signing out
+      if (user) {
+        try {
+          await setDoc(doc(firestore, 'userStatus', user.uid), {
+            isOnline: false,
+            lastActive: serverTimestamp()
+          }, { merge: true });
+        } catch (statusError) {
+          console.warn('Failed to update offline status:', statusError);
+          // Continue with signout even if this fails
+        }
+      }
+      
+      // Then clean up listeners
       activeListeners.forEach(unsubscribe => unsubscribe());
       setActiveListeners([]);
       
-      // Wait a small delay to ensure listeners are properly closed
+      // Short delay to ensure listeners are closed
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Then sign out
+      // Now sign out
       await authService.signOut();
       
       // Reset remaining state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
       setOnboardingProgress(null);
-    } catch (err: any) { // Add type annotation here
+    } catch (err: any) {
       setError(err.message);
     }
   };
-
+  
   const resetAuth = async () => {
     try {
       await authService.resetAuth();
