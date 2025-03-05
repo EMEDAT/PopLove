@@ -12,84 +12,141 @@ import {
   Platform,
   Dimensions,
   Modal,
-  Alert
+  Alert,
+  ScrollView
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import { collection, query, getDocs, where, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, getDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
 export default function FavoritesScreen() {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [sentLikes, setSentLikes] = useState<any[]>([]);
+  const [receivedLikes, setReceivedLikes] = useState<any[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSentLikes, setShowSentLikes] = useState(true);
+  const [showReceivedLikes, setShowReceivedLikes] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetchFavorites();
+      fetchAllLikes();
     }
   }, [user]);
 
   useFocusEffect(
     React.useCallback(() => {
       // Reload data when screen comes into focus
-      fetchFavorites();
+      fetchAllLikes();
       return () => {};
     }, [])
   );
 
-  const fetchFavorites = async () => {
+  const fetchAllLikes = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Query likes where this user is the sender and status is pending
-      const likesRef = collection(firestore, 'likes');
-      const q = query(
-        likesRef,
-        where('fromUserId', '==', user?.uid),
-        where('status', '==', 'pending')
-      );
+      await Promise.all([
+        fetchSentLikes(),
+        fetchReceivedLikes()
+      ]);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching likes:', err);
+      setError('Failed to load likes');
+      setLoading(false);
+    }
+  };
 
-      const querySnapshot = await getDocs(q);
-      const likes = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+  const fetchSentLikes = async () => {
+    // Query likes where this user is the sender and status is pending
+    const likesRef = collection(firestore, 'likes');
+    const q = query(
+      likesRef,
+      where('fromUserId', '==', user?.uid),
+      where('status', '==', 'pending')
+    );
 
-      // Fetch user profiles for each like
-      const profilePromises = likes.map(async (like: any) => {
-        const userDoc = await getDoc(doc(firestore, 'users', like.toUserId));
+    const querySnapshot = await getDocs(q);
+    const likes = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Fetch user profiles for each like if not already included
+    const profilePromises = likes.map(async (like: any) => {
+      // If profileData already exists, use it
+      if (like.profileData) {
+        return {
+          ...like,
+          profile: like.profileData
+        };
+      }
+      
+      // Otherwise fetch the profile
+      const userDoc = await getDoc(doc(firestore, 'users', like.toUserId));
+      if (userDoc.exists()) {
+        return {
+          ...like,
+          profile: {
+            id: userDoc.id,
+            ...userDoc.data()
+          }
+        };
+      }
+      return null;
+    });
+
+    const likesWithProfiles = (await Promise.all(profilePromises)).filter(Boolean);
+    setSentLikes(likesWithProfiles);
+  };
+
+  const fetchReceivedLikes = async () => {
+    // Query likes where this user is the receiver and status is pending
+    const likesRef = collection(firestore, 'likes');
+    const q = query(
+      likesRef,
+      where('toUserId', '==', user?.uid),
+      where('status', '==', 'pending')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const likes = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Fetch user profiles for each like
+    const profilePromises = likes.map(async (like: any) => {
+      try {
+        // We need to get the profile of the SENDER, not the recipient
+        const userDoc = await getDoc(doc(firestore, 'users', like.fromUserId));
         if (userDoc.exists()) {
           return {
             ...like,
             profile: {
-              id: userDoc.id,
+              id: like.fromUserId,
               ...userDoc.data()
             }
           };
         }
-        return null;
-      });
-
-      const favoritesWithProfiles = (await Promise.all(profilePromises)).filter(Boolean);
-      setFavorites(favoritesWithProfiles);
-
-      if (favoritesWithProfiles.length === 0) {
-        setError('No favorites yet');
+      } catch (err) {
+        console.error('Error fetching sender profile:', err);
       }
-    } catch (err) {
-      console.error('Error fetching favorites:', err);
-      setError('Failed to load favorites');
-    } finally {
-      setLoading(false);
-    }
+      return null;
+    });
+
+    const likesWithProfiles = (await Promise.all(profilePromises)).filter(Boolean);
+    setReceivedLikes(likesWithProfiles);
   };
 
   const removeFavorite = async (favorite: any) => {
@@ -98,15 +155,103 @@ export default function FavoritesScreen() {
       await deleteDoc(doc(firestore, 'likes', favorite.id));
       
       // Update the local state
-      setFavorites(favorites.filter(fav => fav.id !== favorite.id));
-      setModalVisible(false);
+      setSentLikes(sentLikes.filter(fav => fav.id !== favorite.id));
       
-      if (favorites.length === 1) {
-        setError('No favorites yet');
-      }
+      setModalVisible(false);
     } catch (err) {
       console.error('Error removing favorite:', err);
       Alert.alert('Error', 'Failed to remove favorite. Please try again.');
+    }
+  };
+
+  const createMatch = async (receivedLike: any) => {
+    try {
+      if (!user) return;
+  
+      // It's a match!
+      // Create a match
+      const newMatchRef = doc(collection(firestore, 'matches'));
+      const matchId = newMatchRef.id;
+      
+      await setDoc(newMatchRef, {
+        users: [user.uid, receivedLike.fromUserId],
+        userProfiles: {
+          [user.uid]: {
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          },
+          [receivedLike.fromUserId]: {
+            displayName: receivedLike.profile.displayName,
+            photoURL: receivedLike.profile.photoURL,
+          }
+        },
+        createdAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp()
+      });
+      
+      // Add an initial system message
+      await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
+        text: "You matched! Start a conversation.",
+        senderId: "system",
+        createdAt: serverTimestamp()
+      });
+      
+      // Update both likes to matched
+      // First, the like we're responding to
+      await updateDoc(doc(firestore, 'likes', receivedLike.id), { 
+        status: 'matched' 
+      });
+      
+      // Then create a reverse like if it doesn't exist
+      const reverselikeRef = doc(firestore, 'likes', `${user.uid}_${receivedLike.fromUserId}`);
+      await setDoc(reverselikeRef, {
+        fromUserId: user.uid,
+        toUserId: receivedLike.fromUserId,
+        createdAt: serverTimestamp(),
+        status: 'matched'
+      });
+      
+      // Update local state
+      setReceivedLikes(receivedLikes.filter(like => like.id !== receivedLike.id));
+      
+      // Show match notification
+      Alert.alert(
+        "It's a Match! 💖",
+        `You and ${receivedLike.profile.displayName} like each other!`,
+        [
+          { 
+            text: "Keep Browsing", 
+            style: "cancel" 
+          },
+          { 
+            text: "Message Now", 
+            onPress: () => {
+              router.push({
+                pathname: '/chat/[id]',
+                params: { id: matchId }
+              });
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating match:', error);
+      Alert.alert('Error', 'Failed to create match. Please try again.');
+    }
+  };
+
+  const rejectLike = async (receivedLike: any) => {
+    try {
+      // Update like status to rejected
+      await updateDoc(doc(firestore, 'likes', receivedLike.id), { 
+        status: 'rejected' 
+      });
+      
+      // Remove from state
+      setReceivedLikes(receivedLikes.filter(like => like.id !== receivedLike.id));
+    } catch (error) {
+      console.error('Error rejecting like:', error);
+      Alert.alert('Error', 'Failed to reject. Please try again.');
     }
   };
 
@@ -115,7 +260,7 @@ export default function FavoritesScreen() {
     setModalVisible(true);
   };
 
-  const renderProfileItem = ({ item }: { item: any }) => {
+  const renderSentLikeItem = ({ item }: { item: any }) => {
     const profile = item.profile;
     
     return (
@@ -136,13 +281,13 @@ export default function FavoritesScreen() {
             </View>
           )}
           <View style={styles.starIcon}>
-            <Ionicons name="star" size={24} color="#F0B433" />
+            <Ionicons name="heart" size={24} color="#FF6B6B" />
           </View>
         </View>
         
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>
-            {profile.displayName || 'User'}, {profile.ageRange}
+            {profile.displayName || 'User'}, {profile.ageRange || '??'}
           </Text>
           
           {profile.location && (
@@ -173,12 +318,119 @@ export default function FavoritesScreen() {
     );
   };
 
-  const renderEmptyState = () => (
+  const renderReceivedLikeItem = ({ item }: { item: any }) => {
+    const profile = item.profile;
+    
+    return (
+      <View style={styles.profileCard}>
+        <TouchableOpacity
+          style={styles.profileMainContent}
+          onPress={() => openProfileModal(profile)}
+        >
+          <View style={styles.profileImageContainer}>
+            {profile.photoURL ? (
+              <Image 
+                source={{ uri: profile.photoURL }} 
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.noPhotoContainer}>
+                <Ionicons name="person" size={40} color="#CCCCCC" />
+              </View>
+            )}
+            <View style={styles.heartIcon}>
+              <Ionicons name="heart" size={24} color="#FF6B6B" />
+            </View>
+          </View>
+          
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>
+              {profile.displayName || 'User'}, {profile.ageRange || '??'}
+            </Text>
+            
+            {profile.location && (
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-outline" size={14} color="#666" />
+                <Text style={styles.locationText} numberOfLines={1}>
+                  {profile.location}
+                </Text>
+              </View>
+            )}
+            
+            {profile.interests && profile.interests.length > 0 && (
+              <View style={styles.interestsContainer}>
+                {profile.interests.slice(0, 2).map((interest: string, index: number) => (
+                  <Text key={index} style={styles.interestText}>
+                    {interest}{index < Math.min(profile.interests.length, 2) - 1 ? ' • ' : ''}
+                  </Text>
+                ))}
+                {profile.interests.length > 2 && (
+                  <Text style={styles.moreInterests}>+{profile.interests.length - 2}</Text>
+                )}
+              </View>
+            )}
+            
+            <Text style={styles.likedText}>Liked you</Text>
+          </View>
+        </TouchableOpacity>
+        
+        {/* Action buttons on the right */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.rejectButton}
+            onPress={() => rejectLike(item)}
+          >
+            <Ionicons name="close" size={22} color="#FF3B30" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.matchButton}
+            onPress={() => createMatch(item)}
+          >
+            <Ionicons name="heart" size={22} color="#FF6B6B" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderEmptyState = (type: 'sent' | 'received') => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="star-outline" size={60} color="#ccc" />
-      <Text style={styles.emptyTitle}>No favorites yet</Text>
-      <Text style={styles.emptySubtitle}>When you like someone's profile, they'll appear here</Text>
+      <Ionicons 
+        name={type === 'sent' ? "heart-outline" : "person-outline"} 
+        size={60} 
+        color="#ccc" 
+      />
+      <Text style={styles.emptyTitle}>
+        {type === 'sent' ? 'No liked profiles yet' : 'No incoming likes yet'}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {type === 'sent' 
+          ? 'When you like someone, they\'ll appear here' 
+          : 'When someone likes you, they\'ll appear here'
+        }
+      </Text>
     </View>
+  );
+
+  const renderSectionHeader = (title: string, count: number, isOpen: boolean, toggleFunction: () => void) => (
+    <TouchableOpacity 
+      style={styles.sectionHeader}
+      onPress={toggleFunction}
+    >
+      <View style={styles.sectionHeaderLeft}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{count}</Text>
+        </View>
+      </View>
+      <Ionicons 
+        name={isOpen ? "chevron-up" : "chevron-down"} 
+        size={22} 
+        color="#333" 
+      />
+    </TouchableOpacity>
   );
 
   return (
@@ -187,24 +439,60 @@ export default function FavoritesScreen() {
         <Text style={styles.title}>Favorites</Text>
       </View>
       
-      <Text style={styles.subtitle}>People you liked</Text>
-      
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B6B" />
-          <Text style={styles.loadingText}>Loading favorites...</Text>
-        </View>
-      ) : error && favorites.length === 0 ? (
-        renderEmptyState()
-      ) : (
-        <FlatList
-          data={favorites}
-          renderItem={renderProfileItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF6B6B" />
+            <Text style={styles.loadingText}>Loading favorites...</Text>
+          </View>
+        ) : (
+          <>
+            {/* People you liked section */}
+            {renderSectionHeader(
+              "People you liked", 
+              sentLikes.length, 
+              showSentLikes, 
+              () => setShowSentLikes(!showSentLikes)
+            )}
+            
+            {showSentLikes && (
+              sentLikes.length > 0 ? (
+                <View style={styles.sectionContent}>
+                  {sentLikes.map((item) => (
+                    <View key={item.id}>
+                      {renderSentLikeItem({item})}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                renderEmptyState('sent')
+              )
+            )}
+            
+            {/* People who liked you section */}
+            {renderSectionHeader(
+              "People who liked you", 
+              receivedLikes.length, 
+              showReceivedLikes, 
+              () => setShowReceivedLikes(!showReceivedLikes)
+            )}
+            
+            {showReceivedLikes && (
+              receivedLikes.length > 0 ? (
+                <View style={styles.sectionContent}>
+                  {receivedLikes.map((item) => (
+                    <View key={item.id}>
+                      {renderReceivedLikeItem({item})}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                renderEmptyState('received')
+              )
+            )}
+          </>
+        )}
+      </ScrollView>
       
       {/* Profile Modal */}
       <Modal
@@ -260,15 +548,6 @@ export default function FavoritesScreen() {
                   <Text style={styles.modalBio}>{selectedProfile.bio}</Text>
                 )}
                 
-                {/* Status */}
-                <View style={styles.statusContainer}>
-                  <Text style={styles.statusTitle}>Status</Text>
-                  <View style={styles.statusBadge}>
-                    <Ionicons name="time-outline" size={16} color="#F0B433" />
-                    <Text style={styles.statusText}>Waiting for response</Text>
-                  </View>
-                </View>
-                
                 {/* Interests */}
                 {selectedProfile.interests && selectedProfile.interests.length > 0 && (
                   <View style={styles.modalInterestsContainer}>
@@ -285,11 +564,11 @@ export default function FavoritesScreen() {
               </View>
               
               {/* Action Buttons */}
-              <View style={styles.actionButtons}>
+              <View style={styles.actionButtonsModal}>
                 <TouchableOpacity 
                   style={styles.removeButton}
                   onPress={() => {
-                    const favorite = favorites.find(fav => fav.profile.id === selectedProfile.id);
+                    const favorite = sentLikes.find(fav => fav.profile.id === selectedProfile.id);
                     if (favorite) {
                       Alert.alert(
                         'Remove Favorite',
@@ -325,6 +604,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 40 : 10,
@@ -344,16 +627,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 50,
   },
   loadingText: {
     marginTop: 10,
     color: '#666',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
   },
   emptyTitle: {
     fontSize: 18,
@@ -366,7 +650,35 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-  listContent: {
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#f9f9f9',
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  countBadge: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 15,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 10,
+  },
+  countText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  sectionContent: {
     padding: 20,
   },
   profileCard: {
@@ -380,6 +692,10 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
     flexDirection: 'row',
+  },
+  profileMainContent: {
+    flexDirection: 'row',
+    flex: 1,
   },
   profileImageContainer: {
     width: 100,
@@ -398,6 +714,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   starIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heartIcon: {
     position: 'absolute',
     top: 8,
     right: 8,
@@ -445,6 +772,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F0B433',
     fontWeight: '500',
+  },
+  likedText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '500',
+  },
+  actionButtons: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: 15,
+    gap: 15,
+  },
+  rejectButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  matchButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
   },
   // Modal styles
   modalContainer: {
@@ -508,29 +866,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     lineHeight: 22,
   },
-  statusContainer: {
-    marginBottom: 20,
-  },
-  statusTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF9E5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#F0B433',
-    marginLeft: 5,
-    fontWeight: '500',
-  },
   modalInterestsContainer: {
     marginBottom: 20,
   },
@@ -555,7 +890,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  actionButtons: {
+  actionButtonsModal: {
     marginTop: 20,
   },
   removeButton: {

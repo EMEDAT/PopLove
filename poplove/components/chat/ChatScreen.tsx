@@ -264,16 +264,17 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
 
     try {
+      // Prevent sending duplicate messages by clearing input immediately
+      const messageText = inputMessage.trim();
+      setInputMessage('');
+      
       // Create message with initial status
       const messageData = {
-        text: inputMessage.trim(),
+        text: messageText,
         senderId: user.uid,
         createdAt: serverTimestamp(),
         status: MessageStatus.SENDING
       };
-      
-      // Reset input field right away for better UX
-      setInputMessage('');
       
       // Add message to Firestore
       const messagesRef = collection(firestore, 'matches', matchId, 'messages');
@@ -285,14 +286,22 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       });
       
       // Update match with last message and increment unread count for recipient
+      const otherUserId = otherUser.id;
       await updateDoc(doc(firestore, 'matches', matchId), {
         lastMessageTime: serverTimestamp(),
-        lastMessage: inputMessage.trim(),
-        [`unreadCount.${otherUser.id}`]: messages.filter(m => 
+        lastMessage: messageText,
+        [`unreadCount.${otherUserId}`]: messages.filter(m => 
           m.senderId === user.uid && 
           (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
         ).length + 1
       });
+      
+      // Force status check after sending
+      setTimeout(() => {
+        if (appActive) {
+          checkDeliveryStatus();
+        }
+      }, 1000);
     } catch (error) {
       console.error('Error sending message:', error);
     }

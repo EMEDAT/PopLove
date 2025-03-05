@@ -362,7 +362,36 @@ const handleLike = async () => {
   
   setLikeLoading(true);
   try {
-    await swipeRight();
+    const currentProfile = profiles[currentProfileIndex];
+    
+    if (user && currentProfile) {
+      // Create a like document with a predictable ID format for favorites
+      const likeId = `${user.uid}_${currentProfile.id}`;
+      const likeRef = doc(firestore, 'likes', likeId);
+      
+      await setDoc(likeRef, {
+        fromUserId: user.uid,
+        toUserId: currentProfile.id,
+        createdAt: serverTimestamp(),
+        status: 'pending',
+        // Store profile data for easy access in favorites
+        profileData: {
+          id: currentProfile.id,
+          displayName: currentProfile.displayName,
+          photoURL: currentProfile.photoURL,
+          ageRange: currentProfile.ageRange,
+          location: currentProfile.location,
+          interests: currentProfile.interests,
+          bio: currentProfile.bio
+        }
+      });
+      
+      // Move to next profile
+      setCurrentProfileIndex(prevIndex => prevIndex + 1);
+    }
+  } catch (error) {
+    console.error('Error adding to favorites:', error);
+    Alert.alert('Error', 'Failed to add to favorites. Please try again.');
   } finally {
     setLikeLoading(false);
   }
@@ -416,10 +445,14 @@ const sendEmojiMessage = async (emoji: string) => {
   // Add null checks
   if (!user || profiles.length <= currentProfileIndex) return;
   
-  const currentProfile = profiles[currentProfileIndex];
+  // Prevent multiple clicks
+  if (likeLoading || passLoading) return;
+  setLikeLoading(true);
   
   try {
-    // Existing implementation with added null safety
+    const currentProfile = profiles[currentProfileIndex];
+    
+    // First check if a chat with this user already exists
     const matchesRef = collection(firestore, 'matches');
     const q = query(
       matchesRef, 
@@ -433,29 +466,54 @@ const sendEmojiMessage = async (emoji: string) => {
       doc.data().users.includes(currentProfile.id)
     );
     
-    // Existing match creation logic
-    if (!existingMatch) {
-      const newMatchRef = doc(matchesRef);
-      matchId = newMatchRef.id;
+    if (existingMatch) {
+      // If chat already exists, navigate to existing chat instead of creating a new one
+      setProfilePopupVisible(false);
       
-      await setDoc(newMatchRef, {
-        users: [user.uid, currentProfile.id],
-        userProfiles: {
-          [user.uid]: {
-            displayName: user.displayName || 'User',
-            photoURL: user.photoURL || ''
-          },
-          [currentProfile.id]: {
-            displayName: currentProfile.displayName,
-            photoURL: currentProfile.photoURL
+      // Also advance to next profile
+      setCurrentProfileIndex(prevIndex => prevIndex + 1);
+      
+      // Navigate to chat tab first, then to the specific chat
+      Alert.alert(
+        "Chat Already Exists",
+        "You already have a conversation with this person. Opening existing chat.",
+        [
+          { 
+            text: "Continue", 
+            onPress: () => {
+              router.replace('/(tabs)/matches');
+              setTimeout(() => {
+                router.push({
+                  pathname: '/chat/[id]',
+                  params: { id: existingMatch.id }
+                });
+              }, 100);
+            }
           }
-        },
-        createdAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp()
-      });
-    } else {
-      matchId = existingMatch.id;
+        ]
+      );
+      return;
     }
+    
+    // Existing match creation logic
+    const newMatchRef = doc(matchesRef);
+    matchId = newMatchRef.id;
+    
+    await setDoc(newMatchRef, {
+      users: [user.uid, currentProfile.id],
+      userProfiles: {
+        [user.uid]: {
+          displayName: user.displayName || 'User',
+          photoURL: user.photoURL || ''
+        },
+        [currentProfile.id]: {
+          displayName: currentProfile.displayName,
+          photoURL: currentProfile.photoURL
+        }
+      },
+      createdAt: serverTimestamp(),
+      lastMessageTime: serverTimestamp()
+    });
     
     // Existing emoji message sending logic
     await addDoc(collection(firestore, 'matches', matchId, 'messages'), {
@@ -475,14 +533,25 @@ const sendEmojiMessage = async (emoji: string) => {
       lastMessageType: 'animated-emoji'
     });
     
-    // Close popup and navigate to chat
+    // Close popup first
     setProfilePopupVisible(false);
-    router.push({
-      pathname: '/chat/[id]',
-      params: { id: matchId }
-    });
+    
+    // Important: Advance to the next card
+    setCurrentProfileIndex(prevIndex => prevIndex + 1);
+    
+    // Navigate to chat tab first, then to the specific chat
+    router.replace('/(tabs)/matches');
+    setTimeout(() => {
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: matchId }
+      });
+    }, 100);
   } catch (error) {
     console.error('Error sending emoji message:', error);
+    Alert.alert('Error', 'Failed to send message. Please try again.');
+  } finally {
+    setLikeLoading(false);
   }
 };
 

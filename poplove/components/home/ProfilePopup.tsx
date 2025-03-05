@@ -179,10 +179,14 @@ export function ProfilePopup({
         });
         
         onClose();
-        router.push({
-          pathname: '/chat/[id]',
-          params: { id: existingMatch.id }
-        });
+        // Navigate to chat tab and then to specific chat
+        router.replace('/(tabs)/matches');
+        setTimeout(() => {
+          router.push({
+            pathname: '/chat/[id]',
+            params: { id: existingMatch.id }
+          });
+        }, 100);
       } else {
         onSendLike();
       }
@@ -221,10 +225,14 @@ export function ProfilePopup({
         });
         
         onClose();
-        router.push({
-          pathname: '/chat/[id]',
-          params: { id: existingMatch.id }
-        });
+        // Navigate to chat tab and then to specific chat
+        router.replace('/(tabs)/matches');
+        setTimeout(() => {
+          router.push({
+            pathname: '/chat/[id]',
+            params: { id: existingMatch.id }
+          });
+        }, 100);
       } else {
         onSendFlower();
       }
