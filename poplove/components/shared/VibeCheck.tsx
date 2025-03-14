@@ -7,12 +7,14 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Dimensions,
-  Modal
+  Modal,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthContext } from '../../components/auth/AuthProvider';
-import ProfilePopup from '../../components/home/ProfilePopup';
+import { useAuthContext } from '../auth/AuthProvider';
+import ProfilePopup from '../home/ProfilePopup';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -20,24 +22,60 @@ interface VibeCheckProps {
   visible: boolean;
   onClose: () => void;
   profile: any;
+  requiredTier?: 'basic' | 'premium' | 'vip';
+  vibePercentage?: number;
 }
 
-export default function VibeCheck({ visible, onClose, profile }: VibeCheckProps) {
+export default function VibeCheck({ 
+  visible, 
+  onClose, 
+  profile, 
+  requiredTier = 'basic',
+  vibePercentage: initialVibePercentage
+}: VibeCheckProps) {
   const { user } = useAuthContext();
-  const [vibePercentage, setVibePercentage] = useState(90);
+  const [vibePercentage, setVibePercentage] = useState(initialVibePercentage || 90);
   const [profilePopupVisible, setProfilePopupVisible] = useState(false);
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  
+  // Get subscription data from your app
+  // In a real app, you would use a context or service to get the subscription status
+  // For now, we'll force it to false to simulate the user not having premium
+  const [hasPremium, setHasPremium] = useState(false);
 
   useEffect(() => {
-    // Generate a random vibe percentage between 75-99 for demo
-    if (visible && profile) {
+    // Generate a random vibe percentage between 75-99 for demo if not provided
+    if (visible && profile && !initialVibePercentage) {
       const randomVibe = Math.floor(Math.random() * 25) + 75;
       setVibePercentage(randomVibe);
+    } else if (initialVibePercentage) {
+      setVibePercentage(initialVibePercentage);
     }
-  }, [visible, profile]);
+    
+    // IMPORTANT: Setting to false to ensure subscription modal always shows
+    // When integrating with your actual subscription system, replace this
+    setHasPremium(false);
+    
+    // If the modal becomes visible, immediately check if subscription modal should show
+    if (visible && requiredTier !== 'basic') {
+      // Small delay to ensure modal is fully visible first
+      setTimeout(() => {
+        setSubscriptionModalVisible(true);
+      }, 500);
+    }
+  }, [visible, profile, initialVibePercentage, requiredTier]);
 
   if (!profile) return null;
 
   const handleChatNow = () => {
+    // ALWAYS check subscription status
+    if (requiredTier !== 'basic') {
+      // Always show subscription modal for premium features
+      setSubscriptionModalVisible(true);
+      return;
+    }
+
+    // Only for basic tier features:
     // Close the vibe check modal first
     onClose();
     // Show the profile popup for messaging
@@ -50,7 +88,10 @@ export default function VibeCheck({ visible, onClose, profile }: VibeCheckProps)
         visible={visible}
         transparent={true}
         animationType="slide"
-        onRequestClose={onClose}
+        onRequestClose={() => {
+          setSubscriptionModalVisible(false);
+          onClose();
+        }}
       >
         <View style={styles.container}>
           <View style={styles.content}>
@@ -132,6 +173,69 @@ export default function VibeCheck({ visible, onClose, profile }: VibeCheckProps)
           setProfilePopupVisible(false);
         }}
       />
+
+      {/* Subscription Modal */}
+      <Modal
+        transparent={true} 
+        animationType="slide"
+        visible={subscriptionModalVisible}
+        onRequestClose={() => setSubscriptionModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSubscriptionModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+              <View style={styles.modalContainer}>
+                <Ionicons 
+                  name="lock-closed" 
+                  size={50} 
+                  color="#FF6B6B" 
+                  style={styles.lockIcon}
+                />
+                
+                <Text style={styles.title}>Upgrade Required</Text>
+                
+                <Text style={styles.description}>
+                  The "Find Love" feature is only available for {requiredTier.toUpperCase()} 
+                  subscribers and above.
+                </Text>
+                
+                <TouchableOpacity 
+                  style={styles.upgradeButton}
+                  onPress={() => {
+                    setSubscriptionModalVisible(false);
+                    onClose(); // Close the vibe check modal too
+                    
+                    // Navigate to subscription page
+                    router.push({
+                      pathname: '/subscription',
+                      params: { 
+                        highlight: requiredTier,
+                        feature: 'Find Love'
+                      }
+                    });
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientButton}
+                  >
+                    <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => setSubscriptionModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Go Back</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </>
   );
 }
@@ -267,4 +371,57 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  // Subscription modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: width * 0.85,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  lockIcon: {
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  description: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  upgradeButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 15,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    padding: 10,
+  },
+  cancelButtonText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+  }
 });

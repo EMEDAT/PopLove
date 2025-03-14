@@ -16,14 +16,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { BlurView } from 'expo-blur';
 import VibeCheck from './VibeCheck';
-import { SubscriptionGate } from './SubscriptionGate';
 import ProfileMediaGallery from '../profile/ProfileMediaGallery';
 
 const { width } = Dimensions.get('window');
 
 // Simple version with minimal complexity and no TypeScript
 export function ProfileDetailsModal(props) {
-  const { visible, onClose, profile: initialProfile, actionButton, secondaryButton } = props;
+  const { visible, onClose, profile: initialProfile, actionButton, secondaryButton, vibePercentage } = props;
   
   // Simple state for expanded sections
   const [expandedSection, setExpandedSection] = useState(null);
@@ -180,12 +179,6 @@ export function ProfileDetailsModal(props) {
               </View>
             )}
           </TouchableOpacity>
-
-          {/* Height Section */}
-          {/* <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Height</Text>
-            {renderSectionContent(height)}
-          </View> */}
           
           {/* Fear Section */}
           <TouchableOpacity 
@@ -281,35 +274,33 @@ export function ProfileDetailsModal(props) {
             <Text style={styles.actionText}>Pop Balloon</Text>
           </TouchableOpacity>
           
-          <SubscriptionGate 
-            requiredTier="premium" 
-            featureName="Find Love"
-            onClose={() => {}}
+          {/* Always show button but subscription check happens in VibeCheck */}
+          <TouchableOpacity 
+            style={styles.acceptButton}
+            onPress={() => {
+              // Important: Show the vibe check modal with premium requirement
+              setVibeCheckVisible(true);
+              // The subscription check will happen inside VibeCheck component
+            }}
           >
-            <TouchableOpacity 
-              style={styles.acceptButton}
-              onPress={() => {
-                // Instead of the direct action, show the vibe check
-                setVibeCheckVisible(true);
-              }}
-            >
-              <Image 
-                source={require('../../assets/images/main/LoveSuccess.png')} 
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.actionText}>Find Love</Text>
-            </TouchableOpacity>
-          </SubscriptionGate>
+            <Image 
+              source={require('../../assets/images/main/LoveSuccess.png')} 
+              style={styles.actionIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.actionText}>Find Love</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* VibeCheck Component */}
-    <VibeCheck
-      visible={vibeCheckVisible}
-      onClose={() => setVibeCheckVisible(false)}
-      profile={profile}
-    />
+      {/* VibeCheck Component with subscription requirement */}
+      <VibeCheck
+        visible={vibeCheckVisible}
+        onClose={() => setVibeCheckVisible(false)}
+        profile={profile}
+        requiredTier="premium"
+        vibePercentage={vibePercentage}
+      />
     </Modal>
   );
 }
