@@ -67,6 +67,7 @@
     "react-native-svg": "^15.1.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
+    "rn-range-slider": "^2.2.2",
     "undefined": "firebase/auth/react-native",
     "unique-string": "^3.0.0"
   },

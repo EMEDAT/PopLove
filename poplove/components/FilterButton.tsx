@@ -1,4 +1,4 @@
-// components/FilterButton.tsx - Fixed location service import
+// FilterButton.tsx with dual-thumb slider implementation
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -8,14 +8,12 @@ import {
   StyleSheet, 
   ScrollView,
   TouchableWithoutFeedback,
-  Dimensions,
-  Pressable,
-  Alert
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
+import DualThumbSlider from '../components/DualThumbSlider';
 
 // Get device dimensions
 const { width } = Dimensions.get('window');
@@ -63,20 +61,6 @@ interface FilterButtonProps {
   allProfiles?: Profile[]; // Optional original unfiltered profiles
 }
 
-// Hard-coded locations data as fallback
-const fallbackLocations: LocationData[] = [
-  { name: "United States", code: "US" },
-  { name: "United Kingdom", code: "UK" },
-  { name: "Canada", code: "CA" },
-  { name: "Australia", code: "AU" },
-  { name: "France", code: "FR" },
-  { name: "Germany", code: "DE" },
-  { name: "Japan", code: "JP" },
-  { name: "China", code: "CN" },
-  { name: "India", code: "IN" },
-  { name: "Brazil", code: "BR" }
-];
-
 const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) => {
   // Initial filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -85,19 +69,12 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     ageRange: [18, 35],
     interests: []
   });
-  const [locations, setLocations] = useState<LocationData[]>(fallbackLocations);
+  const [locations, setLocations] = useState<LocationData[]>([]);
 
   useEffect(() => {
     const loadLocations = async () => {
-      try {
-        const countries = await getLocations();
-        if (countries && countries.length > 0) {
-          setLocations(countries);
-        }
-      } catch (error) {
-        console.error('Failed to load locations:', error);
-        // Fallback already set in initial state
-      }
+      const countries = await getLocations();
+      setLocations(countries);
     };
     
     loadLocations();
@@ -105,20 +82,12 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
 
   const getLocations = async (): Promise<LocationData[]> => {
     try {
-      // Direct import with proper error handling
-      const LocationService = require('../services/location').LocationService;
-      
-      // Check if the imported service has the method we need
-      if (LocationService && typeof LocationService.getAllCountries === 'function') {
-        const countries = LocationService.getAllCountries();
-        return countries;
-      } else {
-        console.warn('LocationService exists but getAllCountries method is missing');
-        return fallbackLocations;
-      }
+      const locationService = require('../services/location').default;
+      const countries = locationService.getAllCountries();
+      return countries;
     } catch (error) {
       console.error('Error fetching locations:', error);
-      return fallbackLocations; 
+      return []; 
     }
   };
 
@@ -161,6 +130,16 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
       ageRange: [18, 35],
       interests: []
     });
+  };
+
+  // Handle distance slider change
+  const handleDistanceChange = (low: number, high: number) => {
+    setFilters({...filters, distance: [low, high]});
+  };
+  
+  // Handle age slider change
+  const handleAgeChange = (low: number, high: number) => {
+    setFilters({...filters, ageRange: [low, high]});
   };
 
   return (
@@ -212,16 +191,13 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       <Text style={styles.rangeLabel}>{filters.distance[0]}km</Text>
                       <Text style={styles.rangeLabel}>{filters.distance[1]}km</Text>
                     </View>
-                    <Slider
-                      style={styles.slider}
-                      minimumValue={1}
-                      maximumValue={100}
+                    <DualThumbSlider
+                      min={1}
+                      max={100}
                       step={1}
-                      value={filters.distance[1]}
-                      onValueChange={(value) => setFilters({...filters, distance: [filters.distance[0], Math.round(value)]})}
-                      minimumTrackTintColor="#FF6B6B"
-                      maximumTrackTintColor="#E0E0E0"
-                      thumbTintColor="#FF6B6B"
+                      initialLow={filters.distance[0]}
+                      initialHigh={filters.distance[1]}
+                      onValueChanged={handleDistanceChange}
                     />
                   </View>
                 </View>
@@ -234,30 +210,14 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       <Text style={styles.rangeLabel}>{filters.ageRange[0]}</Text>
                       <Text style={styles.rangeLabel}>{filters.ageRange[1]}</Text>
                     </View>
-                    <View style={styles.doubleSliderContainer}>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={18}
-                        maximumValue={70}
-                        step={1}
-                        value={filters.ageRange[0]}
-                        onValueChange={(value) => setFilters({...filters, ageRange: [Math.round(value), filters.ageRange[1]]})}
-                        minimumTrackTintColor="#E0E0E0"
-                        maximumTrackTintColor="#FF6B6B"
-                        thumbTintColor="#FF6B6B"
-                      />
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={18}
-                        maximumValue={70}
-                        step={1}
-                        value={filters.ageRange[1]}
-                        onValueChange={(value) => setFilters({...filters, ageRange: [filters.ageRange[0], Math.round(value)]})}
-                        minimumTrackTintColor="#FF6B6B"
-                        maximumTrackTintColor="#E0E0E0"
-                        thumbTintColor="#FF6B6B"
-                      />
-                    </View>
+                    <DualThumbSlider
+                      min={18}
+                      max={70}
+                      step={1}
+                      initialLow={filters.ageRange[0]}
+                      initialHigh={filters.ageRange[1]}
+                      onValueChanged={handleAgeChange}
+                    />
                   </View>
                 </View>
 
@@ -419,7 +379,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    height: '85%',
+    height: '90%',
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -468,7 +428,7 @@ const styles = StyleSheet.create({
   rangeLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 0,
   },
   rangeLabel: {
     fontSize: 12,
@@ -477,13 +437,7 @@ const styles = StyleSheet.create({
   slider: {
     width: '100%',
     height: 40,
-  },
-  doubleSliderContainer: {
-    flexDirection: 'column',
-  },
-  doubleSlider: {
-    width: '100%',
-    height: 40,
+    marginTop: 5,
   },
   interestContainer: {
     flexDirection: 'row',
@@ -491,12 +445,10 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   interestTag: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#F0F0F0',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    backgroundColor: '#F5F5F5',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
     marginRight: 8,
     marginBottom: 8,
   },
