@@ -447,12 +447,12 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   interestTag: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     backgroundColor: '#F5F5F5',
     borderRadius: 20,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: 14,
   },
   selectedInterestTag: {
     backgroundColor: '#FFE4E6',

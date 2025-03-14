@@ -1,9 +1,9 @@
-// DualThumbSlider.tsx
-import React, { useCallback } from 'react';
+// DualThumbSlider.tsx - Simplified approach
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import RangeSlider from 'rn-range-slider';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
-interface RangeSliderProps {
+interface DualThumbSliderProps {
   min: number;
   max: number;
   initialLow: number;
@@ -13,59 +13,72 @@ interface RangeSliderProps {
 }
 
 const DualThumbSlider = ({
-  min, max, initialLow, initialHigh, step, onValueChanged
-}: RangeSliderProps) => {
-  const renderThumb = useCallback(() => <View style={styles.thumb} />, []);
-  const renderRail = useCallback(() => <View style={styles.rail} />, []);
-  const renderRailSelected = useCallback(() => <View style={styles.railSelected} />, []);
+  min, 
+  max, 
+  initialLow, 
+  initialHigh, 
+  step, 
+  onValueChanged
+}: DualThumbSliderProps) => {
+  // Initial values
+  const [values, setValues] = useState([initialLow, initialHigh]);
+
+  // Handle value change
+  const handleValuesChange = (newValues: number[]) => {
+    setValues(newValues);
+    onValueChanged(newValues[0], newValues[1]);
+  };
 
   return (
-<RangeSlider
-    style={styles.slider}
-    min={min}
-    max={max}
-    step={step} 
-    low={initialLow}
-    high={initialHigh}
-    disableRange={false}
-    onValueChanged={onValueChanged}
-    renderThumb={renderThumb}
-    renderRail={renderRail}
-    renderRailSelected={renderRailSelected}
-    thumbRadius={10}
-    />
+    <View style={styles.container}>
+      <MultiSlider
+        values={values}
+        min={min}
+        max={max}
+        step={step}
+        allowOverlap={false}
+        snapped
+        onValuesChange={handleValuesChange}
+        selectedStyle={styles.selectedTrack}
+        unselectedStyle={styles.unselectedTrack}
+        markerStyle={styles.marker}
+        containerStyle={styles.sliderContainer}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  slider: {
-    height: 40,
+  container: {
+    alignItems: 'center',
     width: '100%',
-    marginTop: 5,
+    paddingVertical: 10,
   },
-  thumb: {
-    width: 20, 
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
+  sliderContainer: {
+    height: 30,
+    width: '100%',
+  },
+  selectedTrack: {
+    backgroundColor: '#FF6B6B',
+    height: 3,
+  },
+  unselectedTrack: {
+    backgroundColor: '#E5E5E5',
+    height: 3,
+  },
+  marker: {
+    backgroundColor: '#FFF',
     borderColor: '#FF6B6B',
+    borderWidth: 2,
+    height: 20,
+    width: 20,
+    borderRadius: 10,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 1,
-    elevation: 2,
-  },
-  rail: {
-    height: 3,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 2,
-  },
-  railSelected: {
-    height: 3,
-    backgroundColor: '#FF6B6B',
-    borderRadius: 2,
-  },
+  }
 });
 
 export default DualThumbSlider;
