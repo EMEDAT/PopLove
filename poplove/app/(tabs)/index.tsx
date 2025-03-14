@@ -24,6 +24,7 @@ import ProfilePopup from '../../components/home/ProfilePopup';
 import { MessageStatus } from '../../components/chat/MessageStatus';
 import NotificationBadge  from '../../components/shared/NotificationBadge';
 import { router } from 'expo-router';
+import FilterButton from '../../components/FilterButton';
 
 
 const { width, height } = Dimensions.get('window');
@@ -573,9 +574,9 @@ const sendEmojiMessage = async (emoji: string) => {
         </View>
 
         <View style={styles.headerRight}>
-        <NotificationBadge />
+          <NotificationBadge />
         <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="options" size={18} color="#FF6B6B" />
+          <FilterButton />
         </TouchableOpacity>
       </View>
       </View>
