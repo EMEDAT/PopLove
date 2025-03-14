@@ -1,0 +1,13 @@
+{
+    "root": true,
+    "settings": {
+      "import/resolver": {
+        "node": {
+          "extensions": [".js", ".ts"]
+        }
+      }
+    },
+    "rules": {
+      "import/no-unresolved": "off"
+    }
+  }

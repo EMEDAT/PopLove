@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 15.0.12",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDLEfJcQWNxgbZYsHSBiGisped006zpL-w",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "poplove-32987.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "poplove-32987",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "poplove-32987.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "781404328808",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:781404328808:web:7c503d7bf427e58dc37cdd",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "781404328808-e55r08140npo9k2udu59skj22tdq5hr5.apps.googleusercontent.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -1,0 +1,34 @@
+{
+    "expo": {
+      "name": "poplove",
+      "slug": "poplove",
+      "version": "1.0.0",
+      "scheme": "poplove",
+      "newArchEnabled": true,
+      "plugins": [
+        [
+            "expo-build-properties",
+            {
+            "android": {
+                "compileSdkVersion": 35,
+                "targetSdkVersion": 34,
+                "buildToolsVersion": "35.0.0",
+                "ndkVersion": "26.1.10909125"
+            },
+            "ios": {
+                "useFrameworks": "static"
+            }
+            }
+        ]
+      ],
+      "android": {
+        "package": "com.yourname.poplove",
+        "googleServicesFile": "./android/app/google-services.json"
+      },
+      "extra": {
+        "eas": {
+          "projectId": "f15a5669-821e-4a47-b075-ded96f9ee970"
+        }
+      }
+    }
+}
