@@ -159,6 +159,7 @@ export default function HomeScreen() {
           photoURL: data.photoURL,
           bio: data.bio || '',
           location: data.location || 'Unknown',
+          age: data.age || 0,
           ageRange: data.ageRange?.split(' ')[0] || '??',
           interests: data.interests || [],
           gender: data.gender || '',
@@ -670,8 +671,8 @@ const sendEmojiMessage = async (emoji: string) => {
                       
                       {/* Profile Info Card - Bottom text overlay */}
                       <View style={styles.profileInfo}>
-                        <Text style={styles.profileName}>
-                          {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].ageRange}
+                      <Text style={styles.profileName}>
+                          {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].age || profiles[currentProfileIndex].ageRange || '??'}
                         </Text>
                         
                         <View style={styles.locationContainer}>
