@@ -36,38 +36,31 @@ export default function AgeSelection({
   // Local state for age input validation
   const [ageError, setAgeError] = useState<string | null>(null);
 
-  // Handle age input change with validation
+  // Simplified age input handling to prevent flickering
   const handleAgeChange = (value: string) => {
-    // Only allow numeric input
-    if (value && !/^\d+$/.test(value)) {
+    // Always update parent component first
+    if (onAgeChange) {
+      onAgeChange(value);
+    }
+
+    // Then handle validation separately
+    if (!value) {
+      setAgeError(null);
+      return;
+    }
+    
+    // Validate only numeric input after updating parent
+    if (!/^\d+$/.test(value)) {
       setAgeError('Please enter numbers only');
       return;
     }
-
-    // Convert to number and validate range
+    
+    // Validate age range
     const ageNum = parseInt(value);
-    if (value && (isNaN(ageNum) || ageNum < 18 || ageNum > 99)) {
+    if (isNaN(ageNum) || ageNum < 18 || ageNum > 99) {
       setAgeError('Age must be between 18-99');
     } else {
       setAgeError(null);
-      if (onAgeChange) {
-        onAgeChange(value);
-      }
-
-      // Suggest matching age range but don't auto-select
-      if (value) {
-        const ageNum = parseInt(value);
-        let matchingRange = '';
-        
-        if (ageNum >= 18 && ageNum <= 24) matchingRange = '18 to 24';
-        else if (ageNum >= 25 && ageNum <= 29) matchingRange = '25 to 29';
-        else if (ageNum >= 30 && ageNum <= 34) matchingRange = '30 to 34';
-        else if (ageNum >= 35 && ageNum <= 44) matchingRange = '35 to 44';
-        else if (ageNum >= 45 && ageNum <= 54) matchingRange = '45 to 54';
-        else if (ageNum >= 55) matchingRange = '55 or older';
-
-        // Simply highlight the suggested range, but require explicit selection
-      }
     }
   };
 
