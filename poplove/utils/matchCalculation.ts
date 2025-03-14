@@ -73,36 +73,80 @@ export const calculateMatchPercentage = async (userId1: string, userId2: string)
     }
   }
   
-  // Age range matching (up to 10 points)
-  const user1AgeRange = user1Data.ageRange || '';
-  const user2AgeRange = user2Data.ageRange || '';
+  // UPDATED: Age matching (up to 10 points)
+  // Try to get exact ages first, then fall back to age ranges
+  let user1Age = 0;
+  let user2Age = 0;
   
-  if (user1AgeRange && user2AgeRange) {
-    // Extract min and max ages
-    const user1Match = user1AgeRange.match(/(\d+).*?(\d+)/);
-    const user2Match = user2AgeRange.match(/(\d+).*?(\d+)/);
+  // Get exact ages if available
+  if (user1Data.age) {
+    user1Age = parseInt(user1Data.age);
+  } else if (user1Data.ageRange) {
+    const match = user1Data.ageRange.match(/^(\d+)/);
+    if (match && match[1]) {
+      user1Age = parseInt(match[1]);
+    }
+  }
+  
+  if (user2Data.age) {
+    user2Age = parseInt(user2Data.age);
+  } else if (user2Data.ageRange) {
+    const match = user2Data.ageRange.match(/^(\d+)/);
+    if (match && match[1]) {
+      user2Age = parseInt(match[1]);
+    }
+  }
+  
+  // Calculate age score based on proximity
+  if (user1Age > 0 && user2Age > 0) {
+    const ageDifference = Math.abs(user1Age - user2Age);
     
-    if (user1Match && user2Match) {
-      const user1Min = parseInt(user1Match[1]);
-      const user1Max = parseInt(user1Match[2]);
-      const user2Min = parseInt(user2Match[1]);
-      const user2Max = parseInt(user2Match[2]);
+    // Age scoring logic: closer ages get higher scores
+    if (ageDifference === 0) {
+      score += 10; // Exact match
+    } else if (ageDifference <= 2) {
+      score += 9; // Very close
+    } else if (ageDifference <= 5) {
+      score += 7; // Close
+    } else if (ageDifference <= 10) {
+      score += 5; // Moderate match
+    } else if (ageDifference <= 15) {
+      score += 3; // Somewhat distant
+    } else {
+      score += 1; // Distant match
+    }
+  } else {
+    // Fallback to old ageRange matching if exact ages aren't available
+    const user1AgeRange = user1Data.ageRange || '';
+    const user2AgeRange = user2Data.ageRange || '';
+    
+    if (user1AgeRange && user2AgeRange) {
+      // Extract min and max ages
+      const user1Match = user1AgeRange.match(/(\d+).*?(\d+)/);
+      const user2Match = user2AgeRange.match(/(\d+).*?(\d+)/);
       
-      // Calculate overlap
-      const overlapStart = Math.max(user1Min, user2Min);
-      const overlapEnd = Math.min(user1Max, user2Max);
-      
-      if (overlapEnd >= overlapStart) {
-        // There is some overlap
-        const overlapLength = overlapEnd - overlapStart + 1;
-        const user1Range = user1Max - user1Min + 1;
-        const user2Range = user2Max - user2Min + 1;
+      if (user1Match && user2Match) {
+        const user1Min = parseInt(user1Match[1]);
+        const user1Max = parseInt(user1Match[2]);
+        const user2Min = parseInt(user2Match[1]);
+        const user2Max = parseInt(user2Match[2]);
         
-        // Calculate overlap percentage
-        const overlapPercentage = overlapLength / Math.min(user1Range, user2Range);
+        // Calculate overlap
+        const overlapStart = Math.max(user1Min, user2Min);
+        const overlapEnd = Math.min(user1Max, user2Max);
         
-        // Award points based on overlap
-        score += Math.min(10, overlapPercentage * 10);
+        if (overlapEnd >= overlapStart) {
+          // There is some overlap
+          const overlapLength = overlapEnd - overlapStart + 1;
+          const user1Range = user1Max - user1Min + 1;
+          const user2Range = user2Max - user2Min + 1;
+          
+          // Calculate overlap percentage
+          const overlapPercentage = overlapLength / Math.min(user1Range, user2Range);
+          
+          // Award points based on overlap
+          score += Math.min(10, overlapPercentage * 10);
+        }
       }
     }
   }

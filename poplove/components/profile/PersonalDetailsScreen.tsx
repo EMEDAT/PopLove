@@ -217,6 +217,19 @@ interface PersonalDetailsScreenProps {
             placeholder="Your name"
           />
         </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Age</Text>
+          <TextInput
+            style={styles.textInput}
+            value={userDetails.age}
+            onChangeText={(value) => handleInputChange('age', value)}
+            placeholder="Your age (required for matching)"
+            keyboardType="number-pad"
+            maxLength={2}
+          />
+          <Text style={styles.helperText}>Your exact age is important for better matches</Text>
+        </View>
         
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Email</Text>
@@ -229,17 +242,6 @@ interface PersonalDetailsScreenProps {
             selectTextOnFocus={false}
           />
           <Text style={styles.helperText}>Email cannot be changed</Text>
-        </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Age</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.age}
-            onChangeText={(value) => handleInputChange('age', value)}
-            placeholder="Your age"
-            keyboardType="number-pad"
-          />
         </View>
         
         <View style={styles.inputContainer}>
@@ -351,6 +353,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 5,
+  },
+  disabledInput: {
+    backgroundColor: '#f9f9f9',
+    color: '#999',
   },
   headerTitle: {
     fontSize: 20,

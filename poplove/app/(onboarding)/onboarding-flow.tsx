@@ -56,6 +56,7 @@ export default function OnboardingFlow() {
     location: '',
     gender: '',
     ageRange: '',
+    age: '', // Add specific age field
     lifestyle: [] as string[],
     interests: [] as string[],
     dealBreaker: false,
@@ -190,6 +191,12 @@ export default function OnboardingFlow() {
 
   const handleNext = async () => {
     if (currentStep < STEPS.length - 1) {
+      // Validate current step before advancing
+      if (STEPS[currentStep] === 'age' && !profileData.age) {
+        Alert.alert('Missing Information', 'Please enter your age to continue');
+        return;
+      }
+      
       setCurrentStep(currentStep + 1);
     } else {
       // Complete onboarding
@@ -224,10 +231,23 @@ export default function OnboardingFlow() {
             return;
           }
           
+          // Validate age is provided
+          if (!profileData.age) {
+            setError('Age is required');
+            Alert.alert('Missing Information', 'Please enter your age to continue');
+            const ageStepIndex = STEPS.indexOf('age');
+            if (ageStepIndex >= 0) {
+              setCurrentStep(ageStepIndex);
+            }
+            setLoading(false);
+            return;
+          }
+          
           // Let's add logs to verify data being saved
           console.log('Saving profile data:', {
             displayName: profileData.displayName,
             gender: profileData.gender, 
+            age: profileData.age,
             ageRange: profileData.ageRange
           });
           
@@ -238,7 +258,8 @@ export default function OnboardingFlow() {
             photoURL: profileData.photoURL,
             bio: profileData.bio,
             location: profileData.location,
-            gender: profileData.gender, // Make sure this is properly set
+            gender: profileData.gender, 
+            age: profileData.age, // Ensure age is stored
             ageRange: profileData.ageRange,
             lifestyle: profileData.lifestyle,
             interests: profileData.interests,
@@ -259,9 +280,14 @@ export default function OnboardingFlow() {
           if (verifyDoc.exists()) {
             const userData = verifyDoc.data();
             console.log('Verified saved gender:', userData.gender);
+            console.log('Verified saved age:', userData.age);
             
             if (!userData.gender) {
               console.error('Gender not saved properly!');
+            }
+            
+            if (!userData.age) {
+              console.error('Age not saved properly!');
             }
           }
           
@@ -294,8 +320,8 @@ export default function OnboardingFlow() {
                profileData.location.trim() !== '';
       case 'gender':
         return !!profileData.gender;
-      case 'age':
-        return !!profileData.ageRange;
+    case 'age':
+      return !!profileData.ageRange && !!profileData.age;
       case 'lifestyle':
         return profileData.lifestyle.length > 0;
       case 'interests':
@@ -388,13 +414,15 @@ const renderStep = () => {
           }}
         />
       );
-    case 'age':
-      return (
-        <AgeSelection 
-          selectedAgeRange={profileData.ageRange}
-          onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
-        />
-      );
+      case 'age':
+        return (
+          <AgeSelection 
+            selectedAgeRange={profileData.ageRange}
+            onSelectAge={(ageRange) => updateProfile('ageRange', ageRange)}
+            age={profileData.age}
+            onAgeChange={(age) => updateProfile('age', age)}
+          />
+        );
     case 'lifestyle':
       return (
         <ExpectationsLifestyle 

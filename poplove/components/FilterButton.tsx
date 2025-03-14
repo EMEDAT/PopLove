@@ -298,17 +298,26 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
         return false;
       }
       
-      // Extract numeric age from ageRange or age field
+      // IMPROVED: Extract numeric age from age field first, then ageRange as fallback
       let profileAge = 0;
+      
+      // First try the dedicated age field (preferred source)
       if (profile.age) {
+        // Try parsing as a number
         const ageNum = parseInt(profile.age);
-        if (!isNaN(ageNum)) profileAge = ageNum;
-      } else if (profile.ageRange) {
+        if (!isNaN(ageNum)) {
+          profileAge = ageNum;
+        }
+      } 
+      // Fallback to parsing from ageRange
+      else if (profile.ageRange) {
         // Try to extract from ageRange (assuming format like "25 to 30")
         const match = profile.ageRange.match(/^(\d+)/);
         if (match && match[1]) {
           const ageNum = parseInt(match[1]);
-          if (!isNaN(ageNum)) profileAge = ageNum;
+          if (!isNaN(ageNum)) {
+            profileAge = ageNum;
+          }
         }
       }
       
@@ -319,8 +328,10 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
       }
       
       // Apply age filter if we have a valid age
-      if (profileAge > 0 && (profileAge < filters.ageRange[0] || profileAge > filters.ageRange[1])) {
-        return false;
+      if (profileAge > 0) {
+        if (profileAge < filters.ageRange[0] || profileAge > filters.ageRange[1]) {
+          return false;
+        }
       }
       
       // Apply interests filter
