@@ -1,4 +1,4 @@
-// components/shared/SubscriptionGate.tsx (Completely Fixed Version)
+// components/shared/SubscriptionGate.tsx (Updated version)
 import React, { ReactNode, useState, useEffect } from 'react';
 import { 
   Modal, 
@@ -7,13 +7,14 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   Dimensions,
-  ActivityIndicator,
-  TouchableWithoutFeedback 
+  ActivityIndicator 
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthContext } from '../auth/AuthProvider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../../lib/firebase';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 
 const { width, height } = Dimensions.get('window');
@@ -34,45 +35,6 @@ export function SubscriptionGate({
   const { user } = useAuthContext();
   const { currentTier, isLoading, hasSufficientTier } = useSubscription();
   const [isNavigating, setIsNavigating] = useState(false);
-  const [modalVisible, setModalVisible] = useState(true);
-
-  // Close modal with animation
-  const closeModal = () => {
-    setModalVisible(false);
-    // Wait for animation to finish before calling onClose
-    setTimeout(() => {
-      onClose();
-    }, 300);
-  };
-
-  // Navigate to subscription page
-  const navigateToSubscription = () => {
-    setIsNavigating(true);
-    
-    try {
-      // Navigation should happen after modal is closed
-      router.push({
-        pathname: '/subscription',
-        params: { 
-          highlight: requiredTier,
-          feature: encodeURIComponent(featureName)
-        }
-      });
-    } catch (error) {
-      console.error('Navigation error:', error);
-    } finally {
-      setIsNavigating(false);
-    }
-  };
-
-  // Handler for upgrade button
-  const handleUpgrade = () => {
-    // First close the modal
-    closeModal();
-    
-    // Then navigate with a delay to ensure modal closing animation completes
-    setTimeout(navigateToSubscription, 350);
-  };
 
   // Show loading state while fetching tier
   if (isLoading) {
@@ -90,62 +52,87 @@ export function SubscriptionGate({
   }
 
   // Upgrade Modal Component
-  return (
-    <Modal 
-      transparent={true} 
-      animationType="slide"
-      visible={modalVisible}
-      onRequestClose={closeModal}
-    >
-      <TouchableWithoutFeedback onPress={closeModal}>
+  const UpgradeModal = () => {
+    const handleUpgrade = () => {
+      // Show feedback before navigating
+      setIsNavigating(true);
+      
+      try {
+        // Close the modal first
+        onClose();
+        
+        // Navigate to the standalone subscription page with params to highlight the required tier
+        router.push({
+          pathname: '/subscription',
+          params: { 
+            highlight: requiredTier,
+            feature: encodeURIComponent(featureName)
+          }
+        });
+      } catch (error) {
+        console.error('Navigation error:', error);
+        // If navigation fails, at least close the modal
+        onClose();
+      } finally {
+        setIsNavigating(false);
+      }
+    };
+
+    return (
+      <Modal 
+        transparent={true} 
+        animationType="slide"
+        visible={true}
+      >
         <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-            <View style={styles.modalContainer}>
-              <Ionicons 
-                name="lock-closed" 
-                size={50} 
-                color="#FF6B6B" 
-                style={styles.lockIcon}
-              />
-              
-              <Text style={styles.title}>Upgrade Required</Text>
-              
-              <Text style={styles.description}>
-                The "{featureName}" feature is only available for {requiredTier.toUpperCase()} 
-                subscribers and above.
-              </Text>
-              
-              <TouchableOpacity 
-                style={styles.upgradeButton}
-                onPress={handleUpgrade}
-                disabled={isNavigating}
+          <View style={styles.modalContainer}>
+            <Ionicons 
+              name="lock-closed" 
+              size={50} 
+              color="#FF6B6B" 
+              style={styles.lockIcon}
+            />
+            
+            <Text style={styles.title}>Upgrade Required</Text>
+            
+            <Text style={styles.description}>
+              The "{featureName}" feature is only available for {requiredTier.toUpperCase()} 
+              subscribers and above.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.upgradeButton}
+              onPress={handleUpgrade}
+              disabled={isNavigating}
+            >
+              <LinearGradient
+                colors={['#EC5F61', '#F0B433']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
               >
-                <LinearGradient
-                  colors={['#EC5F61', '#F0B433']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.gradientButton}
-                >
-                  {isNavigating ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={closeModal}
-              >
-                <Text style={styles.cancelButtonText}>Go Back</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
+                {isNavigating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={onClose}
+            >
+              <Text style={styles.cancelButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
+
+  // Render upgrade modal if insufficient tier
+  return <UpgradeModal />;
 }
 
 const styles = StyleSheet.create({
