@@ -1,248 +1,349 @@
-// components/onboarding/SubscriptionPlan.tsx
-import React from 'react';
+// app/(screens)/SubscriptionPlan.tsx - Fixed version
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
-  ScrollView
+  ScrollView,
+  SafeAreaView,
+  Platform,
+  Alert
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthContext } from '../../components/auth/AuthProvider';
+import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { firestore } from '../../lib/firebase';
 
-interface SubscriptionPlanProps {
-  selectedPlan: string;
-  onSelectPlan: (planId: string) => void;
-  onSkip: () => void;
-  onContinue: () => void;
-}
-
-export default function SubscriptionPlan({ 
-  selectedPlan, 
-  onSelectPlan, 
-  onSkip, 
-  onContinue 
-}: SubscriptionPlanProps) {
+export default function SubscriptionPlanScreen() {
+  const { user } = useAuthContext();
+  const [selectedPlan, setSelectedPlan] = useState<string>('basic');
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   
-  // Plan features
+  // Get params from navigation (if any)
+  const params = useLocalSearchParams();
+  const highlightTier = params.highlight as string || null;
+  const featureName = params.feature ? 
+    decodeURIComponent(params.feature as string) : null;
+  const returnToModal = params.returnToModal === 'true';
+  const profileId = params.profileId as string || null;
+  
+  // Load current subscription on mount
+  useEffect(() => {
+    const loadCurrentPlan = async () => {
+      if (!user) {
+        setInitialLoading(false);
+        return;
+      }
+      
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.subscriptionPlan) {
+            setSelectedPlan(userData.subscriptionPlan);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading subscription data:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    loadCurrentPlan();
+  }, [user]);
+  
+  // If component receives a highlight tier, select it
+  useEffect(() => {
+    if (highlightTier && !initialLoading) {
+      setSelectedPlan(highlightTier);
+    }
+  }, [highlightTier, initialLoading]);
+
+  // Handle proper back navigation
+  const handleBack = () => {
+    // Use router.back() instead of router.replace() to maintain navigation history
+    // This preserves state in the previous screen
+    router.back();
+  };
+  
+  // Handle plan selection
+  const selectPlan = async (plan: string) => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to select a plan');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Update user's subscription plan
+      await updateDoc(doc(firestore, 'users', user.uid), {
+        subscriptionPlan: plan,
+        updatedAt: serverTimestamp()
+      });
+      
+      Alert.alert(
+        'Subscription Updated',
+        `Your subscription has been updated to ${plan.toUpperCase()}!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // If we came from a modal, return with a flag to reopen it
+              if (returnToModal && profileId) {
+                // We need to preserve navigation state for the modal
+                router.back();
+              } else {
+                router.back();
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      Alert.alert('Error', 'Failed to update your subscription');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Subscription plan data
   const plans = [
     {
       id: 'basic',
       title: 'Basic',
       price: 'Free',
       features: [
-        { text: 'Unlimited Pop or Find Love: 9 likes per day', included: true },
-        { text: 'Advance match filters: Basic filters', included: true },
-        { text: 'See who pursued you: Limited to 3', included: true },
-        { text: 'Undo a pop (rewind feature)', included: false },
-        { text: 'Match meter', included: false },
-        { text: 'Boost Profile Visibility', included: false },
-        { text: 'Priority in live matchmaking', included: false },
-        { text: 'Exclusive matchmaking events', included: false },
-        { text: 'Virtual gifts / Roses: Buy Only', included: true }
+        'Unlimited swipes per day',
+        'Basic matching algorithm',
+        'Limited profile visibility',
+        'Standard support'
       ]
     },
     {
       id: 'premium',
-      title: 'Premium ✨',
-      price: '$155/yr',
-      monthlyPrice: '$12.99/mo',
+      title: 'Premium',
+      price: '$12.99/month',
       features: [
-        { text: 'Unlimited Pop or Find Love', included: true },
-        { text: 'Advance match filters: Height, religion, lifestyle, race', included: true },
-        { text: 'See who pursued you: Unlimited per term', included: true },
-        { text: 'Undo a pop (rewind feature): 5/ day', included: true },
-        { text: 'Match meter: YES', included: true },
-        { text: 'Boost Profile Visibility: 1 free boost / week', included: true },
-        { text: 'Priority in live matchmaking: Queue skip in speed dating', included: true },
-        { text: 'Exclusive matchmaking events', included: false },
-        { text: 'Virtual gifts / Roses: Earn daily 4', included: true }
+        'See who liked you',
+        'Advanced filters',
+        'Unlimited likes',
+        'Priority profile boost',
+        'No ads'
       ]
     },
     {
       id: 'vip',
-      title: 'VIP 👑',
-      price: '$300/yr',
-      monthlyPrice: '$25.99/mo',
+      title: 'VIP',
+      price: '$24.99/month',
       features: [
-        { text: 'Unlimited Pop or Find Love', included: true },
-        { text: 'Advance match filters: All Filters + AI Suggestions', included: true },
-        { text: 'See who pursued you: Unlimited', included: true },
-        { text: 'Undo a pop (rewind feature): Unlimited', included: true },
-        { text: 'Match meter: YES', included: true },
-        { text: 'Boost Profile Visibility: 3 free boost / week', included: true },
-        { text: 'Priority in live matchmaking: Front of the line in live event', included: true },
-        { text: 'Exclusive matchmaking events: VIP Only', included: true },
-        { text: 'Virtual gifts / Roses: Earn daily 6', included: true }
+        'All Premium features',
+        'Ultra profile boost',
+        'VIP badge',
+        'Read receipts',
+        'Exclusive events',
+        'Priority support'
       ]
     }
   ];
 
   return (
-    <View style={styles.container}>
-      
-      <View style={styles.tabsContainer}>
-        {plans.map(plan => (
-          <TouchableOpacity
-            key={plan.id}
-            style={[
-              styles.tabButton,
-              selectedPlan === plan.id && styles.activeTab
-            ]}
-            onPress={() => onSelectPlan(plan.id)}
-          >
-            <Text 
-              style={[
-                styles.tabText,
-                selectedPlan === plan.id && styles.activeTabText
-              ]}
-            >
-              {plan.title.split(' ')[0]}
-              {plan.id === 'premium' && ' ✨'}
-              {plan.id === 'vip' && ' 👑'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Subscription Plans</Text>
+        <View style={{ width: 24 }} /> {/* Placeholder for alignment */}
       </View>
       
-      <View style={styles.planDetailsContainer}>
-        {plans.map(plan => {
-          if (plan.id !== selectedPlan) return null;
-          
-          return (
-            <View key={plan.id}>
-              <View style={styles.planHeader}>
+      {featureName && (
+        <View style={styles.featurePrompt}>
+          <Ionicons name="lock-closed" size={24} color="#FF6B6B" />
+          <Text style={styles.featurePromptText}>
+            Upgrade to use the <Text style={styles.featureHighlight}>{featureName}</Text> feature
+          </Text>
+        </View>
+      )}
+      
+      <ScrollView style={styles.content}>
+        {plans.map((plan) => (
+          <View 
+            key={plan.id} 
+            style={[
+              styles.planCard,
+              selectedPlan === plan.id && styles.selectedPlanCard,
+              highlightTier === plan.id && styles.highlightedPlanCard
+            ]}
+          >
+            <View style={styles.planHeader}>
+              <Text style={styles.planTitle}>{plan.title}</Text>
+              <Text style={styles.planPrice}>{plan.price}</Text>
+            </View>
+            
+            <View style={styles.planFeatures}>
+              {plan.features.map((feature, index) => (
+                <View key={index} style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={20} color="#FF6B6B" />
+                  <Text style={styles.featureText}>{feature}</Text>
+                </View>
+              ))}
+            </View>
+            
+            <TouchableOpacity
+              style={[
+                styles.selectButton,
+                selectedPlan === plan.id && styles.currentPlanButton
+              ]}
+              onPress={() => selectPlan(plan.id)}
+              disabled={loading || selectedPlan === plan.id}
+            >
+              {selectedPlan === plan.id ? (
+                <Text style={styles.currentPlanText}>Current Plan</Text>
+              ) : (
                 <LinearGradient
-                  colors={['#996633',  '#F0B433',  '#33CCFF']}
+                  colors={['#EC5F61', '#F0B433']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.planGradient}
+                  style={styles.gradientButton}
                 >
-                  <Text style={styles.planTitle}>{plan.title.split(' ')[0]}</Text>
-                  <Text style={styles.planPrice}>{plan.price}</Text>
-                  {plan.monthlyPrice && (
-                    <Text style={styles.monthlyPrice}>{plan.monthlyPrice}</Text>
-                  )}
+                  <Text style={styles.selectButtonText}>Select Plan</Text>
                 </LinearGradient>
-              </View>
-              
-              <View style={styles.featuresList}>
-                {plan.features.map((feature, index) => (
-                  <View key={index} style={styles.featureItem}>
-                    <Ionicons 
-                      name={feature.included ? "checkmark-circle" : "close-circle"} 
-                      size={20} 
-                      color={feature.included ? "#FF6B6B" : "#ccc"} 
-                      style={styles.featureIcon}
-                    />
-                    <Text style={styles.featureText}>{feature.text}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          );
-        })}
-      </View>
-      
-      <TouchableOpacity style={styles.continueButton} onPress={onContinue}>
-        <LinearGradient
-          colors={['#EC5F61', '#F0B433']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.continueGradient}
-        >
-          <Text style={styles.continueText}>Select Plan</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 0 : 40,
+    paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginTop: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+  backButton: {
+    padding: 8,
   },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#FF6B6B',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#FF6B6B',
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '600',
   },
-  planDetailsContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 15,
-  },
-  planHeader: {
+  featurePrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
     borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 24,
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 20,
   },
-  planGradient: {
+  featurePromptText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 10,
+    flex: 1,
+  },
+  featureHighlight: {
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+  },
+  content: {
+    flex: 1,
     padding: 20,
   },
+  planCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  selectedPlanCard: {
+    borderColor: '#FF6B6B',
+    borderWidth: 2,
+  },
+  highlightedPlanCard: {
+    borderColor: '#FF6B6B',
+    borderWidth: 2,
+    backgroundColor: '#FFF5F5',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   planTitle: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: 'white',
+    fontSize: 20,
+    fontWeight: '600',
   },
   planPrice: {
-    fontSize: 24,
-    fontWeight: '400',
-    color: 'white',
-    marginTop: 8,
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#FF6B6B',
   },
-  monthlyPrice: {
-    fontSize: 16,
-    color: 'white',
-    marginTop: 1,
-  },
-  featuresList: {
+  planFeatures: {
     marginBottom: 20,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-  },
-  featureIcon: {
-    marginRight: 10,
+    marginBottom: 10,
   },
   featureText: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 14,
+    marginLeft: 10,
+    color: '#333',
   },
-  continueButton: {
-    marginHorizontal: 20,
-    borderRadius: 28,
+  selectButton: {
+    height: 50,
+    borderRadius: 25,
     overflow: 'hidden',
   },
-  continueGradient: {
-    paddingVertical: 16,
+  currentPlanButton: {
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+    borderRadius: 25,
+    height: 50,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  continueText: {
+  currentPlanText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  gradientButton: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectButtonText: {
     color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-  }
+    fontSize: 16,
+    fontWeight: '500',
+  },
 });

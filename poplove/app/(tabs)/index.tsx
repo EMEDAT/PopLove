@@ -25,6 +25,7 @@ import { MessageStatus } from '../../components/chat/MessageStatus';
 import NotificationBadge  from '../../components/shared/NotificationBadge';
 import { router } from 'expo-router';
 import FilterButton from '../../components/FilterButton';
+import { ProfileStateManager } from '../../utils/profileStateManager';
 
 
 const { width, height } = Dimensions.get('window');
@@ -208,6 +209,45 @@ export default function HomeScreen() {
     }
   }
 }, [currentProfileIndex, profiles]);
+
+  useEffect(() => {
+    // When the screen focuses, check if we need to restore a profile modal
+    const checkSavedProfileState = async () => {
+      try {
+        const { profile, showModal } = await ProfileStateManager.restoreViewingState();
+        
+        if (profile && showModal) {
+          console.log('Restoring profile modal state', { profileId: profile.id });
+          // First set the profile, then show the modal with a small delay
+          setSelectedProfile(profile);
+          
+          // Small delay to ensure profile is set first
+          setTimeout(() => {
+            setDetailsModalVisible(true);
+          }, 300);
+        }
+      } catch (error) {
+        console.error('Error restoring profile modal state:', error);
+      }
+    };
+    
+    // Check on initial render
+    checkSavedProfileState();
+    
+    // To properly handle focus events, you could use the useFocusEffect from @react-navigation/native
+    // Import it at the top:
+    // import { useFocusEffect } from '@react-navigation/native';
+    // Then replace this useEffect with:
+    /*
+    useFocusEffect(
+      React.useCallback(() => {
+        checkSavedProfileState();
+        return () => {};
+      }, [])
+    );
+    */
+    
+  }, []);
 
  const resetPosition = () => {
    Animated.spring(position, {
@@ -411,16 +451,35 @@ const handlePass = async () => {
   }
 };
 
- const handleViewDetails = (profile: any) => {
-   setSelectedProfile(profile);
-   setDetailsModalVisible(true);
- };
+const handleViewDetails = (profile: any) => {
+  // Save the state in case we navigate away
+  ProfileStateManager.saveViewedProfile(profile, true)
+    .then(() => {
+      setSelectedProfile(profile);
+      setDetailsModalVisible(true);
+    })
+    .catch(error => {
+      // Fallback if saving fails
+      console.error('Error saving profile state:', error);
+      setSelectedProfile(profile);
+      setDetailsModalVisible(true);
+    });
+};
 
- const handleTrendingProfilePress = (profile: any) => {
-   console.log("Trending profile pressed:", profile.id);
-   setSelectedProfile(profile);
-   setDetailsModalVisible(true);
- };
+
+const handleTrendingProfilePress = (profile: any) => {
+  console.log("Trending profile pressed:", profile.id);
+  ProfileStateManager.saveViewedProfile(profile, true)
+    .then(() => {
+      setSelectedProfile(profile);
+      setDetailsModalVisible(true);
+    })
+    .catch(error => {
+      console.error('Error saving profile state:', error);
+      setSelectedProfile(profile);
+      setDetailsModalVisible(true);
+    });
+};
 
  const renderNoMoreCards = () => (
    <View style={styles.noMoreCardsContainer}>
