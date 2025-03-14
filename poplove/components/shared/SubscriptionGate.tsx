@@ -1,4 +1,4 @@
-// components/shared/SubscriptionGate.tsx
+// components/shared/SubscriptionGate.tsx (Updated version)
 import React, { ReactNode, useState, useEffect } from 'react';
 import { 
   Modal, 
@@ -22,14 +22,14 @@ interface SubscriptionGateProps {
   children: ReactNode;
   requiredTier: 'basic' | 'premium' | 'vip';
   featureName: string;
-  onClose: () => void;  // Added onClose prop
+  onClose: () => void;
 }
 
 export function SubscriptionGate({ 
   children, 
   requiredTier, 
   featureName,
-  onClose  // Added to function parameters
+  onClose
 }: SubscriptionGateProps) {
   const { user } = useAuthContext();
   const [userTier, setUserTier] = useState<string | null>(null);
@@ -94,7 +94,11 @@ export function SubscriptionGate({
   // Upgrade Modal Component
   const UpgradeModal = () => {
     const handleUpgrade = () => {
-      router.push('/(onboarding)/subscription');
+      // Close the modal first
+      onClose();
+      
+      // Navigate to the standalone subscription page
+      router.push('/subscription');
     };
 
     return (
@@ -135,7 +139,7 @@ export function SubscriptionGate({
             
             <TouchableOpacity 
               style={styles.cancelButton}
-              onPress={onClose}  // Use the passed onClose method
+              onPress={onClose}
             >
               <Text style={styles.cancelButtonText}>Go Back</Text>
             </TouchableOpacity>
