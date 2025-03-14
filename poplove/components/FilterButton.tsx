@@ -28,11 +28,40 @@ interface FilterState {
 
 // Define location interface
 interface LocationData {
-    name: string;
-    code: string;
-  }
+  name: string;
+  code: string;
+}
 
-const FilterPopup = ({ visible, onClose, onApply }) => {
+// Define profile interface
+interface Profile {
+  id: string;
+  displayName: string;
+  photoURL: string;
+  bio?: string;
+  location?: string;
+  distance?: number;
+  age?: string;
+  ageRange?: string;
+  interests?: string[];
+  gender?: string;
+  profession?: string;
+}
+
+// FilterPopup props interface
+interface FilterPopupProps {
+  visible: boolean;
+  onClose: () => void;
+  onApply: (filters: FilterState) => void;
+}
+
+// FilterButton props interface
+interface FilterButtonProps {
+  profiles: Profile[];
+  setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
+  allProfiles?: Profile[]; // Optional original unfiltered profiles
+}
+
+const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) => {
   // Initial filter state
   const [filters, setFilters] = useState<FilterState>({
     location: '',
@@ -105,11 +134,11 @@ const FilterPopup = ({ visible, onClose, onApply }) => {
 
   return (
     <Modal
-    visible={visible}
-    transparent={true}
-    animationType="slide"
-    onRequestClose={onClose}
-    statusBarTranslucent={true} // Add this
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent={true}
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
@@ -127,19 +156,19 @@ const FilterPopup = ({ visible, onClose, onApply }) => {
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Location</Text>
                   <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={filters.location}
-                    onValueChange={(value) => setFilters({...filters, location: value})}
-                    style={styles.picker}
+                    <Picker
+                      selectedValue={filters.location}
+                      onValueChange={(value) => setFilters({...filters, location: value})}
+                      style={styles.picker}
                     >
-                    <Picker.Item label="Select location" value="" />
-                    {locations.map(location => (
+                      <Picker.Item label="Select location" value="" />
+                      {locations.map(location => (
                         <Picker.Item 
-                        key={location.code} 
-                        label={location.name} 
-                        value={location.name} 
+                          key={location.code} 
+                          label={location.name} 
+                          value={location.name} 
                         />
-                    ))}
+                      ))}
                     </Picker>
                   </View>
                 </View>
@@ -153,15 +182,15 @@ const FilterPopup = ({ visible, onClose, onApply }) => {
                       <Text style={styles.rangeLabel}>{filters.distance[1]}km</Text>
                     </View>
                     <Slider
-                    style={styles.slider}
-                    minimumValue={1}
-                    maximumValue={100}
-                    step={1} // Add this line
-                    value={filters.distance[1]}
-                    onValueChange={(value) => setFilters({...filters, distance: [filters.distance[0], Math.round(value)]})}
-                    minimumTrackTintColor="#FF6B6B"
-                    maximumTrackTintColor="#E0E0E0"
-                    thumbTintColor="#FF6B6B"
+                      style={styles.slider}
+                      minimumValue={1}
+                      maximumValue={100}
+                      step={1}
+                      value={filters.distance[1]}
+                      onValueChange={(value) => setFilters({...filters, distance: [filters.distance[0], Math.round(value)]})}
+                      minimumTrackTintColor="#FF6B6B"
+                      maximumTrackTintColor="#E0E0E0"
+                      thumbTintColor="#FF6B6B"
                     />
                   </View>
                 </View>
@@ -175,28 +204,28 @@ const FilterPopup = ({ visible, onClose, onApply }) => {
                       <Text style={styles.rangeLabel}>{filters.ageRange[1]}</Text>
                     </View>
                     <View style={styles.doubleSliderContainer}>
-                    <Slider
-                    style={styles.slider}
-                    minimumValue={1}
-                    maximumValue={100}
-                    step={1} // Add this line
-                    value={filters.distance[1]}
-                    onValueChange={(value) => setFilters({...filters, distance: [filters.distance[0], Math.round(value)]})}
-                    minimumTrackTintColor="#FF6B6B"
-                    maximumTrackTintColor="#E0E0E0"
-                    thumbTintColor="#FF6B6B"
-                    />
-                    <Slider
-                    style={styles.slider}
-                    minimumValue={1}
-                    maximumValue={100}
-                    step={1} // Add this line
-                    value={filters.distance[1]}
-                    onValueChange={(value) => setFilters({...filters, distance: [filters.distance[0], Math.round(value)]})}
-                    minimumTrackTintColor="#FF6B6B"
-                    maximumTrackTintColor="#E0E0E0"
-                    thumbTintColor="#FF6B6B"
-                    />
+                      <Slider
+                        style={styles.slider}
+                        minimumValue={18}
+                        maximumValue={70}
+                        step={1}
+                        value={filters.ageRange[0]}
+                        onValueChange={(value) => setFilters({...filters, ageRange: [Math.round(value), filters.ageRange[1]]})}
+                        minimumTrackTintColor="#E0E0E0"
+                        maximumTrackTintColor="#FF6B6B"
+                        thumbTintColor="#FF6B6B"
+                      />
+                      <Slider
+                        style={styles.slider}
+                        minimumValue={18}
+                        maximumValue={70}
+                        step={1}
+                        value={filters.ageRange[1]}
+                        onValueChange={(value) => setFilters({...filters, ageRange: [filters.ageRange[0], Math.round(value)]})}
+                        minimumTrackTintColor="#FF6B6B"
+                        maximumTrackTintColor="#E0E0E0"
+                        thumbTintColor="#FF6B6B"
+                      />
                     </View>
                   </View>
                 </View>
@@ -258,38 +287,63 @@ const FilterPopup = ({ visible, onClose, onApply }) => {
 };
 
 // Main filter button component that toggles the popup
-const FilterButton = () => {
+const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allProfiles }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(null);
+  const [activeFilters, setActiveFilters] = useState<FilterState | null>(null);
+  
+  // Store original profiles if allProfiles not provided
+  const [originalProfiles] = useState(allProfiles || profiles);
 
-  const handleFilterApply = (filters) => {
+  const handleFilterApply = (filters: FilterState) => {
+    // Get the profiles to filter (either from allProfiles prop or original stored profiles)
+    const profilesToFilter = allProfiles || originalProfiles;
+    
     // Apply filters to your data
-    const filteredProfiles = yourProfiles.filter(profile => {
+    const filteredProfiles = profilesToFilter.filter(profile => {
       // Apply location filter
       if (filters.location && profile.location !== filters.location) {
         return false;
       }
       
+      // Extract numeric age from ageRange or age field
+      let profileAge = 0;
+      if (profile.age) {
+        const ageNum = parseInt(profile.age);
+        if (!isNaN(ageNum)) profileAge = ageNum;
+      } else if (profile.ageRange) {
+        // Try to extract from ageRange (assuming format like "25 to 30")
+        const match = profile.ageRange.match(/^(\d+)/);
+        if (match && match[1]) {
+          const ageNum = parseInt(match[1]);
+          if (!isNaN(ageNum)) profileAge = ageNum;
+        }
+      }
+      
       // Apply distance filter
-      if (profile.distance < filters.distance[0] || profile.distance > filters.distance[1]) {
+      if (profile.distance !== undefined && 
+          (profile.distance < filters.distance[0] || profile.distance > filters.distance[1])) {
         return false;
       }
       
-      // Apply age filter
-      if (profile.age < filters.ageRange[0] || profile.age > filters.ageRange[1]) {
+      // Apply age filter if we have a valid age
+      if (profileAge > 0 && (profileAge < filters.ageRange[0] || profileAge > filters.ageRange[1])) {
         return false;
       }
       
       // Apply interests filter
-      if (filters.interests.length > 0 && !filters.interests.some(interest => profile.interests.includes(interest))) {
+      if (filters.interests.length > 0 && 
+          (!profile.interests || !profile.interests.some(interest => filters.interests.includes(interest)))) {
         return false;
       }
       
       return true;
     });
     
-    // Update your state with filtered profiles
+    // Update profiles state with filtered profiles
     setProfiles(filteredProfiles);
+    
+    // Store active filters
+    setActiveFilters(filters);
   };
 
   return (
@@ -329,12 +383,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end', // Change to flex-end
+    justifyContent: 'flex-end',
     alignItems: 'center',
   },
   modalContent: {
-    width: '100%', // Full width
-    height: '85%', // Limit height
+    width: '100%',
+    height: '85%',
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

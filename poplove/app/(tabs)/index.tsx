@@ -574,10 +574,11 @@ const sendEmojiMessage = async (emoji: string) => {
         </View>
 
         <View style={styles.headerRight}>
-          <NotificationBadge />
-        <TouchableOpacity style={styles.filterButton}>
-          <FilterButton />
-        </TouchableOpacity>
+        <NotificationBadge />
+        <FilterButton 
+          profiles={profiles} 
+          setProfiles={setProfiles} 
+        />
       </View>
       </View>
      
