@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuthContext } from '../../components/auth/AuthProvider';
-import SubscriptionPlan from '../../components/onboarding/SubscriptionPlan';
+import SubscriptionPlan from './SubscriptionPlan';
 
 export default function EnhancedSubscriptionScreen() {
   const { user } = useAuthContext();
@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 10 : 50,
+    paddingTop: Platform.OS === 'ios' ? 10 : 40,
     paddingHorizontal: 20,
-    paddingBottom: 15,
+    paddingBottom: 10,
   },
   headerTitle: {
     fontSize: 20,
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 15,
+    marginBottom: 5,
   },
   bannerIcon: {
     marginRight: 10,
