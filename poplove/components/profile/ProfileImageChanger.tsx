@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
   cancelOption: {
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 0,
   },
   cancelText: {
     fontSize: 16,

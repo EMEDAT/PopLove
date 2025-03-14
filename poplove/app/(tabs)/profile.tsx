@@ -214,7 +214,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={styles.logoutButton}
           onPress={handleSignOut}
         >
@@ -222,7 +222,7 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
             <Text style={styles.logoutText}>Log Out</Text>
           </View>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </ScrollView>
       
       {/* Modal for screens */}
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
