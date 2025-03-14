@@ -1,9 +1,9 @@
 // app/subscription.tsx
-// This is a standalone route that renders the subscription screen without 
-// conflicting with the onboarding flow's subscription screen
+// This is a standalone route that renders the enhanced subscription screen
+// which reuses the component from onboarding while adding additional features
 
-import SubscriptionScreen from '../app/(screens)/subscription';
+import EnhancedSubscriptionScreen from '../app/(screens)/subscription';
 
 export default function SubscriptionRoute() {
-  return <SubscriptionScreen />;
+  return <EnhancedSubscriptionScreen />;
 }

@@ -16,7 +16,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { BlurView } from 'expo-blur';
 import VibeCheck from './VibeCheck';
-import { SubscriptionGate } from './SubscriptionGate';
 import ProfileMediaGallery from '../profile/ProfileMediaGallery';
 
 const { width } = Dimensions.get('window');
@@ -75,6 +74,7 @@ export function PrivateProfileDetailsModal(props) {
   // Extract key data with fallbacks
   const photoURL = profile.photoURL;
   const displayName = profile.displayName || 'User';
+  const age = profile.age || '';
   const ageRange = profile.ageRange || '';
   const location = profile.location;
   const bio = profile.bio;
@@ -143,7 +143,7 @@ export function PrivateProfileDetailsModal(props) {
           
           {/* Basic Info */}
           <View style={styles.infoSection}>
-            <Text style={styles.displayName}>{displayName}{ageRange ? `, ${ageRange}` : ''}</Text>
+            <Text style={styles.displayName}>{displayName}{age ? `, ${age}` : ''}</Text>
             
             {location && (
               <View style={styles.locationRow}>

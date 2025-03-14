@@ -75,6 +75,7 @@ export function ProfileDetailsModal(props) {
   // Extract key data with fallbacks
   const photoURL = profile.photoURL;
   const displayName = profile.displayName || 'User';
+  const age = profile.age || '';
   const ageRange = profile.ageRange || '';
   const location = profile.location;
   const bio = profile.bio;
@@ -143,7 +144,7 @@ export function ProfileDetailsModal(props) {
           
           {/* Basic Info */}
           <View style={styles.infoSection}>
-            <Text style={styles.displayName}>{displayName}{ageRange ? `, ${ageRange}` : ''}</Text>
+            <Text style={styles.displayName}>{displayName}{age ? `, ${age}` : ''}</Text>
             
             {location && (
               <View style={styles.locationRow}>

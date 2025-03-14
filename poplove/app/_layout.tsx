@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text } from 'react-native';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { AuthProvider } from '../components/auth/AuthProvider';
+import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 
 // Import Firebase to ensure it's initialized
 import '../lib/firebase';
@@ -60,15 +61,18 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </ThemeProvider>
+      <SubscriptionProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="subscription" />
+          </Stack>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </ThemeProvider>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }
