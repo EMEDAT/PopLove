@@ -1,3 +1,4 @@
+// components/FilterButton.tsx - Fixed location service import
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -8,7 +9,8 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Dimensions,
-  Pressable
+  Pressable,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -61,6 +63,20 @@ interface FilterButtonProps {
   allProfiles?: Profile[]; // Optional original unfiltered profiles
 }
 
+// Hard-coded locations data as fallback
+const fallbackLocations: LocationData[] = [
+  { name: "United States", code: "US" },
+  { name: "United Kingdom", code: "UK" },
+  { name: "Canada", code: "CA" },
+  { name: "Australia", code: "AU" },
+  { name: "France", code: "FR" },
+  { name: "Germany", code: "DE" },
+  { name: "Japan", code: "JP" },
+  { name: "China", code: "CN" },
+  { name: "India", code: "IN" },
+  { name: "Brazil", code: "BR" }
+];
+
 const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) => {
   // Initial filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -69,12 +85,19 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     ageRange: [18, 35],
     interests: []
   });
-  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [locations, setLocations] = useState<LocationData[]>(fallbackLocations);
 
   useEffect(() => {
     const loadLocations = async () => {
-      const countries = await getLocations();
-      setLocations(countries);
+      try {
+        const countries = await getLocations();
+        if (countries && countries.length > 0) {
+          setLocations(countries);
+        }
+      } catch (error) {
+        console.error('Failed to load locations:', error);
+        // Fallback already set in initial state
+      }
     };
     
     loadLocations();
@@ -82,12 +105,20 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
 
   const getLocations = async (): Promise<LocationData[]> => {
     try {
-      const locationService = require('../../services/location').default;
-      const countries = locationService.getAllCountries();
-      return countries;
+      // Direct import with proper error handling
+      const LocationService = require('../services/location').LocationService;
+      
+      // Check if the imported service has the method we need
+      if (LocationService && typeof LocationService.getAllCountries === 'function') {
+        const countries = LocationService.getAllCountries();
+        return countries;
+      } else {
+        console.warn('LocationService exists but getAllCountries method is missing');
+        return fallbackLocations;
+      }
     } catch (error) {
       console.error('Error fetching locations:', error);
-      return []; 
+      return fallbackLocations; 
     }
   };
 

@@ -1,4 +1,4 @@
-// hooks/useAuth.ts
+// hooks/useAuth.ts - Updated error handling
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, User } from '../lib/firebase';
@@ -27,7 +27,24 @@ export function useAuth() {
   };
 
   const handleAuthError = (error: any) => {
-    setError(error.message);
+    console.log('Auth error details:', error);
+    
+    // More specific error messages
+    let errorMessage = error.message || 'Authentication failed';
+    
+    if (error.code === 'auth/invalid-credential') {
+      errorMessage = 'Invalid email or password. Please try again or reset your password.';
+    } else if (error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email. Please sign up first.';
+    } else if (error.code === 'auth/wrong-password') {
+      errorMessage = 'Incorrect password. Please try again.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many failed attempts. Please try again later.';
+    }
+    
+    setError(errorMessage);
+    
+    // Clear error after 3 seconds
     setTimeout(() => setError(null), 3000);
   };
 
@@ -38,6 +55,8 @@ export function useAuth() {
       await authService.signInWithEmail(email, password);
     } catch (error: any) {
       handleAuthError(error);
+      // Rethrow to let component handle it
+      throw error;
     } finally {
       setIsAuthenticating(false);
     }
