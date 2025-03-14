@@ -1,4 +1,4 @@
-// components/shared/ProfileDetailsModal.tsx - Updated version with state preservation
+// components/shared/ProfileDetailsModal.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -9,8 +9,7 @@ import {
   Modal,
   ScrollView,
   Platform,
-  Dimensions,
-  Alert
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
@@ -18,28 +17,19 @@ import { firestore } from '../../lib/firebase';
 import { BlurView } from 'expo-blur';
 import VibeCheck from './VibeCheck';
 import ProfileMediaGallery from '../profile/ProfileMediaGallery';
-import { router } from 'expo-router';
-import { ProfileStateManager } from '../../utils/profileStateManager';
 
 const { width } = Dimensions.get('window');
 
-// Adding proper navigation state preservation to ProfileDetailsModal
+// Simple version with minimal complexity and no TypeScript
 export function ProfileDetailsModal(props) {
-  const { 
-    visible, 
-    onClose, 
-    profile: initialProfile, 
-    actionButton, 
-    secondaryButton, 
-    vibePercentage 
-  } = props;
+  const { visible, onClose, profile: initialProfile, actionButton, secondaryButton, vibePercentage } = props;
   
   // Simple state for expanded sections
   const [expandedSection, setExpandedSection] = useState(null);
   // Basic profile state initialized once
   const [profile, setProfile] = useState(initialProfile || {});
+
   const [vibeCheckVisible, setVibeCheckVisible] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   
   // Effect to load data only when the profile ID changes
   useEffect(() => {
@@ -66,39 +56,6 @@ export function ProfileDetailsModal(props) {
       fetchProfileData();
     }
   }, [initialProfile?.id]);
-  
-  // Handle modal close with proper state cleanup
-  const handleClose = () => {
-    setIsClosing(true);
-    
-    // Clear state to prevent unwanted reopening
-    ProfileStateManager.clearSavedState().then(() => {
-      onClose();
-      setIsClosing(false);
-    });
-  };
-  
-  // Handle navigation to subscription while preserving state
-  const handleNavigateToSubscription = async () => {
-    try {
-      // Save current profile state
-      await ProfileStateManager.saveViewedProfile(profile, true);
-      
-      // Navigate to subscription with params to highlight the premium tier
-      router.push({
-        pathname: '/subscription',
-        params: { 
-          highlight: 'premium',
-          feature: 'Find Love',
-          returnToModal: 'true',
-          profileId: profile.id
-        }
-      });
-    } catch (error) {
-      console.error('Error navigating to subscription:', error);
-      Alert.alert('Error', 'Failed to navigate to subscription plans');
-    }
-  };
   
   // Only render if we have a profile
   if (!profile) return null;
@@ -142,12 +99,12 @@ export function ProfileDetailsModal(props) {
       animationType="slide"
       transparent={false}
       statusBarTranslucent={true}
-      onRequestClose={handleClose}
+      onRequestClose={onClose}
     >
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
             <View style={styles.iconCircle}>
               <Ionicons name="chevron-back" size={24} color="#344054" />
             </View>
@@ -307,13 +264,7 @@ export function ProfileDetailsModal(props) {
         <View style={styles.actionContainer}>
           <TouchableOpacity 
             style={styles.rejectButton}
-            onPress={() => {
-              // First close modal then execute secondary action
-              handleClose();
-              if (secondaryButton?.onPress) {
-                setTimeout(() => secondaryButton.onPress(), 300);
-              }
-            }}
+            onPress={secondaryButton?.onPress}
           >
             <Image 
               source={require('../../assets/images/main/LoveError.png')} 
@@ -323,21 +274,13 @@ export function ProfileDetailsModal(props) {
             <Text style={styles.actionText}>Pop Balloon</Text>
           </TouchableOpacity>
           
-          {/* Always show button but handle subscription inside */}
+          {/* Always show button but subscription check happens in VibeCheck */}
           <TouchableOpacity 
             style={styles.acceptButton}
             onPress={() => {
-              // For premium features, save state and navigate to subscription
-              if (profile.id) {
-                // Save current profile state first
-                ProfileStateManager.saveViewedProfile(profile, true)
-                  .then(() => {
-                    handleClose();
-                    
-                    // Then show vibe check which will handle subscription
-                    setTimeout(() => setVibeCheckVisible(true), 300);
-                  });
-              }
+              // Important: Show the vibe check modal with premium requirement
+              setVibeCheckVisible(true);
+              // The subscription check will happen inside VibeCheck component
             }}
           >
             <Image 
