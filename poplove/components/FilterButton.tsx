@@ -1,5 +1,5 @@
 // FilterButton.tsx with dual-thumb slider implementation
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -78,7 +78,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     };
     
     loadLocations();
-  }, []);
+  }, []); 
+
+  console.log("Slider values:", filters.distance, filters.ageRange);
 
   const getLocations = async (): Promise<LocationData[]> => {
     try {
@@ -133,14 +135,14 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
   };
 
   // Handle distance slider change
-  const handleDistanceChange = (low: number, high: number) => {
-    setFilters({...filters, distance: [low, high]});
-  };
+  const handleDistanceChange = useCallback((low: number, high: number) => {
+    setFilters(prev => ({...prev, distance: [low, high]}));
+  }, []);
   
   // Handle age slider change
-  const handleAgeChange = (low: number, high: number) => {
-    setFilters({...filters, ageRange: [low, high]});
-  };
+  const handleAgeChange = useCallback((low: number, high: number) => {
+    setFilters(prev => ({...prev, ageRange: [low, high]}));
+  }, []);
 
   return (
     <Modal
@@ -168,7 +170,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={filters.location}
-                      onValueChange={(value) => setFilters({...filters, location: value})}
+                      onValueChange={(value) => setFilters(prev => ({...prev, location: value}))}
                       style={styles.picker}
                     >
                       <Picker.Item label="Select location" value="" />

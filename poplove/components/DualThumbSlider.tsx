@@ -1,8 +1,6 @@
-// First, install: npm install rn-range-slider
-// For a quick fix, use this implementation
-
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+// DualThumbSlider.tsx
+import React, { useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import RangeSlider from 'rn-range-slider';
 
 interface RangeSliderProps {
@@ -14,39 +12,27 @@ interface RangeSliderProps {
   onValueChanged: (low: number, high: number) => void;
 }
 
-// Customizable Range Slider that matches your design
-const DualThumbSlider: React.FC<RangeSliderProps> = ({
-  min,
-  max,
-  initialLow,
-  initialHigh,
-  step,
-  onValueChanged
-}) => {
-  const renderThumb = useCallback(() => (
-    <View style={styles.thumb} />
-  ), []);
-  
-  const renderRail = useCallback(() => (
-    <View style={styles.rail} />
-  ), []);
-  
-  const renderRailSelected = useCallback(() => (
-    <View style={styles.railSelected} />
-  ), []);
-  
+const DualThumbSlider = ({
+  min, max, initialLow, initialHigh, step, onValueChanged
+}: RangeSliderProps) => {
+  const renderThumb = useCallback(() => <View style={styles.thumb} />, []);
+  const renderRail = useCallback(() => <View style={styles.rail} />, []);
+  const renderRailSelected = useCallback(() => <View style={styles.railSelected} />, []);
+
   return (
-    <RangeSlider
-      style={styles.slider}
-      min={min}
-      max={max}
-      step={step}
-      low={initialLow}
-      high={initialHigh}
-      onValueChanged={onValueChanged}
-      renderThumb={renderThumb}
-      renderRail={renderRail}
-      renderRailSelected={renderRailSelected}
+<RangeSlider
+    style={styles.slider}
+    min={min}
+    max={max}
+    step={step} 
+    low={initialLow}
+    high={initialHigh}
+    disableRange={false}
+    onValueChanged={onValueChanged}
+    renderThumb={renderThumb}
+    renderRail={renderRail}
+    renderRailSelected={renderRailSelected}
+    thumbRadius={10}
     />
   );
 };
@@ -61,26 +47,23 @@ const styles = StyleSheet.create({
     width: 20, 
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF', // White fill
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#FF6B6B', // Red border to match your design
+    borderColor: '#FF6B6B',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 2,
   },
   rail: {
-    height: 3, // Thicker line as requested
-    backgroundColor: '#E5E5E5', // Light gray
+    height: 3,
+    backgroundColor: '#E5E5E5',
     borderRadius: 2,
   },
   railSelected: {
-    height: 3, // Keep same thickness
-    backgroundColor: '#FF6B6B', // Red to match your design
+    height: 3,
+    backgroundColor: '#FF6B6B',
     borderRadius: 2,
   },
 });
