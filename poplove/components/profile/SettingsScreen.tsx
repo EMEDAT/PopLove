@@ -18,6 +18,7 @@ import { useAuthContext } from '../auth/AuthProvider';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import theme from '../../lib/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface SettingsScreenProps {
     onBack?: () => void;
@@ -418,11 +419,18 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
           onPress={saveSettings}
           disabled={saving}
         >
+          <LinearGradient
+            colors={['#EC5F61', '#F0B433']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientButton}
+          >
           {saving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.saveButtonText}>Save Changes</Text>
           )}
+          </LinearGradient>
         </TouchableOpacity>
         
         {/* App Version */}
@@ -592,13 +600,11 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
   },
   saveButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 25,
-    paddingVertical: 13,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 30,
+    width: '100%',
+    height: 50,
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginTop: 20,
   },
   saveButtonText: {
     color: '#fff',
@@ -672,5 +678,13 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: 'white',
     fontSize: 16,
+  },
+  gradientButton: {
+    width: '90%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+    marginLeft: '5%',
   },
 });

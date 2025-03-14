@@ -19,6 +19,7 @@ import { firestore } from '../../lib/firebase';
 import { updateProfile } from 'firebase/auth';
 import theme from '../../lib/theme';
 import ProfileImageChanger from './ProfileImageChanger';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface PersonalDetailsScreenProps {
     onBack?: () => void;
@@ -40,6 +41,7 @@ interface PersonalDetailsScreenProps {
     interests: string[]; // Change from never[] to string[]
     photoURL: string;
     ageRange: string;
+    age: string;
   }>({
     displayName: '',
     email: '',
@@ -50,6 +52,7 @@ interface PersonalDetailsScreenProps {
     interests: [],
     photoURL: '',
     ageRange: '',
+    age: '',
   });
   
   // Load user details
@@ -74,6 +77,7 @@ interface PersonalDetailsScreenProps {
             education: userData.education || '',
             interests: userData.interests || [],
             photoURL: userData.photoURL || user.photoURL || '',
+            age: userData.age || userData.ageRange || '',
             ageRange: userData.ageRange || '',
           });
         } else {
@@ -87,6 +91,7 @@ interface PersonalDetailsScreenProps {
             education: '',
             interests: [],
             photoURL: user.photoURL || '',
+            age: '',
             ageRange: '',
           });
         }
@@ -155,6 +160,7 @@ interface PersonalDetailsScreenProps {
         profession: userDetails.profession,
         education: userDetails.education,
         interests: userDetails.interests,
+        age: userDetails.age,
         ageRange: userDetails.ageRange,
         photoURL: userDetails.photoURL,
         updatedAt: serverTimestamp()
@@ -162,7 +168,9 @@ interface PersonalDetailsScreenProps {
       
       Alert.alert('Success', 'Your profile has been updated');
       // Navigate back
-      router.back();
+      if (onBack) {
+        onBack();
+      } 
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update your profile');
@@ -227,9 +235,10 @@ interface PersonalDetailsScreenProps {
           <Text style={styles.inputLabel}>Age</Text>
           <TextInput
             style={styles.textInput}
-            value={userDetails.ageRange}
-            onChangeText={(value) => handleInputChange('ageRange', value)}
-            placeholder="e.g. 25-35"
+            value={userDetails.age}
+            onChangeText={(value) => handleInputChange('age', value)}
+            placeholder="Your age"
+            keyboardType="number-pad"
           />
         </View>
         
@@ -289,16 +298,23 @@ interface PersonalDetailsScreenProps {
       
       {/* Save button */}
       <TouchableOpacity 
-        style={styles.saveButton}
-        onPress={saveDetails}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        )}
-      </TouchableOpacity>
+          style={styles.saveButton}
+          onPress={saveDetails}
+          disabled={saving}
+        >
+          <LinearGradient
+            colors={['#EC5F61', '#F0B433']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientButton}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -370,17 +386,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 25,
-    paddingVertical: 13,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 30,
+    width: '100%',
+    height: 50,
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginTop: 20,
   },
   saveButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  gradientButton: {
+    width: '90%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+    marginLeft: '5%',
   },
 });
