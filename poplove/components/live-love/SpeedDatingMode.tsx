@@ -62,6 +62,10 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
   const chatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reminderTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const getOppositeGender = (gender: string): string => {
+    return gender === 'male' ? 'female' : 'male';
+  };
+
   // Add at beginning of SpeedDatingContainer function for session persistence
   useEffect(() => {
     const restoreSpeedDatingSession = async () => {
@@ -159,7 +163,7 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
       // Use a shorter timeout for demo purposes (25 seconds)
       setTimeout(() => {
         findMatches();
-      }, 6000);
+      }, 25000);
       
       setLoading(false);
     } catch (error) {
@@ -176,81 +180,57 @@ const findMatches = async () => {
   try {
     setLoading(true);
     
-    // ADD THIS CODE HERE - after the setLoading(true) line
-    // First check if there are any active users searching
-    const activeUsersRef = collection(firestore, 'speedDatingSessions');
-    const activeUsersQuery = query(
-      activeUsersRef,
-      where('status', '==', 'searching'),
-      where('userId', '!=', user.uid), // Exclude current user
-      where('lastActive', '>', new Date(Date.now() - 2 * 60 * 1000)) // Active in last 2 minutes
-    );
-
-    const activeUsersSnapshot = await getDocs(activeUsersQuery);
-
-    // If no active users, show no users available message
-    if (activeUsersSnapshot.empty) {
-      // Clear search timer
-      if (searchTimerRef.current) clearInterval(searchTimerRef.current);
-      
-      console.log("No active users found, showing overlay");
-      setNoUsersAvailable(true);
-      setLoading(false);
-      return;
-    }
-
-    // Get IDs of active users for filtering
-    const activeUserIds = activeUsersSnapshot.docs.map(doc => doc.data().userId);
+    // Extend search time to 60 seconds
+    await new Promise(resolve => setTimeout(resolve, 60000));
     
-    // Simulate complex processing (20-30 seconds as you requested)
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // Fetch complete user profile data
     const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-    const userData = userDoc.data() || {};
+    const userData = userDoc.exists() ? userDoc.data() : {};
+    
+    // Extract user data with defaults
     const userGender = userData.gender || '';
     const userInterests = userData.interests || [];
     const userLifestyle = userData.lifestyle || [];
-    const userAgeRange = userData.ageRange || '';
     const userLocation = userData.location || '';
-    const userBio = userData.bio || '';
-    const userPrompts = userData.prompts || [];
+    const userAgeRange = userData.ageRange || '25 to 30';
     
-    // Extract proper age range: "25 to 29" → min:25, max:29
+    // Calculate user age midpoint
     const userAgeMatch = userAgeRange.match(/(\d+).*?(\d+)/);
     const userAgeMin = userAgeMatch ? parseInt(userAgeMatch[1]) : 25;
     const userAgeMax = userAgeMatch ? parseInt(userAgeMatch[2]) : 30;
     const userAgeMid = Math.floor((userAgeMin + userAgeMax) / 2);
     
-    // Extract meaningful keywords from bio for semantic matching
-    const userBioWords = userBio.toLowerCase().split(/\s+/).filter(word => 
-      word.length > 3 && !['this', 'that', 'with', 'from', 'have', 'about'].includes(word)
+    // Broader, more inclusive active users query
+    const speedDatingSessionsRef = collection(firestore, 'speedDatingSessions');
+    const activeUsersQuery = query(
+      speedDatingSessionsRef,
+      where('status', '==', 'searching'),
+      where('userId', '!=', user.uid),
+      where('createdAt', '>', new Date(Date.now() - 5 * 60 * 1000)) // Last 5 minutes
     );
-    
-    // Extract keywords from user's prompt answers
-    const userPromptAnswers = userPrompts
-      .map(prompt => prompt.answer || '')
-      .join(' ')
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(word => word.length > 3);
-    
-    const userKeywords = [...new Set([...userBioWords, ...userPromptAnswers])];
-    
-    // Query for potential matches of opposite gender
+
+    const activeUsersSnapshot = await getDocs(activeUsersQuery);
+
+    console.log(`Total active speed dating sessions: ${activeUsersSnapshot.size}`);
+    console.log(`Current user gender: ${userGender}`);
+
+    // If no active users after extended search, show no users overlay
+    if (activeUsersSnapshot.empty) {
+      setNoUsersAvailable(true);
+      return;
+    }
+
+    // Fetch potential matches of opposite gender
     const matchesRef = collection(firestore, 'users');
-    const q = query(
+    const matchQuery = query(
       matchesRef,
       where('gender', '!=', userGender),
       where('hasCompletedOnboarding', '==', true)
     );
     
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(matchQuery);
     
     // BOOSTING FUNCTION FOR HIGHER PERCENTAGES
     const boostScore = (score, factor = 1.4) => {
-      // Non-linear boost: higher scores get bigger boosts
-      // Ex: 50% becomes 70%, 70% becomes 93%
       return Math.min(100, Math.round(score * factor));
     };
     
@@ -261,59 +241,38 @@ const findMatches = async () => {
       const matchLifestyle = data.lifestyle || [];
       const matchAgeRange = data.ageRange || '';
       const matchLocation = data.location || '';
-      const matchBio = data.bio || '';
-      const matchPrompts = data.prompts || [];
       
-      // Parse match's age range properly
+      // Parse match's age range
       const matchAgeMatch = matchAgeRange.match(/(\d+).*?(\d+)/);
       const matchAgeMin = matchAgeMatch ? parseInt(matchAgeMatch[1]) : 25;
       const matchAgeMax = matchAgeMatch ? parseInt(matchAgeMatch[2]) : 30;
       const matchAgeMid = Math.floor((matchAgeMin + matchAgeMax) / 2);
       
-      // COMPATIBILITY DIMENSION 1: AGE
+      // AGE COMPATIBILITY
       let ageScore = 100;
       if (userGender === 'female') {
-        // Women typically prefer same age or older men
         if (matchAgeMid < userAgeMid) {
-          // Reduced penalty for younger men
           const ageDiff = userAgeMid - matchAgeMid;
-          ageScore = Math.max(70, 100 - (ageDiff * 5)); // Min 70% instead of 0
+          ageScore = Math.max(70, 100 - (ageDiff * 5));
         }
       } else if (userGender === 'male') {
-        // Men typically prefer women younger or same age
         if (matchAgeMid > userAgeMid + 5) {
-          // Reduced penalty for older women
           const ageDiff = matchAgeMid - (userAgeMid + 5);
-          ageScore = Math.max(75, 100 - (ageDiff * 4)); // Min 75% instead of 0
+          ageScore = Math.max(75, 100 - (ageDiff * 4));
         }
       }
       
-      // COMPATIBILITY DIMENSION 2: INTERESTS
-      // Enhanced weights for stronger matches
+      // INTERESTS COMPATIBILITY
       const interestWeights = {
-        'Travel': 2.0,
-        'Cooking': 1.8,
-        'Photography': 1.7,
-        'Art': 1.9,
-        'Musics': 1.8,
-        'K-Pop': 1.9,
-        'Video games': 1.7,
-        'Sports': 1.8,
-        'Running': 1.7,
-        'Gym': 1.8,
-        'Yoga': 1.7,
-        'Table-Tennis': 1.8,
-        'Extreme sports': 1.9,
-        'Skin-care': 1.7,
-        'Shopping': 1.6,
-        'Karaoke': 1.8,
-        'Drinks': 1.7,
-        'House parties': 1.8,
-        'Travels': 1.9,
-        'Swimming': 1.7
+        'Travel': 2.0, 'Cooking': 1.8, 'Photography': 1.7,
+        'Art': 1.9, 'Musics': 1.8, 'K-Pop': 1.9,
+        'Video games': 1.7, 'Sports': 1.8, 'Running': 1.7,
+        'Gym': 1.8, 'Yoga': 1.7, 'Table-Tennis': 1.8,
+        'Extreme sports': 1.9, 'Skin-care': 1.7, 
+        'Shopping': 1.6, 'Karaoke': 1.8, 'Drinks': 1.7,
+        'House parties': 1.8, 'Travels': 1.9, 'Swimming': 1.7
       };
       
-      // Calculate weighted interest score
       let interestScoreTotal = 0;
       let interestWeightTotal = 0;
 
@@ -326,15 +285,12 @@ const findMatches = async () => {
         }
       }
 
-      // Apply boosting to interest score
       const interestScore = interestWeightTotal > 0 ?
         boostScore((interestScoreTotal / interestWeightTotal) * 100) : 65;
 
-      // ADD THE NEW LINE HERE:
       const sharedInterests = matchInterests.filter(interest => userInterests.includes(interest));
       
-      // COMPATIBILITY DIMENSION 3: LIFESTYLE & RELATIONSHIP EXPECTATIONS
-      // Group lifestyle choices into meaningful categories
+      // LIFESTYLE COMPATIBILITY
       const lifestyleCategories = {
         family: ['Family', 'Start a family', 'Marriage', 'Longterm', 'Long term relationship'],
         casual: ['Casual dating', 'Connects', 'Chat', 'House parties', 'Friendsplus'],
@@ -343,7 +299,6 @@ const findMatches = async () => {
         creative: ['Art', 'Photography', 'Cooking', 'Skin-care']
       };
       
-      // Score lifestyle match based on categories
       let lifestyleCategoryMatches = 0;
       let lifestyleCategoryTotal = 0;
       
@@ -365,85 +320,50 @@ const findMatches = async () => {
         }
       }
       
-      // Also calculate direct lifestyle item matches for precision
       const sharedLifestyle = matchLifestyle.filter(item => 
         userLifestyle.includes(item)
       );
       
-      // Combine category match with direct item match for a comprehensive score
       const categoricalScore = lifestyleCategoryTotal > 0 ? 
         (lifestyleCategoryMatches / lifestyleCategoryTotal) * 100 : 60;
       
       const directScore = userLifestyle.length > 0 ?
         (sharedLifestyle.length / userLifestyle.length) * 100 : 60;
       
-      // Apply boosting to lifestyle score
       const lifestyleScore = boostScore((categoricalScore * 0.6) + (directScore * 0.4));
       
-      // COMPATIBILITY DIMENSION 4: LOCATION PROXIMITY
-      // Sophisticated location analysis checking city/region match
-      let locationScore = 75; // Higher default moderate score
+      // LOCATION COMPATIBILITY
+      let locationScore = 75;
       
       if (userLocation && matchLocation) {
-        // Extract city/region from location strings like "New York, USA"
         const userCity = userLocation.split(',')[0].trim().toLowerCase();
         const matchCity = matchLocation.split(',')[0].trim().toLowerCase();
         
         if (userCity === matchCity) {
-          // Exact city match is ideal
           locationScore = 100;
         } else {
-          // Check for partial city/region match
           const userRegion = userLocation.split(',')[1]?.trim().toLowerCase() || '';
           const matchRegion = matchLocation.split(',')[1]?.trim().toLowerCase() || '';
           
           if (userRegion && matchRegion && userRegion === matchRegion) {
-            // Same region/state/country is good
             locationScore = 90;
           }
         }
       }
       
-      // COMPATIBILITY DIMENSION 5: COMMUNICATION STYLE & PERSONALITY
-      // Extract keywords from bios and prompts
-      const matchBioWords = matchBio.toLowerCase().split(/\s+/).filter(word => 
-        word.length > 3
-      );
+      // FINAL COMPATIBILITY CALCULATION
+      const randomBoost = Math.floor(Math.random() * 5);
       
-      const matchPromptAnswers = matchPrompts
-        .map(prompt => prompt.answer || '')
-        .join(' ')
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(word => word.length > 3);
-      
-      const matchKeywords = [...new Set([...matchBioWords, ...matchPromptAnswers])];
-      
-      // Calculate keyword similarity score
-      const sharedKeywords = matchKeywords.filter(word => 
-        userKeywords.includes(word)
-      );
-      
-      // Calculate semantic match percentage with boosting
-      const keywordScore = userKeywords.length > 0 ?
-        boostScore((sharedKeywords.length / Math.min(userKeywords.length, 15)) * 100) : 65;
-      
-      // FINAL COMPATIBILITY CALCULATION with sophisticated weighting
-      // Add random variability (small amount) for more organic results
-      const randomBoost = Math.floor(Math.random() * 5); // 0-4% boost
-      
-      // Calculate match with bonuses for strong connections
       const matchPercentage = Math.min(100, Math.round(
-        (interestScore * 0.30) +    // Shared interests - major factor
-        (lifestyleScore * 0.35) +   // Lifestyle compatibility - most important
-        (ageScore * 0.15) +         // Age compatibility
-        (locationScore * 0.10) +    // Location proximity
-        (keywordScore * 0.10) +     // Communication style/values
-        // Add bonuses for exceptional matches
+        (interestScore * 0.30) +
+        (lifestyleScore * 0.35) +
+        (ageScore * 0.15) +
+        (locationScore * 0.10) +
+        (65 * 0.10) +
         (sharedInterests.length >= 3 ? 5 : 0) +
         (sharedLifestyle.length >= 2 ? 5 : 0) +
         (lifestyleCategoryMatches === lifestyleCategoryTotal && lifestyleCategoryTotal > 1 ? 5 : 0) +
-        randomBoost // Add slight randomness
+        randomBoost
       ));
       
       return {
@@ -456,56 +376,38 @@ const findMatches = async () => {
           interests: Math.round(interestScore),
           lifestyle: Math.round(lifestyleScore),
           age: Math.round(ageScore),
-          location: Math.round(locationScore),
-          communication: Math.round(keywordScore)
+          location: Math.round(locationScore)
         }
       };
     }));
     
-    // Filter out invalid matches and sort by compatibility
+    // Filter and sort matches
     const validMatches = potentialMatches
       .filter(match => match && match.id !== user.uid)
       .sort((a, b) => b.matchPercentage - a.matchPercentage)
-      .slice(0, 3); // Top 3 most compatible matches
+      .slice(0, 3);
 
+    // If matches found, proceed with normal flow
     if (validMatches.length > 0) {
-      console.log('Found compatible matches with detailed scores:', validMatches);
+      console.log('Found compatible matches:', validMatches);
       setMatches(validMatches);
+      setMatchesFoundVisible(true);
+      
+      setTimeout(() => {
+        setMatchesFoundVisible(false);
+        setCurrentStep('results');
+      }, 3000);
     } else {
-      // Fallback in case no matches are found - higher match percentages
-      const fallbackMatches = snapshot.docs
-        .filter(doc => doc.id !== user.uid)
-        .slice(0, 3)
-        .map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            displayName: data.displayName || 'User',
-            ageRange: data.ageRange || '??',
-            photoURL: data.photoURL || '',
-            matchPercentage: 80 + Math.floor(Math.random() * 15) // 80-95% random
-          };
-        });
-      
-      setMatches(fallbackMatches);
+      // If no matches, show no users available
+      setNoUsersAvailable(true);
     }
-
-    // Show the "3 Matches Found!" overlay
-    setMatchesFoundVisible(true);
-      
-    // After 3 seconds, hide overlay and go to results screen
-    setTimeout(() => {
-      setMatchesFoundVisible(false);
-      setCurrentStep('results');
-    }, 3000);
-      
-    } catch (error) {
-      console.error('Error finding matches:', error);
-      Alert.alert('Error', 'Failed to find matches. Please try again.');
-      onBack();
-    } finally {
-      setLoading(false);
-    }
+  } catch (error) {
+    console.error('Matching process error:', error);
+    Alert.alert('Error', 'Failed to find matches. Please try again.');
+    onBack();
+  } finally {
+    setLoading(false);
+  }
 };
   
   // View match details
