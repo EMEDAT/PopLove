@@ -46,7 +46,7 @@ interface SpeedDatingContainerProps {
 export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerProps) {
   const { user } = useAuthContext();
   const [currentStep, setCurrentStep] = useState<SpeedDatingStep>('searching');
-  const [timeLeft, setTimeLeft] = useState(100); // in seconds
+  const [timeLeft, setTimeLeft] = useState(300); // in seconds
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -142,7 +142,7 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
       });
       
       // Set timer for 100 seconds (visual countdown)
-      setTimeLeft(100);
+      setTimeLeft(300);
       
       // Set up the visual countdown timer
       searchTimerRef.current = setInterval(() => {
@@ -159,7 +159,7 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
       // Use a shorter timeout for demo purposes (25 seconds)
       setTimeout(() => {
         findMatches();
-      }, 3000);
+      }, 6000);
       
       setLoading(false);
     } catch (error) {
