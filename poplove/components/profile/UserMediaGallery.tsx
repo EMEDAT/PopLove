@@ -23,7 +23,10 @@ import {
   doc,
   deleteDoc,
   getDoc, 
-  Timestamp
+  Timestamp,
+  updateDoc,
+  serverTimestamp,
+  addDoc
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -31,6 +34,8 @@ import {
 } from 'firebase/storage';
 import { firestore, storage } from '../../lib/firebase';  // Correct import of storage
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { updateAuthProfile } from '../../utils/profileAuthSync';
+import MatchSyncService from '../../services/matchSyncService';
 
 const { width } = Dimensions.get('window');
 const MEDIA_WIDTH = (width - 40) / 3;
@@ -40,28 +45,32 @@ interface MediaItem {
   mediaUrl: string;
   mediaType: 'image' | 'video';
   createdAt: any;
-  sourceType: 'story' | 'profile';
+  sourceType: 'story' | 'profile' | 'media';
   thumbnailUrl?: string;
+  wasProfilePhoto?: boolean;
+  description?: string;
 }
 
 interface UserMediaGalleryProps {
   userId: string;
   isCurrentUser?: boolean;
+  profilePhoto?: string | null;
 }
 
-export default function UserMediaGallery({ userId, isCurrentUser = false }: UserMediaGalleryProps) {
+export default function UserMediaGallery({ userId, isCurrentUser = false, profilePhoto = null }: UserMediaGalleryProps) {
   const { user } = useAuthContext();
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'images' | 'videos'>('images');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (userId) {
       fetchUserMedia();
     }
-  }, [userId, activeTab]);
+  }, [userId, activeTab, profilePhoto]);
 
   const generateThumbnail = async (videoUri: string): Promise<string> => {
     try {
@@ -106,20 +115,43 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
       if (activeTab === 'images') {
         const userDoc = await getDoc(doc(firestore, 'users', userId));
         if (userDoc.exists() && userDoc.data().photoURL) {
+          const userPhotoURL = userDoc.data().photoURL;
+          
           // Check if profile photo is already in the list
           const profilePhotoExists = media.some(item => 
-            item.mediaUrl === userDoc.data().photoURL && item.sourceType === 'profile'
+            item.mediaUrl === userPhotoURL && item.sourceType === 'profile'
           );
           
           if (!profilePhotoExists) {
             media.push({
               id: 'profile-photo',
               userId: userId,
-              mediaUrl: userDoc.data().photoURL,
+              mediaUrl: userPhotoURL,
               mediaType: 'image',
               createdAt: userDoc.data().updatedAt || new Timestamp(Date.now() / 1000, 0),
               sourceType: 'profile'
             } as MediaItem);
+          }
+          
+          // Add previous profile photos (marked as wasProfilePhoto)
+          const previousProfilesQuery = query(
+            mediaRef,
+            where('wasProfilePhoto', '==', true),
+            where('mediaType', '==', 'image'),
+            orderBy('createdAt', 'desc')
+          );
+          
+          const previousProfilesSnapshot = await getDocs(previousProfilesQuery);
+          const previousProfiles = previousProfilesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as MediaItem[];
+          
+          // Add previous profiles to the media array if they're not already included
+          for (const prevProfile of previousProfiles) {
+            if (!media.some(item => item.mediaUrl === prevProfile.mediaUrl)) {
+              media.push(prevProfile);
+            }
           }
         }
       }
@@ -207,6 +239,13 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
   const handleDeleteMedia = async (mediaId: string) => {
     if (!isCurrentUser || !user) return;
     
+    // Don't allow deleting the current profile photo
+    const mediaItem = mediaItems.find(item => item.id === mediaId);
+    if (mediaItem?.sourceType === 'profile') {
+      Alert.alert('Cannot Delete', 'You cannot delete your current profile photo.');
+      return;
+    }
+    
     try {
       // First get the media URL before deleting the document
       const mediaDoc = await getDoc(doc(firestore, 'users', userId, 'media', mediaId));
@@ -231,6 +270,86 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
       console.error('Error deleting media:', error);
       Alert.alert('Error', 'Failed to delete media item');
     }
+  };
+
+  const handleSetAsProfilePhoto = async (mediaItem: MediaItem) => {
+    if (!isCurrentUser || !user) return;
+    
+    // Skip if it's already the profile photo
+    if (mediaItem.sourceType === 'profile') {
+      setModalVisible(false);
+      return;
+    }
+    
+    Alert.alert(
+      'Set as Profile Photo',
+      'Do you want to set this as your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Set as Profile', 
+          onPress: async () => {
+            try {
+              setUpdating(true);
+              
+              // 1. Get current profile photo URL
+              const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+              const currentPhotoURL = userDoc.exists() ? userDoc.data().photoURL : null;
+              
+              // 2. Update user document with new photo URL
+              await updateDoc(doc(firestore, 'users', user.uid), {
+                photoURL: mediaItem.mediaUrl,
+                updatedAt: serverTimestamp()
+              });
+              
+              // 3. Update in Firebase Auth
+              await updateAuthProfile(null, mediaItem.mediaUrl);
+              
+              // 4. Archive the old photo if it exists
+              if (currentPhotoURL && currentPhotoURL !== mediaItem.mediaUrl) {
+                // Check if the old photo is already in media collection
+                const mediaRef = collection(firestore, 'users', user.uid, 'media');
+                const existingQuery = query(mediaRef, where('mediaUrl', '==', currentPhotoURL));
+                const existingDocs = await getDocs(existingQuery);
+                
+                if (existingDocs.empty) {
+                  // Add to media collection as an archived profile photo
+                  await addDoc(mediaRef, {
+                    mediaUrl: currentPhotoURL,
+                    mediaType: 'image',
+                    createdAt: serverTimestamp(),
+                    sourceType: 'media',
+                    wasProfilePhoto: true,
+                    description: 'Previous profile photo'
+                  });
+                } else {
+                  // Update the existing document to mark it as a previous profile photo
+                  await updateDoc(existingDocs.docs[0].ref, {
+                    wasProfilePhoto: true,
+                    updatedAt: serverTimestamp()
+                  });
+                }
+              }
+              
+              // 5. Update the photo URL in all matches
+              await MatchSyncService.updateProfilePhoto(user.uid, mediaItem.mediaUrl);
+              
+              // 6. Reload the media to reflect changes
+              await fetchUserMedia();
+              
+              setModalVisible(false);
+              
+              Alert.alert('Success', 'Profile photo updated successfully');
+            } catch (error) {
+              console.error('Error setting profile photo:', error);
+              Alert.alert('Error', 'Failed to update profile photo');
+            } finally {
+              setUpdating(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderMediaGrid = () => {
@@ -264,7 +383,7 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
               setModalVisible(true);
             }}
             onLongPress={() => {
-              if (isCurrentUser) {
+              if (isCurrentUser && item.sourceType !== 'profile') {
                 Alert.alert(
                   'Delete Media',
                   'Are you sure you want to delete this item?',
@@ -342,12 +461,37 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
             </TouchableOpacity>
             
             {isCurrentUser && selectedMedia && (
-              <TouchableOpacity 
-                onPress={() => selectedMedia && handleDeleteMedia(selectedMedia.id)}
-                style={styles.deleteButton}
-              >
-                <Ionicons name="trash" size={24} color="white" />
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                {selectedMedia.mediaType === 'image' && (
+                  <TouchableOpacity 
+                    onPress={() => selectedMedia && handleSetAsProfilePhoto(selectedMedia)}
+                    style={[styles.actionButton, selectedMedia.sourceType === 'profile' && styles.disabledButton]}
+                    disabled={selectedMedia.sourceType === 'profile' || updating}
+                  >
+                    {updating ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <>
+                        <Ionicons name="person-circle" size={24} color="white" />
+                        <Text style={styles.actionText}>
+                          {selectedMedia.sourceType === 'profile' ? 'Current Profile' : 'Set as Profile'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+                
+                {selectedMedia.sourceType !== 'profile' && (
+                  <TouchableOpacity 
+                    onPress={() => selectedMedia && handleDeleteMedia(selectedMedia.id)}
+                    style={styles.deleteButton}
+                    disabled={updating}
+                  >
+                    <Ionicons name="trash" size={24} color="white" />
+                    <Text style={styles.actionText}>Delete</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
           
@@ -371,7 +515,8 @@ export default function UserMediaGallery({ userId, isCurrentUser = false }: User
           <View style={styles.dateContainer}>
             <Text style={styles.dateText}>
               {selectedMedia?.createdAt?.toDate()?.toLocaleDateString() || ''} 
-              {selectedMedia?.sourceType === 'profile' && ' • Profile Photo'}
+              {selectedMedia?.sourceType === 'profile' && ' • Current Profile Photo'}
+              {selectedMedia?.wasProfilePhoto && ' • Previous Profile Photo'}
             </Text>
           </View>
         </View>
@@ -493,8 +638,25 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
+  modalActions: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginRight: 15,
+  },
   deleteButton: {
-    padding: 5,
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  actionText: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 5,
   },
   modalMedia: {
     width: '100%',

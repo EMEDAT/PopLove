@@ -6,6 +6,8 @@ import { auth, firestore, serverTimestamp } from '../../lib/firebase';
 import { authService } from '../../services/auth';
 import { router } from 'expo-router';
 import { AppState } from 'react-native';
+import { updateAuthProfile } from '../../utils/profileAuthSync';
+import MatchSyncService from '../../services/matchSyncService';
 
 type AuthContextType = {
   user: User | null;
@@ -21,6 +23,7 @@ type AuthContextType = {
   startOnboarding: () => void;
   saveOnboardingProgress: (progress: any) => Promise<void>;
   registerListener: (unsubscribe: Function) => void;
+  updateUserProfile: (profileData: { displayName?: string; photoURL?: string }) => Promise<void>;
 };
 
 const ONBOARDING_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -38,7 +41,8 @@ const AuthContext = createContext<AuthContextType>({
   setHasCompletedOnboarding: async () => {},
   startOnboarding: () => {},
   saveOnboardingProgress: async () => {},
-  registerListener: () => {}
+  registerListener: () => {},
+  updateUserProfile: async () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -354,6 +358,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+    /**
+   * Updates the user's profile and syncs the changes to Auth and matches
+   */
+  const updateUserProfile = async (profileData: { displayName?: string; photoURL?: string }) => {
+    if (!user) {
+      throw new Error('No authenticated user');
+    }
+    
+    try {
+      // 1. Update in Firestore
+      const userRef = doc(firestore, 'users', user.uid);
+      
+      // Only update the fields that were provided
+      const updates: any = {
+        updatedAt: serverTimestamp()
+      };
+      
+      if (profileData.displayName !== undefined) {
+        updates.displayName = profileData.displayName;
+      }
+      
+      if (profileData.photoURL !== undefined) {
+        updates.photoURL = profileData.photoURL;
+      }
+      
+      await updateDoc(userRef, updates);
+      
+      // 2. Update in Auth
+      await updateAuthProfile(
+        profileData.displayName,
+        profileData.photoURL
+      );
+      
+      // 3. Sync to matches
+      if (profileData.displayName) {
+        await MatchSyncService.updateDisplayName(user.uid, profileData.displayName);
+      }
+      
+      if (profileData.photoURL) {
+        await MatchSyncService.updateProfilePhoto(user.uid, profileData.photoURL);
+      }
+      
+      // 4. Ensure match list summary is up-to-date
+      await MatchSyncService.ensureMatchListSummary(user.uid);
+      
+      console.log('Profile updated and synced successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -367,7 +423,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHasCompletedOnboarding: updateOnboardingStatus,
     startOnboarding,
     saveOnboardingProgress,
-    registerListener
+    registerListener,
+    updateUserProfile
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

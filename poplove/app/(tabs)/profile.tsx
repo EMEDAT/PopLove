@@ -282,9 +282,9 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     position: 'absolute',
     bottom: 2,
-    right: 0,
-    width: 24,
-    height: 24,
+    right: 2,
+    width: 24.5,
+    height: 24.5,
     borderRadius: 12,
     backgroundColor: '#0084FF',
     justifyContent: 'center',

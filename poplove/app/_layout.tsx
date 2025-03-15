@@ -8,6 +8,7 @@ import { View, Text } from 'react-native';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { AuthProvider } from '../components/auth/AuthProvider';
 import { SubscriptionProvider } from '../contexts/SubscriptionContext';
+import { initAuthChangeHandler } from '../utils/authChangeHandler';
 
 // Import Firebase to ensure it's initialized
 import '../lib/firebase';
@@ -40,6 +41,11 @@ export default function RootLayout() {
       console.error('Font loading error:', error);
     }
   }, [error]);
+
+  // Initialize auth change handler to sync profile updates
+  useEffect(() => {
+    initAuthChangeHandler();
+  }, []);
 
   // Hide splash screen when fonts are loaded
   useEffect(() => {

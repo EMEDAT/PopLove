@@ -64,6 +64,82 @@ export function ChatList({ searchQuery = '' }) {
     setFilteredChats(filtered);
   }, [searchQuery, chats]);
 
+
+  // Listen for profile updates from other users
+  useEffect(() => {
+    if (!user) return;
+    
+    // Subscribe to user profile updates that might affect chat displays
+    const profileListeners: any[] = [];
+    
+    // Clean up function to unsubscribe all listeners
+    const unsubscribeAll = () => {
+      profileListeners.forEach(unsubFn => {
+        if (typeof unsubFn === 'function') {
+          unsubFn();
+        }
+      });
+    };
+    
+    // Set up listeners once we have chats
+    if (chats.length > 0) {
+      // For each chat, set up a listener for the other user's profile
+      chats.forEach(chat => {
+        if (!chat.otherUserId) return;
+        
+        const otherUserRef = doc(firestore, 'users', chat.otherUserId);
+        const unsubscribe = onSnapshot(otherUserRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const userData = snapshot.data();
+            
+            // Check if profile photo has changed
+            if (userData.photoURL && userData.photoURL !== chat.otherUserPhoto) {
+              console.log('Detected profile photo change for', chat.otherUserName);
+              
+              // Update local state immediately
+              setChats(currentChats => 
+                currentChats.map(item => 
+                  item.id === chat.id 
+                    ? {...item, otherUserPhoto: userData.photoURL} 
+                    : item
+                )
+              );
+              
+              // Also update the match document
+              updateDoc(doc(firestore, 'matches', chat.id), {
+                [`userProfiles.${chat.otherUserId}.photoURL`]: userData.photoURL,
+                updatedAt: serverTimestamp()
+              }).catch(err => console.error('Error updating match profile:', err));
+            }
+            
+            // Also check for name changes
+            if (userData.displayName && userData.displayName !== chat.otherUserName) {
+              // Update local state
+              setChats(currentChats => 
+                currentChats.map(item => 
+                  item.id === chat.id 
+                    ? {...item, otherUserName: userData.displayName} 
+                    : item
+                )
+              );
+              
+              // Update the match document
+              updateDoc(doc(firestore, 'matches', chat.id), {
+                [`userProfiles.${chat.otherUserId}.displayName`]: userData.displayName,
+                updatedAt: serverTimestamp()
+              }).catch(err => console.error('Error updating match name:', err));
+            }
+          }
+        });
+        
+        profileListeners.push(unsubscribe);
+      });
+    }
+    
+    // Clean up on unmount
+    return unsubscribeAll;
+  }, [chats, user]);
+
   // Global message status checking remains unchanged
   const checkGlobalMessageStatus = async () => {
     if (!user) return;
