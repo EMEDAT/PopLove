@@ -30,6 +30,13 @@ export function PrivateProfileDetailsModal(props) {
   const [profile, setProfile] = useState(initialProfile || {});
 
   const [vibeCheckVisible, setVibeCheckVisible] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      // Reset expanded section when modal closes
+      setExpandedSection(null);
+    }
+  }, [visible]);
   
   // Effect to load data only when the profile ID changes
   useEffect(() => {
@@ -250,17 +257,17 @@ export function PrivateProfileDetailsModal(props) {
             )}
           </View>
           
-          {/* Gallery Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Gallery</Text>
-            {/* Use the separate media gallery component */}
-            {profile.id && (
-              <ProfileMediaGallery 
-                userId={profile.id} 
-                profilePhoto={profile.photoURL} 
-              />
-            )}
-          </View>
+        {/* Gallery Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gallery</Text>
+          {profile.id && (
+            <ProfileMediaGallery 
+              userId={profile.id} 
+              profilePhoto={profile.photoURL}
+              key={`gallery-${profile.id}`} // Add this key prop
+            />
+          )}
+        </View>
           
           {/* Extra padding at bottom */}
           <View style={{ height: 10 }} />
