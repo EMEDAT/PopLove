@@ -30,7 +30,11 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  limit
+  limit,
+  DocumentData,
+  DocumentReference,
+  writeBatch, // Add this import
+  onSnapshot // Add this import
 } from 'firebase/firestore';
 import { firestore, storage } from '../../lib/firebase';
 import * as ImagePicker from 'expo-image-picker';
@@ -83,9 +87,81 @@ export default function UserStories() {
   useEffect(() => {
     if (user) {
       fetchStories();
+      
+      // Add a listener for profile photo changes of all users with stories
+      const profileUpdateListeners = new Map();
+      
+      // Create a cleanup function for listeners
+      const cleanupListeners = () => {
+        profileUpdateListeners.forEach(unsubscribe => {
+          if (typeof unsubscribe === 'function') {
+            unsubscribe();
+          }
+        });
+        profileUpdateListeners.clear();
+      };
+      
+      // Set up listeners once we have stories
+      if (userStories && Object.keys(userStories).length > 0) {
+        // For each user with stories, set up a profile listener
+        Object.keys(userStories).forEach(userId => {
+          if (profileUpdateListeners.has(userId)) return; // Skip if already listening
+          
+          const userDocRef = doc(firestore, 'users', userId);
+          const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const userData = snapshot.data();
+              
+              // If the user's photo URL has changed
+              if (userData.photoURL) {
+                const currentStories = userStories[userId] || [];
+                const updatedStories = currentStories.map(story => {
+                  if (story.userPhoto !== userData.photoURL) {
+                    return { ...story, userPhoto: userData.photoURL };
+                  }
+                  return story;
+                });
+                
+                // Update local state to reflect the change immediately
+                if (JSON.stringify(currentStories) !== JSON.stringify(updatedStories)) {
+                  setUserStories(prevState => ({
+                    ...prevState,
+                    [userId]: updatedStories
+                  }));
+                  
+                  // Also update the combined stories array
+                  setStories(prevStories => 
+                    prevStories.map(story => 
+                      story.userId === userId 
+                        ? { ...story, userPhoto: userData.photoURL } 
+                        : story
+                    )
+                  );
+                  
+                  // Update usersWithStories for display
+                  setUsersWithStories(prevUsers => 
+                    prevUsers.map(userWithStory => 
+                      userWithStory.userId === userId 
+                        ? { ...userWithStory, userPhoto: userData.photoURL } 
+                        : userWithStory
+                    )
+                  );
+                }
+              }
+            }
+          });
+          
+          profileUpdateListeners.set(userId, unsubscribe);
+        });
+      }
+      
+      // Cleanup function to unsubscribe all listeners
+      return () => {
+        cleanupListeners();
+      };
     }
-  }, [user]);
-
+  }, [user, userStories]);
+  
   // Reset progress when changing stories
   useEffect(() => {
     if (modalVisible && selectedUser) {
@@ -102,6 +178,22 @@ export default function UserStories() {
       };
     }
   }, [modalVisible, selectedUser, currentStoryIndex]);
+
+  // Add right after your other useEffect hooks
+  useEffect(() => {
+    let isActive = true;
+    const timeout = setTimeout(() => {
+      if (loading && isActive) {
+        console.log("Safety timeout triggered");
+        setLoading(false);
+      }
+    }, 5000);
+    
+    return () => {
+      isActive = false;
+      clearTimeout(timeout);
+    };
+  }, [loading]);
 
   const startStoryTimer = (currentDuration?: number) => {
     const currentStory = selectedUser?.stories[currentStoryIndex];
@@ -246,93 +338,237 @@ const deleteStory = async (storyId: string) => {
   }
 };
   
-  const fetchStories = async () => {
-    if (!user) return;
+const fetchStories = async () => {
+  if (!user) return;
+  
+  setLoading(true);
+  try {
+    // First get user's matches
+    const matchesRef = collection(firestore, 'matches');
+    const matchesQuery = query(matchesRef, where('users', 'array-contains', user.uid));
+    const matchesSnapshot = await getDocs(matchesQuery);
     
-    setLoading(true);
+    // Extract active conversation users (who have replied)
+    const activeUserIds = new Set<string>();
+    
+    // Process each match to check for replies
+    for (const matchDoc of matchesSnapshot.docs) {
+      const matchId = matchDoc.id;
+      const matchData = matchDoc.data();
+      
+      // Find the other user ID
+      const otherUserId = matchData.users.find((id: string) => id !== user.uid);
+      if (!otherUserId) continue;
+      
+      // Check if there are messages from the other user
+      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const messagesQuery = query(
+        messagesRef,
+        where('senderId', '==', otherUserId),
+        limit(1)
+      );
+      
+      const messagesSnapshot = await getDocs(messagesQuery);
+      
+      // If other user has sent at least one message, consider them active
+      if (!messagesSnapshot.empty) {
+        activeUserIds.add(otherUserId);
+      }
+    }
+    
+    // Now fetch stories, but only from active users
+    const now = new Date();
+    const storiesRef = collection(firestore, 'stories');
+    const q = query(
+      storiesRef,
+      where('expiresAt', '>', now),
+      orderBy('createdAt', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const storyData: Story[] = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Story[];
+    
+    // Filter stories to only show active users and current user
+    const filteredStories = storyData.filter(story => 
+      story.userId === user.uid || activeUserIds.has(story.userId)
+    );
+    
+    // Get latest profile photos for all users with stories
+    const userIds = new Set<string>();
+    filteredStories.forEach(story => userIds.add(story.userId));
+    
+    // Get latest profile photos for each user
+    const userPhotoUpdates = new Map<string, string>();
+    
+    // Process in batches of 10 to avoid excessive parallel queries
+    const userIdBatches = Array.from(userIds).reduce((batches, userId, i) => {
+      const batchIndex = Math.floor(i / 10);
+      if (!batches[batchIndex]) batches[batchIndex] = [];
+      batches[batchIndex].push(userId);
+      return batches;
+    }, [] as string[][]);
+    
+    for (const batch of userIdBatches) {
+      const userPromises = batch.map(async (userId) => {
+        const userDoc = await getDoc(doc(firestore, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.photoURL) {
+            userPhotoUpdates.set(userId, userData.photoURL);
+          }
+        }
+      });
+      
+      await Promise.all(userPromises);
+    }
+    
+    // Update story data with latest profile photos
+    const storiesNeedingUpdate: {id: string, userPhoto: string}[] = []; // Add type annotation
+    const updatedFilteredStories = filteredStories.map(story => {
+      const latestPhoto = userPhotoUpdates.get(story.userId);
+      if (latestPhoto && latestPhoto !== story.userPhoto) {
+        storiesNeedingUpdate.push({
+          id: story.id,
+          userPhoto: latestPhoto
+        });
+        return { ...story, userPhoto: latestPhoto };
+      }
+      return story;
+    });
+    
+    // Group stories by userId
+    const groupedStories: {[key: string]: Story[]} = {};
+    updatedFilteredStories.forEach(story => {
+      if (!groupedStories[story.userId]) {
+        groupedStories[story.userId] = [];
+      }
+      groupedStories[story.userId].push(story);
+    });
+    
+    // Format data for UI
+    const formattedUsers = Object.keys(groupedStories).map(userId => {
+      const userStoriesArray = groupedStories[userId];
+      return {
+        userId,
+        userName: userStoriesArray[0].userName,
+        userPhoto: userStoriesArray[0].userPhoto, // This now has the latest photo
+        stories: userStoriesArray,
+        currentStoryIndex: 0
+      };
+    });
+    
+    // Batch update stories in Firestore if needed
+    if (storiesNeedingUpdate.length > 0) {
+      const batch = writeBatch(firestore);
+      for (const storyUpdate of storiesNeedingUpdate) {
+        const storyRef = doc(firestore, 'stories', storyUpdate.id);
+        batch.update(storyRef, {
+          userPhoto: storyUpdate.userPhoto,
+          updatedAt: serverTimestamp()
+        });
+      }
+      await batch.commit();
+      console.log(`Updated ${storiesNeedingUpdate.length} stories with latest profile photos`);
+    }
+    
+    setUserStories(groupedStories);
+    setUsersWithStories(formattedUsers);
+    setStories(updatedFilteredStories);
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    syncProfilePhotosWithoutRefetch(); // Add this line
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // 3. Add dependencies array to prevent excessive calls
+  useEffect(() => {
+    if (user && !loading) {
+      const interval = setInterval(() => {
+        syncProfilePhotosWithoutRefetch();
+      }, 30000); // Check every 30 seconds, not continuously
+      
+      return () => clearInterval(interval);
+    }
+  }, [user, loading]);
+
+
+  const syncProfilePhotosWithoutRefetch = async () => {
+    if (stories.length === 0) return; // Don't process empty stories
+
     try {
-      // First get user's matches
-      const matchesRef = collection(firestore, 'matches');
-      const matchesQuery = query(matchesRef, where('users', 'array-contains', user.uid));
-      const matchesSnapshot = await getDocs(matchesQuery);
+      // Get user stories that need updating
+      const userIds = new Set<string>();
+      stories.forEach(story => userIds.add(story.userId));
       
-      // Extract active conversation users (who have replied)
-      const activeUserIds = new Set<string>();
+      // Check for photo updates without full refetch
+      const photoUpdates = new Map<string, string>();
       
-      // Process each match to check for replies
-      for (const matchDoc of matchesSnapshot.docs) {
-        const matchId = matchDoc.id;
-        const matchData = matchDoc.data();
-        
-        // Find the other user ID
-        const otherUserId = matchData.users.find((id: string) => id !== user.uid);
-        if (!otherUserId) continue;
-        
-        // Check if there are messages from the other user
-        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-        const messagesQuery = query(
-          messagesRef,
-          where('senderId', '==', otherUserId),
-          limit(1)
-        );
-        
-        const messagesSnapshot = await getDocs(messagesQuery);
-        
-        // If other user has sent at least one message, consider them active
-        if (!messagesSnapshot.empty) {
-          activeUserIds.add(otherUserId);
+      for (const userId of userIds) {
+        const userDoc = await getDoc(doc(firestore, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.photoURL) {
+            photoUpdates.set(userId, userData.photoURL);
+          }
         }
       }
       
-      // Now fetch stories, but only from active users
-      const now = new Date();
-      const storiesRef = collection(firestore, 'stories');
-      const q = query(
-        storiesRef,
-        where('expiresAt', '>', now),
-        orderBy('createdAt', 'asc')
-      );
+      // Update UI state directly without full refetch
+      let needsUpdate = false;
       
-      const snapshot = await getDocs(q);
-      const storyData: Story[] = snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Story[];
-      
-      // Filter stories to only show active users and current user
-      const filteredStories = storyData.filter(story => 
-        story.userId === user.uid || activeUserIds.has(story.userId)
-      );
-      
-      // Group stories by userId
-      const groupedStories: {[key: string]: Story[]} = {};
-      filteredStories.forEach(story => {
-        if (!groupedStories[story.userId]) {
-          groupedStories[story.userId] = [];
+      // Update stories array
+      const updatedStories = stories.map(story => {
+        const newPhoto = photoUpdates.get(story.userId);
+        if (newPhoto && newPhoto !== story.userPhoto) {
+          needsUpdate = true;
+          return { ...story, userPhoto: newPhoto };
         }
-        groupedStories[story.userId].push(story);
+        return story;
       });
       
-      // Format data for UI
-      const formattedUsers = Object.keys(groupedStories).map(userId => {
-        const userStoriesArray = groupedStories[userId];
-        return {
-          userId,
-          userName: userStoriesArray[0].userName,
-          userPhoto: userStoriesArray[0].userPhoto,
-          stories: userStoriesArray,
-          currentStoryIndex: 0
-        };
-      });
-      
-      setUserStories(groupedStories);
-      setUsersWithStories(formattedUsers);
-      setStories(filteredStories);
+    if (needsUpdate) {
+      console.log("Syncing photos without refetch - updates found");
+        setStories(updatedStories);
+        
+        // Update user stories
+        const updatedUserStories = { ...userStories };
+        Object.keys(updatedUserStories).forEach(userId => {
+          const newPhoto = photoUpdates.get(userId);
+          if (newPhoto) {
+            updatedUserStories[userId] = updatedUserStories[userId].map(story => ({
+              ...story, 
+              userPhoto: newPhoto
+            }));
+          }
+        });
+        setUserStories(updatedUserStories);
+        
+        // Update formatted users
+        setUsersWithStories(prevUsers => 
+          prevUsers.map(userWithStory => {
+            const newPhoto = photoUpdates.get(userWithStory.userId);
+            if (newPhoto && newPhoto !== userWithStory.userPhoto) {
+              return {
+                ...userWithStory,
+                userPhoto: newPhoto,
+                stories: userWithStory.stories.map(story => ({
+                  ...story,
+                  userPhoto: newPhoto
+                }))
+              };
+            }
+            return userWithStory;
+          })
+        );
+      }
     } catch (error) {
-      console.error('Error fetching stories:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error syncing photos:', error);
     }
   };
 

@@ -14,6 +14,44 @@ import { auth } from '../lib/firebase';
 export const useStorage = () => {
   const { user } = useAuthContext();
   const [uploading, setUploading] = useState(false);
+
+
+  const syncProfilePhotoToStories = async (userId: string, newPhotoURL: string): Promise<void> => {
+    if (!userId || !newPhotoURL) return;
+    
+    try {
+      // 1. Find all active stories by this user
+      const storiesRef = collection(firestore, 'stories');
+      const activeStoriesQuery = query(
+        storiesRef,
+        where('userId', '==', userId),
+        where('expiresAt', '>', new Date()) // Only update active stories
+      );
+      
+      const storiesSnapshot = await getDocs(activeStoriesQuery);
+      
+      if (storiesSnapshot.empty) {
+        console.log('No active stories to update');
+        return;
+      }
+      
+      // 2. Update userPhoto field in all active stories with batch operation
+      const batch = writeBatch(firestore);
+      
+      storiesSnapshot.docs.forEach(storyDoc => {
+        batch.update(storyDoc.ref, {
+          userPhoto: newPhotoURL,
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      console.log(`Updated profile photo in ${storiesSnapshot.size} active stories`);
+    } catch (error) {
+      console.error('Error syncing profile photo to stories:', error);
+    }
+  };
+
   
   /**
    * Upload a profile picture and sync across all app components
@@ -36,23 +74,26 @@ export const useStorage = () => {
       
       // 2. Upload to Firebase Storage using existing StorageService
       const downloadUrl = await StorageService.uploadProfileImage(uri, user.uid);
-      
+    
       if (!downloadUrl) {
         throw new Error('Failed to upload image');
       }
       
-      // 3. Update Firebase Auth profile
+      // Update Firebase Auth profile
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           photoURL: downloadUrl
         });
       }
       
-      // 4. Update user document in Firestore
+      // Update user document in Firestore
       await updateDoc(userDocRef, {
         photoURL: downloadUrl,
         updatedAt: serverTimestamp()
       });
+      
+      // Add this call to sync with stories
+      await syncProfilePhotoToStories(user.uid, downloadUrl);
       
       // 5. Update all chat matches where this user appears
       const matchesRef = collection(firestore, 'matches');
@@ -104,15 +145,15 @@ export const useStorage = () => {
         description: 'Current profile photo'
       });
       
-      return downloadUrl;
-    } catch (error) {
-      console.error('Error uploading profile image:', error);
-      Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
+    return downloadUrl;
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
+    return null;
+  } finally {
+    setUploading(false);
+  }
+};
   
   /**
    * Pick an image from the device gallery
