@@ -90,6 +90,8 @@ export default function HomeScreen() {
 
  // Fetch user preferences and profiles
  useEffect(() => {
+  let isMounted = true;
+  
   const loadData = async () => {
     if (!user) return;
     
@@ -97,103 +99,106 @@ export default function HomeScreen() {
       setLoading(true);
       setError(null);
       
-      // First get the user's preferences
+      // Fetch user document
       const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-      let blockedUsers: string[] = [];
-      let userGender = null;
-    
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUserPreferences(userData);
-        blockedUsers = userData.blockedUsers || [];
-        userGender = userData.gender; // Extract user gender
-        
-        // Get location info if available
-        if (userData.latitude && userData.longitude) {
-          setUserLocation({
-            lat: userData.latitude,
-            lon: userData.longitude
-          });
-        }
-    
-        // Enhanced logging
-        console.log('Current user gender:', userGender);
-        console.log('Current user ID:', user.uid);
-      }
       
-      // Check if we have a valid gender to filter by
-      if (!userGender) {
-        console.error('User gender not set in profile. Please complete onboarding properly.');
-        setError('Please complete your profile setup to see matches');
+      if (!isMounted) return;
+      
+      // Validate user document and gender
+      if (!userDoc.exists()) {
+        setError('User profile not found');
         setLoading(false);
         return;
       }
       
-      // Then fetch potential matches
-      const profilesRef = collection(firestore, 'users');
+      const userData = userDoc.data();
+      const userGender = userData.gender;
       
-      // Get gender preference (opposite of user's gender) and make sure it's well-defined
+      if (!userGender) {
+        setError('Please complete your profile setup');
+        setLoading(false);
+        return;
+      }
+      
+      // Determine opposite gender for matching
       const genderPreference = userGender === 'male' ? 'female' : 'male';
-      console.log('Looking for gender:', genderPreference);
+      const blockedUsers = userData.blockedUsers || [];
       
-      // Use a more specific query
+      // Location processing (if available)
+      if (userData.latitude && userData.longitude) {
+        setUserLocation({
+          lat: userData.latitude,
+          lon: userData.longitude
+        });
+      }
+      
+      // Construct profiles query
       const profilesQuery = query(
-        profilesRef,
-        where('gender', '==', genderPreference), // Must match the expected gender
+        collection(firestore, 'users'),
+        where('gender', '==', genderPreference),
         where('hasCompletedOnboarding', '==', true),
         limit(20)
       );
       
       const querySnapshot = await getDocs(profilesQuery);
-      console.log(`Raw profiles count: ${querySnapshot.docs.length}`);
-  
-      // Map the documents and add additional debugging
-      const fetchedProfiles = querySnapshot.docs
-      .map(doc => {
-        const data = doc.data();
-        console.log(`Profile: ${data.displayName}, Gender: ${data.gender}, ID: ${doc.id}`);
-        
-        return {
-          id: doc.id,
-          displayName: data.displayName || 'User',
-          photoURL: data.photoURL,
-          bio: data.bio || '',
-          location: data.location || 'Unknown',
-          age: data.age || 0,
-          ageRange: data.ageRange?.split(' ')[0] || '??',
-          interests: data.interests || [],
-          gender: data.gender || '',
-          profession: data.profession || '',
-          distance: Math.floor(Math.random() * 30) + 1, // Simulate distance for demo
-        };
-      })
-      .filter(profile => {
-        // Triple check gender filtering here
-        const includeProfile = 
-          profile.id !== user.uid && // Exclude current user
-          !blockedUsers.includes(profile.id) && // Exclude blocked users
-          profile.gender === genderPreference; // Must match gender preference
-        
-        console.log(`Including profile ${profile.displayName}? ${includeProfile} (Gender: ${profile.gender})`);
-        return includeProfile;
-      });
-    
-      console.log(`Filtered to ${fetchedProfiles.length} profiles`);
-      setProfiles(fetchedProfiles);
       
-      if (fetchedProfiles.length === 0) {
-        setError('No profiles available right now. Check back soon!');
+      if (!isMounted) return;
+      
+      // Process and filter profiles
+      const fetchedProfiles = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            displayName: data.displayName || 'User',
+            photoURL: data.photoURL,
+            bio: data.bio || '',
+            location: data.location || 'Unknown',
+            age: data.age || 0,
+            ageRange: data.ageRange?.split(' ')[0] || '??',
+            interests: data.interests || [],
+            gender: data.gender || '',
+            profession: data.profession || '',
+            distance: Math.floor(Math.random() * 30) + 1, // Simulate distance
+          };
+        })
+        .filter(profile => 
+          profile.id !== user.uid && 
+          !blockedUsers.includes(profile.id) && 
+          profile.gender === genderPreference
+        );
+      
+      // Update state safely
+      if (isMounted) {
+        // Set user preferences
+        setUserPreferences(userData);
+        
+        // Update profiles
+        setProfiles(fetchedProfiles);
+        setLoading(false);
+        
+        // Handle empty profiles case
+        if (fetchedProfiles.length === 0) {
+          setError('No profiles available right now. Check back soon!');
+        }
       }
     } catch (err) {
       console.error('Error fetching profiles:', err);
-      setError('Failed to load profiles');
-    } finally {
-      setLoading(false);
+      
+      if (isMounted) {
+        setError('Failed to load profiles');
+        setLoading(false);
+      }
     }
   };
-   
-   loadData();
- }, [user]);
+  
+  loadData();
+  
+  // Cleanup function to prevent state updates after unmount
+  return () => {
+    isMounted = false;
+  };
+}, [user]);
 
  useEffect(() => {
   if (profiles.length > 0) {
