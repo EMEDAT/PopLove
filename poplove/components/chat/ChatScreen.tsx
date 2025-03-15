@@ -1,4 +1,5 @@
-// components/chat/ChatScreen.tsx
+// components/chat/ChatScreen.tsx - Fixed message status handling
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
@@ -17,45 +18,45 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
 import { 
-    collection, 
-    query, 
-    orderBy, 
-    onSnapshot, 
-    addDoc, 
-    getDoc,
-    updateDoc,
-    deleteDoc, 
-    doc, 
-    serverTimestamp, 
-    where, 
-    getDocs, 
-    writeBatch,
-    Timestamp,
-    limit  // Add this
-  } from 'firebase/firestore';
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  getDoc,
+  updateDoc,
+  deleteDoc, 
+  doc, 
+  serverTimestamp, 
+  where, 
+  getDocs, 
+  writeBatch,
+  Timestamp,
+  limit  
+} from 'firebase/firestore';
 import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withRepeat, 
-    withTiming, 
-    withSequence,
-    withDelay
-  } from 'react-native-reanimated';
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  withSequence,
+  withDelay
+} from 'react-native-reanimated';
 import { firestore } from '../../lib/firebase';
 import { MessageStatus, MessageStatusIndicator } from './MessageStatus';
 import { router } from 'expo-router';
 
 interface Message {
-    id: string;
-    text: string;
-    senderId: string;
-    createdAt: Timestamp;
-    status: MessageStatus;
-    unreadCount?: number;
-    messageType?: string;
-    emojiSize?: number;
-    animationType?: string;
-  }
+  id: string;
+  text: string;
+  senderId: string;
+  createdAt: Timestamp;
+  status: MessageStatus;
+  unreadCount?: number;
+  messageType?: string;
+  emojiSize?: number;
+  animationType?: string;
+}
 
 interface ChatScreenProps {
   matchId: string;
@@ -79,6 +80,9 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const [isFocused, setIsFocused] = useState(true);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [longPressedMessage, setLongPressedMessage] = useState<string | null>(null);
+  
+  // Add a ref to track whether we've marked messages as read
+  const hasMarkedMessagesAsRead = useRef(false);
 
   // Listen for app state changes (foreground/background)
   useEffect(() => {
@@ -99,7 +103,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   }, []);
 
   useEffect(() => {
-    // Update messages to "DELIVERED" when the app comes to foreground
+    // Update messages to "READ" when the app comes to foreground
     if (appActive && isFocused) {
       markMessagesAsRead();
     }
@@ -130,8 +134,8 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
         }, 200);
       }
       
-      // If app is active and chat is open, mark messages as read
-      if (appActive) {
+      // IMPORTANT: Mark messages as read when entering or receiving new messages
+      if (appActive && !hasMarkedMessagesAsRead.current) {
         markMessagesAsRead();
       }
     });
@@ -139,11 +143,17 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     return unsubscribe;
   }, [matchId]);
 
-  // Mark messages as read when chat is opened
+  // Mark messages as read when chat is opened - FIXED VERSION
   useEffect(() => {
-    markMessagesAsRead();
+    // Only run this once when entering the chat screen
+    if (!hasMarkedMessagesAsRead.current) {
+      markMessagesAsRead();
+      
+      // Mark that we've processed messages
+      hasMarkedMessagesAsRead.current = true;
+    }
     
-    // When chat screen is opened, set up periodic status check
+    // Start periodic updates when chat screen is opened
     const intervalId = setInterval(() => {
       if (appActive) {
         markMessagesAsRead();
@@ -151,64 +161,47 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     }, 5000);
     
     return () => clearInterval(intervalId);
-  }, [matchId, appActive]);
+  }, [matchId]);
 
-  // Mark messages as read
+  // Mark messages as read - IMPROVED VERSION
   const markMessagesAsRead = async () => {
     if (!matchId || !user || !appActive) return;
     
     try {
+      console.log("Marking messages as read");
+      
       // First, find messages that need to be updated to DELIVERED status
       const deliveredMessagesRef = collection(firestore, 'matches', matchId, 'messages');
       const deliveredQuery = query(
         deliveredMessagesRef,
         where('senderId', '==', otherUser.id),
-        where('status', '==', MessageStatus.SENT)
+        where('status', 'in', [MessageStatus.SENT, MessageStatus.DELIVERED])
       );
       
       const deliveredMessages = await getDocs(deliveredQuery);
       
       if (!deliveredMessages.empty) {
-        // Update to DELIVERED in a batch
-        const deliveredBatch = writeBatch(firestore);
-        deliveredMessages.docs.forEach(messageDoc => {
-          deliveredBatch.update(messageDoc.ref, { 
-            status: MessageStatus.DELIVERED,
-            deliveredAt: serverTimestamp()
-          });
-        });
+        console.log(`Found ${deliveredMessages.size} messages to mark as read`);
         
-        await deliveredBatch.commit();
-      }
-  
-      // Then, find messages that need to be updated to READ status
-      const readMessagesRef = collection(firestore, 'matches', matchId, 'messages');
-      const readQuery = query(
-        readMessagesRef,
-        where('senderId', '==', otherUser.id),
-        where('status', '==', MessageStatus.DELIVERED)
-      );
-      
-      const readMessages = await getDocs(readQuery);
-      
-      if (!readMessages.empty) {
-        // Update to READ in a batch
-        const readBatch = writeBatch(firestore);
-        readMessages.docs.forEach(messageDoc => {
-          readBatch.update(messageDoc.ref, { 
+        // Update directly to READ status in a batch
+        const batch = writeBatch(firestore);
+        deliveredMessages.docs.forEach(messageDoc => {
+          batch.update(messageDoc.ref, { 
             status: MessageStatus.READ,
             readAt: serverTimestamp()
           });
         });
         
-        await readBatch.commit();
+        await batch.commit();
         
         // Reset unread count in match document
         await updateDoc(doc(firestore, 'matches', matchId), {
-          [`unreadCount.${user.uid}`]: 0
+          [`unreadCount.${user.uid}`]: 0,
+          lastCheckedAt: serverTimestamp()
         });
+        
+        console.log("Messages marked as read and unread count reset");
       }
-      
     } catch (error) {
       console.error('Error updating message status:', error);
     }
@@ -513,12 +506,34 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       );
   };
 
+  // Add component mount effect to mark messages as read on entry
+  useEffect(() => {
+    // Make sure we mark messages as read immediately on component mount
+    markMessagesAsRead();
+    
+    // On component unmount, make sure messages are marked as read
+    return () => {
+      markMessagesAsRead();
+    };
+  }, []);
+
+  const handleGoBack = () => {
+    // Important: Mark messages as read before navigating back
+    markMessagesAsRead().then(() => {
+      if (onGoBack) {
+        onGoBack();
+      } else {
+        router.replace('/(tabs)/matches');
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={onGoBack} 
+          onPress={handleGoBack} 
           style={styles.backButton}
         >
           <Ionicons name="chevron-back" size={24} color="#000" />
@@ -639,6 +654,10 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
               );
           }}
         contentContainerStyle={styles.messageList}
+        onEndReached={() => {
+          // Mark messages as read again when scrolling to the end
+          markMessagesAsRead();
+        }}
       />
 
       {/* Message input */}

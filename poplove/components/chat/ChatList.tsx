@@ -1,5 +1,5 @@
 // components/chat/ChatList.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -41,6 +41,8 @@ interface ChatPreview {
   lastMessageTime: any;
   unreadCount: number;
   lastMessageSenderId: string;
+  lastMessageStatus?: MessageStatus;
+  lastCheckedAt?: any;
 }
 
 export function ChatList({ searchQuery = '' }) {
@@ -49,7 +51,11 @@ export function ChatList({ searchQuery = '' }) {
   const [filteredChats, setFilteredChats] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Add ref to track chats the user has opened
+  const openedChats = useRef<Set<string>>(new Set());
 
+  // Apply search filtering
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredChats(chats);
@@ -63,7 +69,6 @@ export function ChatList({ searchQuery = '' }) {
     
     setFilteredChats(filtered);
   }, [searchQuery, chats]);
-
 
   // Listen for profile updates from other users
   useEffect(() => {
@@ -140,7 +145,7 @@ export function ChatList({ searchQuery = '' }) {
     return unsubscribeAll;
   }, [chats, user]);
 
-  // Global message status checking remains unchanged
+  // Global message status checking
   const checkGlobalMessageStatus = async () => {
     if (!user) return;
 
@@ -185,7 +190,54 @@ export function ChatList({ searchQuery = '' }) {
     }
   };
 
-  // Existing useEffect for fetching chats remains the same
+  // Listen for message status changes in real time
+  useEffect(() => {
+    if (!user) return;
+    
+    // Create individual listeners for each chat's last message
+    const messageStatusListeners: any[] = [];
+    
+    chats.forEach(chat => {
+      if (!chat.id) return;
+      
+      // Check if the last message was sent by the current user
+      if (chat.lastMessageSenderId === user.uid) {
+        // Set up a listener for the last message
+        const messagesRef = collection(firestore, 'matches', chat.id, 'messages');
+        const lastMsgQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+        
+        const unsubscribe = onSnapshot(lastMsgQuery, (snapshot) => {
+          if (!snapshot.empty) {
+            const lastMsgDoc = snapshot.docs[0];
+            const lastMsgData = lastMsgDoc.data();
+            const status = lastMsgData.status;
+            
+            // Update our chat preview with the current status
+            setChats(currentChats => 
+              currentChats.map(item => 
+                item.id === chat.id 
+                  ? {...item, lastMessageStatus: status} 
+                  : item
+              )
+            );
+          }
+        });
+        
+        messageStatusListeners.push(unsubscribe);
+      }
+    });
+    
+    return () => {
+      // Clean up all message status listeners
+      messageStatusListeners.forEach(unsubFn => {
+        if (typeof unsubFn === 'function') {
+          unsubFn();
+        }
+      });
+    };
+  }, [chats, user]);
+
+  // Fetch chats and setup listeners
   useEffect(() => {
     if (!user) return;
 
@@ -223,11 +275,14 @@ export function ChatList({ searchQuery = '' }) {
               
               const userProfile = otherUserId ? match.userProfiles?.[otherUserId] || {} : {};
               
+              // Get unread count and last checked time
               const unreadCount = match.unreadCount?.[user.uid] || 0;
+              const lastCheckedAt = match.lastCheckedAt;
         
               let lastMessage = match.lastMessage || '';
               let lastMessageTime = match.lastMessageTime || null;
               let lastMessageSenderId = '';
+              let lastMessageStatus = MessageStatus.SENT;
         
               try {
                 const messagesRef = collection(firestore, 'matches', match.id, 'messages');
@@ -239,10 +294,16 @@ export function ChatList({ searchQuery = '' }) {
                   lastMessage = messageData.text || '';
                   lastMessageTime = messageData.createdAt;
                   lastMessageSenderId = messageData.senderId;
+                  lastMessageStatus = messageData.status || MessageStatus.SENT;
                 }
               } catch (error) {
                 console.error('Error fetching messages:', error);
               }
+              
+              // Set unread count to 0 if the chat was already opened by user
+              // This ensures chat appears read in the list even if Firebase update is delayed
+              const hasBeenOpened = openedChats.current.has(match.id);
+              const effectiveUnreadCount = hasBeenOpened ? 0 : unreadCount;
         
               return {
                 id: match.id,
@@ -251,8 +312,10 @@ export function ChatList({ searchQuery = '' }) {
                 otherUserPhoto: userProfile.photoURL || '',
                 lastMessage,
                 lastMessageTime,
-                unreadCount,
-                lastMessageSenderId
+                unreadCount: effectiveUnreadCount,
+                lastMessageSenderId,
+                lastMessageStatus,
+                lastCheckedAt
               };
             })
           );
@@ -290,42 +353,57 @@ export function ChatList({ searchQuery = '' }) {
     };
   }, [user]);
 
-  // Navigation function remains the same
+  // Navigation to chat with read status handling
   const navigateToChat = async (chat: ChatPreview) => {
-    // Function implementation remains the same
     if (!user) return;
     
     try {
+      // Mark this chat as opened so it appears as read in the list immediately
+      openedChats.current.add(chat.id);
+      
+      // Reset unread count in Firestore
       if (chat.unreadCount > 0) {
         await updateDoc(doc(firestore, 'matches', chat.id), {
-          [`unreadCount.${user.uid}`]: 0
+          [`unreadCount.${user.uid}`]: 0,
+          lastCheckedAt: serverTimestamp()
         });
       }
       
+      // Mark incoming messages as at least DELIVERED
       const messagesRef = collection(firestore, 'matches', chat.id, 'messages');
-      const q = query(
+      const unreadQuery = query(
         messagesRef,
         where('senderId', '==', chat.otherUserId),
-        where('status', '==', MessageStatus.SENT)
+        where('status', 'in', [MessageStatus.SENT, MessageStatus.DELIVERED])
       );
       
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(unreadQuery);
       
       if (!snapshot.empty) {
+        // Mark all as READ (not just DELIVERED)
         const batch = writeBatch(firestore);
         snapshot.docs.forEach(doc => {
           batch.update(doc.ref, { 
-            status: MessageStatus.DELIVERED,
-            deliveredAt: serverTimestamp()
+            status: MessageStatus.READ, // Update directly to READ
+            readAt: serverTimestamp()
           });
         });
         
         await batch.commit();
+        console.log(`Marked ${snapshot.size} messages as READ`);
       }
+      
+      // Update the display for this chat in our list immediately
+      setChats(prevChats => 
+        prevChats.map(item => 
+          item.id === chat.id ? {...item, unreadCount: 0} : item
+        )
+      );
     } catch (error) {
       console.error('Error updating message status:', error);
     }
     
+    // Navigate to the chat
     router.push({
       pathname: '/chat/[id]',
       params: { id: chat.id }
@@ -389,6 +467,17 @@ export function ChatList({ searchQuery = '' }) {
     }
   };
 
+  // Function to determine if a chat should appear "read" (non-bold)
+  const isChatRead = (chat: ChatPreview) => {
+    // If unread count is 0, it's always read
+    if (chat.unreadCount === 0) return true;
+    
+    // If we've marked this chat as opened in this session, show as read
+    if (openedChats.current.has(chat.id)) return true;
+    
+    return false;
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.messagesHeader}>
@@ -426,14 +515,19 @@ export function ChatList({ searchQuery = '' }) {
                   </Text>
                 </View>
               )}
-              {item.unreadCount > 0 && (
+              {!isChatRead(item) && (
                 <View style={styles.unreadDot} />
               )}
             </View>
             
             <View style={styles.chatDetails}>
               <View style={styles.chatHeader}>
-                <Text style={styles.chatName} numberOfLines={1}>{item.otherUserName}</Text>
+                <Text style={[
+                  styles.chatName, 
+                  !isChatRead(item) && styles.unreadChatName
+                ]} numberOfLines={1}>
+                  {item.otherUserName}
+                </Text>
                 <Text style={styles.chatTime}>
                   {formatLastMessageTime(item.lastMessageTime)}
                 </Text>
@@ -442,13 +536,13 @@ export function ChatList({ searchQuery = '' }) {
                 <Text 
                   style={[
                     styles.chatPreviewText,
-                    item.unreadCount > 0 && styles.unreadMessage
+                    !isChatRead(item) && styles.unreadMessage
                   ]}
                   numberOfLines={1}
                 >
                   {item.lastMessageSenderId === user?.uid ? `You: ${item.lastMessage}` : item.lastMessage || "Start a conversation"}
                 </Text>
-                {item.unreadCount > 0 && (
+                {!isChatRead(item) && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
                   </View>
@@ -565,6 +659,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
+  },
+  unreadChatName: {
+    fontWeight: '700',
   },
   chatTime: {
     fontSize: 12,
