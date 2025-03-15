@@ -673,7 +673,7 @@ const sendEmojiMessage = async (emoji: string) => {
                       {/* Profile Info Card - Bottom text overlay */}
                       <View style={styles.profileInfo}>
                       <Text style={styles.profileName}>
-                          {profiles[currentProfileIndex].displayName || 'User'}, {profiles[currentProfileIndex].age || profiles[currentProfileIndex].ageRange || '??'}
+                      {profiles[currentProfileIndex].displayName.split(' ')[0] || 'User'}, {profiles[currentProfileIndex].age || profiles[currentProfileIndex].ageRange || '??'}
                         </Text>
                         
                         <View style={styles.locationContainer}>
@@ -989,6 +989,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 5,
+    paddingRight: 30,
   },
   interestTag: {
     backgroundColor: 'rgba(80, 80, 80, 0.7)',

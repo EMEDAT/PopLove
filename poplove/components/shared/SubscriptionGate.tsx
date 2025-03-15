@@ -1,4 +1,4 @@
-// components/shared/SubscriptionGate.tsx (Updated version)
+// components/shared/SubscriptionGate.tsx
 import React, { ReactNode, useState, useEffect } from 'react';
 import { 
   Modal, 
@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { useSubscription } from '../../contexts/SubscriptionContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,21 +22,62 @@ interface SubscriptionGateProps {
   children: ReactNode;
   requiredTier: 'basic' | 'premium' | 'vip';
   featureName: string;
-  onClose: () => void;
+  onClose: () => void;  // Added onClose prop
 }
 
 export function SubscriptionGate({ 
   children, 
   requiredTier, 
   featureName,
-  onClose
+  onClose  // Added to function parameters
 }: SubscriptionGateProps) {
   const { user } = useAuthContext();
-  const { currentTier, isLoading, hasSufficientTier } = useSubscription();
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [userTier, setUserTier] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Function to determine if user has sufficient tier
+  const hasSufficientTier = (currentTier: string) => {
+    const tierPriority = {
+      'basic': 1,
+      'premium': 2,
+      'vip': 3
+    };
+
+    return tierPriority[currentTier as keyof typeof tierPriority] >= 
+           tierPriority[requiredTier as keyof typeof tierPriority];
+  };
+
+  // Fetch user's subscription tier from Firestore
+  useEffect(() => {
+    const fetchUserTier = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserTier(userData.subscriptionPlan || 'basic');
+        } else {
+          setUserTier('basic');
+        }
+      } catch (error) {
+        console.error('Error fetching user tier:', error);
+        setUserTier('basic');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserTier();
+  }, [user]);
 
   // Show loading state while fetching tier
-  if (isLoading) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF6B6B" />
@@ -47,35 +87,14 @@ export function SubscriptionGate({
   }
 
   // If user has sufficient tier, render children
-  if (hasSufficientTier(requiredTier)) {
+  if (userTier && hasSufficientTier(userTier)) {
     return <>{children}</>;
   }
 
   // Upgrade Modal Component
   const UpgradeModal = () => {
     const handleUpgrade = () => {
-      // Show feedback before navigating
-      setIsNavigating(true);
-      
-      try {
-        // Close the modal first
-        onClose();
-        
-        // Navigate to the standalone subscription page with params to highlight the required tier
-        router.push({
-          pathname: '/subscription',
-          params: { 
-            highlight: requiredTier,
-            feature: encodeURIComponent(featureName)
-          }
-        });
-      } catch (error) {
-        console.error('Navigation error:', error);
-        // If navigation fails, at least close the modal
-        onClose();
-      } finally {
-        setIsNavigating(false);
-      }
+      router.push('/(screens)/subscription');
     };
 
     return (
@@ -103,7 +122,6 @@ export function SubscriptionGate({
             <TouchableOpacity 
               style={styles.upgradeButton}
               onPress={handleUpgrade}
-              disabled={isNavigating}
             >
               <LinearGradient
                 colors={['#EC5F61', '#F0B433']}
@@ -111,17 +129,13 @@ export function SubscriptionGate({
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
               >
-                {isNavigating ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
-                )}
+                <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
               </LinearGradient>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.cancelButton}
-              onPress={onClose}
+              onPress={onClose}  // Use the passed onClose method
             >
               <Text style={styles.cancelButtonText}>Go Back</Text>
             </TouchableOpacity>

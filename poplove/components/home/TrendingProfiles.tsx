@@ -1,4 +1,3 @@
-// components/home/TrendingProfiles.tsx
 import React from 'react';
 import { 
   View, 
@@ -66,7 +65,7 @@ export function TrendingProfiles({ profiles, onProfilePress }: TrendingProfilesP
                     style={styles.gradientOverlay}
                   />
                   <Text style={styles.trendingProfileName} numberOfLines={1}>
-                    {profile.displayName}
+                    {profile.displayName.split(' ')[0]}
                   </Text>
                 </BlurView>
               </View>

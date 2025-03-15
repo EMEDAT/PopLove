@@ -8,14 +8,16 @@ import {
   Modal, 
   FlatList, 
   StyleSheet,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { debounce } from 'lodash';
 import CountryItem from './CountryItem';
+import CityItem from './CityItem';
 
-// Import countries from a country list library
-import { countries } from 'countries-list';
+// Import the LocationService
+import LocationService from '../../services/location';
 
 const ITEM_HEIGHT = 50; 
 
@@ -24,6 +26,7 @@ interface LocationSelectionModalProps {
   onClose: () => void;
   onSelectLocation: (location: {
     country: string;
+    city?: string;
     customLocation?: string;
   }) => void;
 }
@@ -33,41 +36,80 @@ export function LocationSelectionModal({
   onClose, 
   onSelectLocation 
 }: LocationSelectionModalProps) {
-  // Convert countries object to array and sort by name
-  const [allCountries] = useState(() => {
-    const countryArray = Object.entries(countries).map(([code, details]) => ({
-      code,
-      name: details.name
-    }));
-    
-    return countryArray.sort((a, b) => {
-      const cleanName = (name: string) => 
-        name.replace(/^(The |A |An )/, '').trim();
-      
-      return cleanName(a.name).localeCompare(cleanName(b.name), undefined, { sensitivity: 'base' });
-    });
-  });
-
+  // State management
+  const [allCountries] = useState(() => LocationService.getAllCountries());
   const [searchQuery, setSearchQuery] = useState('');
-  const [view, setView] = useState<'countries' | 'custom'>('countries');
-
-  // Filtered countries based on search query
-  const filteredCountries = useMemo(() => {
-    if (!searchQuery) return allCountries;
-    
-    const cleanQuery = searchQuery.toLowerCase().trim();
-    return allCountries.filter(country => 
-      country.name.toLowerCase().includes(cleanQuery)
-    );
-  }, [allCountries, searchQuery]);
-
-  const handleCountrySelect = (countryName: string) => {
-    onSelectLocation({ country: countryName });
-    onClose();
-  };
-
+  const [view, setView] = useState<'countries' | 'cities' | 'custom'>('countries');
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const [customLocation, setCustomLocation] = useState('');
 
+  // Handle search with debounce
+  const handleSearch = debounce((query) => {
+    setSearchQuery(query);
+    
+    if (view === 'countries') {
+      const filtered = allCountries.filter(country => 
+        country.name.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredItems(filtered);
+    } else if (view === 'cities') {
+      setLoading(true);
+      // Search cities based on query
+      const filteredCities = LocationService.searchCities(query);
+      setFilteredItems(filteredCities);
+      setLoading(false);
+    }
+  }, 300);
+
+  // Set filtered items based on current view
+  useMemo(() => {
+    if (view === 'countries') {
+      if (!searchQuery) {
+        setFilteredItems(allCountries);
+      } else {
+        const filtered = allCountries.filter(country => 
+          country.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setFilteredItems(filtered);
+      }
+    } else if (view === 'cities' && selectedCountry) {
+      setLoading(true);
+      
+      // Show cities based on search query
+      if (searchQuery) {
+        const cities = LocationService.searchCities(searchQuery);
+        setFilteredItems(cities);
+      } else {
+        // Without search, we show an empty array
+        // You might want to show popular cities here in the future
+        setFilteredItems([]);
+      }
+      
+      setLoading(false);
+    }
+  }, [view, searchQuery, selectedCountry]);
+
+  // Handle country selection
+  const handleCountrySelect = (countryName: string) => {
+    setSelectedCountry(countryName);
+    setSearchQuery('');
+    setView('cities');
+  };
+
+  // Handle city selection
+  const handleCitySelect = (cityName: string) => {
+    if (selectedCountry) {
+      onSelectLocation({ 
+        country: selectedCountry,
+        city: cityName 
+      });
+      onClose();
+    }
+  };
+
+  // Handle custom location submission
   const handleCustomLocationSubmit = () => {
     if (customLocation.trim()) {
       onSelectLocation({
@@ -78,20 +120,24 @@ export function LocationSelectionModal({
     }
   };
   
+  // Set up FlatList item layout
   const getItemLayout = (_data: any, index: number) => ({
     length: ITEM_HEIGHT,
     offset: ITEM_HEIGHT * index,
     index,
   });
 
-  const renderCountryItem = ({ item }: { item: any }) => (
-    <CountryItem item={item} onSelect={handleCountrySelect} />
-  );
+  // Render list items based on current view
+  const renderItem = ({ item }: { item: any }) => {
+    if (view === 'countries') {
+      return <CountryItem item={item} onSelect={handleCountrySelect} />;
+    } else if (view === 'cities') {
+      return <CityItem item={item} onSelect={handleCitySelect} />;
+    }
+    return null;
+  };
 
-  const handleSearch = debounce((query) => {
-    setSearchQuery(query);
-  }, 300);
-
+  // Render content based on current view
   const renderContent = () => {
     if (view === 'custom') {
       return (
@@ -129,7 +175,7 @@ export function LocationSelectionModal({
     }
 
     return (
-      <View style={styles.countriesContainer}>
+      <View style={styles.listContainer}>
         {/* Custom Location Option at the Top */}
         <TouchableOpacity 
           style={styles.customLocationButton}
@@ -146,24 +192,69 @@ export function LocationSelectionModal({
           <Ionicons name="search" size={20} color="#aaa" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search countries"
+            placeholder={view === 'countries' ? "Search countries" : "Search cities"}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              handleSearch(text);
+            }}
             placeholderTextColor="#aaa"
           />
         </View>
 
-        {/* Countries List */}
-        <FlatList
-          data={filteredCountries}
-          keyExtractor={(item) => item.code}
-          renderItem={renderCountryItem}
-          keyboardShouldPersistTaps="handled"
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={21}
-          getItemLayout={getItemLayout}
-        />
+        {/* Navigation header for cities view */}
+        {view === 'cities' && selectedCountry && (
+          <TouchableOpacity 
+            style={styles.navigationHeader} 
+            onPress={() => {
+              setView('countries');
+              setSelectedCountry(null);
+              setSearchQuery('');
+            }}
+          >
+            <Ionicons name="arrow-back" size={20} color="#000" />
+            <Text style={styles.navigationHeaderText}>
+              {selectedCountry} - Select a City
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Loading indicator */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF6B6B" />
+            <Text style={styles.loadingText}>Loading locations...</Text>
+          </View>
+        )}
+
+        {/* List of items */}
+        {!loading && (
+          <>
+            {filteredItems.length > 0 ? (
+              <FlatList
+                data={filteredItems}
+                keyExtractor={(item) => view === 'countries' ? item.code : item.name}
+                renderItem={renderItem}
+                keyboardShouldPersistTaps="handled"
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={21}
+                getItemLayout={getItemLayout}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {view === 'countries' 
+                    ? "No countries found. Try a different search." 
+                    : view === 'cities' && !searchQuery
+                    ? "Type to search for cities in " + selectedCountry
+                    : "No cities found. Try a different search."
+                  }
+                </Text>
+              </View>
+            )}
+          </>
+        )}
       </View>
     );
   };
@@ -209,7 +300,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  countriesContainer: {
+  listContainer: {
     flex: 1,
   },
   searchContainer: {
@@ -244,6 +335,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  navigationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  navigationHeaderText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  customLocationContainer: {
+    flex: 1,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -256,9 +384,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 16,
     fontWeight: '600',
-  },
-  customLocationContainer: {
-    flex: 1,
   },
   customLocationInput: {
     margin: 20,

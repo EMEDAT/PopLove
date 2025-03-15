@@ -73,11 +73,12 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
 
   const handleLocationSelect = (selectedLocation: {
     country: string;
+    city?: string;
     customLocation?: string;
   }) => {
     // Format the location display
     const displayLocation = selectedLocation.customLocation || 
-      (selectedLocation.country || 'Select location');
+      `${selectedLocation.city}, ${selectedLocation.country}` || 'Select location';
     
     onUpdate('location', displayLocation);
   };
