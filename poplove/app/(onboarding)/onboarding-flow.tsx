@@ -473,27 +473,27 @@ export default function OnboardingFlow() {
             onAgeChange={(age) => updateProfile('age', age)}
           />
         );
-      case 'height':
-        return (
-          <HeightSelection
-            height={profileData.height}
-            onHeightChange={(height) => updateProfile('height', height)}
-          />
-        );
-      case 'ethnicity':
-        return (
-          <EthnicitySelection
-            selectedEthnicity={profileData.ethnicity}
-            onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
-          />
-        );
-      case 'children':
-        return (
-          <ChildrenSelection
-            selectedOption={profileData.hasChildren}
-            onSelectOption={(option) => updateProfile('hasChildren', option)}
-          />
-        );
+        case 'height':
+          return (
+            <HeightSelection
+              height={profileData.height}
+              onHeightChange={(height) => updateProfile('height', height)}
+            />
+          );
+        case 'ethnicity':
+          return (
+            <EthnicitySelection
+              selectedEthnicity={profileData.ethnicity}
+              onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
+            />
+          );
+        case 'children':
+          return (
+            <ChildrenSelection
+              selectedOption={profileData.hasChildren}
+              onSelectOption={(option) => updateProfile('hasChildren', option)}
+            />
+          );
       case 'lifestyle':
         return (
           <ExpectationsLifestyle 

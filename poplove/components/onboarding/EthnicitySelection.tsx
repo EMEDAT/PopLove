@@ -58,9 +58,9 @@ export default function EthnicitySelection({ selectedEthnicity, onSelectEthnicit
         ))}
       </View>
       
-      <Text style={styles.privacyNote}>
+      {/* <Text style={styles.privacyNote}>
         You can control who sees this information in your privacy settings
-      </Text>
+      </Text> */}
     </ScrollView>
   );
 }
@@ -76,13 +76,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#666',
     marginBottom: 24,
   },
   optionsContainer: {
     width: '100%',
     gap: 13,
+    marginBottom: 30,
   },
   optionButton: {
     width: '100%',
@@ -105,11 +106,12 @@ const styles = StyleSheet.create({
   selectedOptionText: {
     color: 'white',
   },
-  privacyNote: {
-    marginTop: 24,
-    fontSize: 14,
-    color: '#888',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  }
+//   privacyNote: {
+//     marginTop: 24,
+//     marginBottom: 20,
+//     fontSize: 14,
+//     color: '#888',
+//     fontStyle: 'italic',
+//     textAlign: 'center',
+//   }
 });
