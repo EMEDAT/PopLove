@@ -126,7 +126,7 @@ export default function SignupScreen() {
 
           <View style={styles.formContainer}>
             <Text style={styles.title}>Join PopLove</Text>
-            <Text style={styles.subtitle}>Sign up to find your perfect match</Text>
+            <Text style={styles.subtitle}>Sign up to start making real connections</Text>
             
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Email</Text>
