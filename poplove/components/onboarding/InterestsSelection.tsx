@@ -55,7 +55,10 @@ export default function InterestsSelection({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        Select a few of your interests and let everyone know what you're passionate about.
+        Select your interests
+      </Text>
+      <Text style={styles.subtitle}>
+        Choose a few things you love so others can see what you're passionate about.
       </Text>
       
       <View style={styles.interestsContainer}>
@@ -86,7 +89,7 @@ export default function InterestsSelection({
         <View style={styles.dealBreakerTextContainer}>
           <Text style={styles.dealBreakerTitle}>Deal Breaker</Text>
           <Text style={styles.dealBreakerSubtitle}>
-            don't match with people who don't align with your values
+            Turn on to avoid matching with people who don't align with your values
           </Text>
         </View>
         <Switch
@@ -109,9 +112,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 19,
     marginTop: 20,
-    marginBottom: 30,
+    marginBottom: 8,
     lineHeight: 24,
     fontWeight: '500',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
   },
   interestsContainer: {
     flexDirection: 'row',

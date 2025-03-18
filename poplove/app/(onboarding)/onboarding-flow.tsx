@@ -20,6 +20,9 @@ import { firestore, serverTimestamp } from '../../lib/firebase';
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
 import AgeSelection from '../../components/onboarding/AgeSelection';
+import HeightSelection from '../../components/onboarding/HeightSelection';
+import EthnicitySelection from '../../components/onboarding/EthnicitySelection';
+import ChildrenSelection from '../../components/onboarding/ChildrenSelection';
 import ExpectationsLifestyle from '../../components/onboarding/ExpectationsLifestyle';
 import InterestsSelection from '../../components/onboarding/InterestsSelection';
 import ProfilePrompts from '../../components/onboarding/ProfilePrompts';
@@ -33,6 +36,9 @@ const STEPS = [
   'profile',
   'gender',
   'age',
+  'height',
+  'ethnicity',
+  'children',
   'interests',
   'prompts',
   'lifestyle',
@@ -56,7 +62,10 @@ export default function OnboardingFlow() {
     location: '',
     gender: '',
     ageRange: '',
-    age: '', // Add specific age field
+    age: '',
+    height: '',
+    ethnicity: '',
+    hasChildren: '',
     lifestyle: [] as string[],
     interests: [] as string[],
     dealBreaker: false,
@@ -181,6 +190,10 @@ export default function OnboardingFlow() {
     location: string;
     gender: string;
     ageRange: string;
+    age: string;
+    height: string;
+    ethnicity: string;
+    hasChildren: string;
     lifestyle: string[];
     interests: string[];
     dealBreaker: boolean;
@@ -194,6 +207,21 @@ export default function OnboardingFlow() {
       // Validate current step before advancing
       if (STEPS[currentStep] === 'age' && !profileData.age) {
         Alert.alert('Missing Information', 'Please enter your age to continue');
+        return;
+      }
+      
+      if (STEPS[currentStep] === 'height' && !profileData.height) {
+        Alert.alert('Missing Information', 'Please enter your height to continue');
+        return;
+      }
+      
+      if (STEPS[currentStep] === 'ethnicity' && !profileData.ethnicity) {
+        Alert.alert('Missing Information', 'Please select your ethnicity to continue');
+        return;
+      }
+      
+      if (STEPS[currentStep] === 'children' && !profileData.hasChildren) {
+        Alert.alert('Missing Information', 'Please select an option to continue');
         return;
       }
       
@@ -248,7 +276,10 @@ export default function OnboardingFlow() {
             displayName: profileData.displayName,
             gender: profileData.gender, 
             age: profileData.age,
-            ageRange: profileData.ageRange
+            ageRange: profileData.ageRange,
+            height: profileData.height,
+            ethnicity: profileData.ethnicity,
+            hasChildren: profileData.hasChildren
           });
           
           // Update Firestore with complete profile data
@@ -259,8 +290,11 @@ export default function OnboardingFlow() {
             bio: profileData.bio,
             location: profileData.location,
             gender: profileData.gender, 
-            age: profileData.age, // Ensure age is stored
+            age: profileData.age,
             ageRange: profileData.ageRange,
+            height: profileData.height,
+            ethnicity: profileData.ethnicity,
+            hasChildren: profileData.hasChildren,
             lifestyle: profileData.lifestyle,
             interests: profileData.interests,
             dealBreaker: profileData.dealBreaker,
@@ -281,6 +315,9 @@ export default function OnboardingFlow() {
             const userData = verifyDoc.data();
             console.log('Verified saved gender:', userData.gender);
             console.log('Verified saved age:', userData.age);
+            console.log('Verified saved height:', userData.height);
+            console.log('Verified saved ethnicity:', userData.ethnicity);
+            console.log('Verified saved hasChildren:', userData.hasChildren);
             
             if (!userData.gender) {
               console.error('Gender not saved properly!');
@@ -320,8 +357,14 @@ export default function OnboardingFlow() {
                profileData.location.trim() !== '';
       case 'gender':
         return !!profileData.gender;
-    case 'age':
-      return !!profileData.ageRange && !!profileData.age;
+      case 'age':
+        return !!profileData.ageRange && !!profileData.age;
+      case 'height':
+        return !!profileData.height;
+      case 'ethnicity':
+        return !!profileData.ethnicity;
+      case 'children':
+        return !!profileData.hasChildren;
       case 'lifestyle':
         return profileData.lifestyle.length > 0;
       case 'interests':
@@ -356,6 +399,15 @@ export default function OnboardingFlow() {
       case 'age':
         title = 'Age';
         break;
+      case 'height':
+        title = 'Height';
+        break;
+      case 'ethnicity':
+        title = 'Ethnicity';
+        break;
+      case 'children':
+        title = 'Children';
+        break;
       case 'lifestyle':
         title = 'Expectations & Lifestyle';
         break;
@@ -385,35 +437,33 @@ export default function OnboardingFlow() {
     );
   };
 
-// Replace the renderStep function in onboarding-flow.tsx
-
-const renderStep = () => {
-  const step = STEPS[currentStep];
-  
-  switch (step) {
-    case 'profile':
-      return (
-        <ProfileSetup 
-          data={{
-            displayName: profileData.displayName,
-            photoURL: profileData.photoURL,
-            bio: profileData.bio,
-            location: profileData.location
-          }}
-          onUpdate={updateProfile}
-          onNext={handleNext}
-        />
-      );
-    case 'gender':
-      return (
-        <GenderSelection 
-          selectedGender={profileData.gender}
-          onSelectGender={(gender) => {
-            console.log('Gender selected:', gender); // Add this log
-            updateProfile('gender', gender);
-          }}
-        />
-      );
+  const renderStep = () => {
+    const step = STEPS[currentStep];
+    
+    switch (step) {
+      case 'profile':
+        return (
+          <ProfileSetup 
+            data={{
+              displayName: profileData.displayName,
+              photoURL: profileData.photoURL,
+              bio: profileData.bio,
+              location: profileData.location
+            }}
+            onUpdate={updateProfile}
+            onNext={handleNext}
+          />
+        );
+      case 'gender':
+        return (
+          <GenderSelection 
+            selectedGender={profileData.gender}
+            onSelectGender={(gender) => {
+              console.log('Gender selected:', gender);
+              updateProfile('gender', gender);
+            }}
+          />
+        );
       case 'age':
         return (
           <AgeSelection 
@@ -423,46 +473,67 @@ const renderStep = () => {
             onAgeChange={(age) => updateProfile('age', age)}
           />
         );
-    case 'lifestyle':
-      return (
-        <ExpectationsLifestyle 
-          selectedLifestyle={profileData.lifestyle}
-          onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
-        />
-      );
-    case 'interests':
-      return (
-        <InterestsSelection 
-          selectedInterests={profileData.interests}
-          onSelectInterests={(interests) => updateProfile('interests', interests)}
-          dealBreaker={profileData.dealBreaker}
-          onToggleDealBreaker={(value) => updateProfile('dealBreaker', value)}
-        />
-      );
-    case 'prompts':
-      return (
-        <ProfilePrompts 
-          prompts={profileData.prompts}
-          onUpdatePrompt={updatePrompt}
-        />
-      );
-    case 'subscription':
-      return (
-        <SubscriptionPlan 
-          selectedPlan={profileData.subscriptionPlan}
-          onSelectPlan={(planId) => updateProfile('subscriptionPlan', planId)}
-          onSkip={handleNext}
-          onContinue={handleNext}
-        />
-      );
-    case 'welcome':
-      return (
-        <Welcome onContinue={handleNext} />
-      );
-    default:
-      return null;
-  }
-};
+      case 'height':
+        return (
+          <HeightSelection
+            height={profileData.height}
+            onHeightChange={(height) => updateProfile('height', height)}
+          />
+        );
+      case 'ethnicity':
+        return (
+          <EthnicitySelection
+            selectedEthnicity={profileData.ethnicity}
+            onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
+          />
+        );
+      case 'children':
+        return (
+          <ChildrenSelection
+            selectedOption={profileData.hasChildren}
+            onSelectOption={(option) => updateProfile('hasChildren', option)}
+          />
+        );
+      case 'lifestyle':
+        return (
+          <ExpectationsLifestyle 
+            selectedLifestyle={profileData.lifestyle}
+            onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
+          />
+        );
+      case 'interests':
+        return (
+          <InterestsSelection 
+            selectedInterests={profileData.interests}
+            onSelectInterests={(interests) => updateProfile('interests', interests)}
+            dealBreaker={profileData.dealBreaker}
+            onToggleDealBreaker={(value) => updateProfile('dealBreaker', value)}
+          />
+        );
+      case 'prompts':
+        return (
+          <ProfilePrompts 
+            prompts={profileData.prompts}
+            onUpdatePrompt={updatePrompt}
+          />
+        );
+      case 'subscription':
+        return (
+          <SubscriptionPlan 
+            selectedPlan={profileData.subscriptionPlan}
+            onSelectPlan={(planId) => updateProfile('subscriptionPlan', planId)}
+            onSkip={handleNext}
+            onContinue={handleNext}
+          />
+        );
+      case 'welcome':
+        return (
+          <Welcome onContinue={handleNext} />
+        );
+      default:
+        return null;
+    }
+  };
 
   // If user is not authenticated, redirect to auth screen
   if (!user && !loading && !initialLoading) {
