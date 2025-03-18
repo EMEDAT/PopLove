@@ -30,22 +30,22 @@ export default function ExpectationsLifestyle({ selectedLifestyle, onUpdateLifes
   }, [localSelectedOptions]);
 
   const options = [
-    { id: 'Longterm', label: 'Long term relationship', size: 'Larger', position: { top: 40, left: 0 } },
-    { id: 'Vacation', label: 'Vacation', size: 'Small', position: { top: 20, right: 110 } },
-    { id: 'Romance', label: 'Romance', size: 'Large', position: { top: 0, right: 0 } },
-    { id: 'Family', label: 'Start a family', size: 'Largest', position: { top: 140, left: 75 } },
-    { id: 'Active', label: 'Active partner', size: 'Larger', position: { top: 250, left: 0 } },
-    { id: 'Casual', label: 'Casual dating', size: 'SmallPlus', position: { top: 280, right: 115 } },
-    { id: 'Friends', label: 'Friends first', size: 'Smaller', position: { top: 170, right: 30 } },
-    { id: 'Friendsplus', label: 'Friends with benefit', size: 'Smaller', position: { top:103, right: 0 } },
-    { id: 'Chat', label: 'Chat', size: 'Smallest', position: { top: 100, left: 180 } },
-    { id: 'Touring', label: 'Touring', size: 'Smaller', position: { top: 170, left: 0 } },
+    { id: 'Longterm', label: 'Long term relationship', size: 'Larger', position: { top: 50, left: 0 } },
+    { id: 'Vacation', label: 'Vacation', size: 'Small', position: { top: 30, right: 110 } },
+    { id: 'Romance', label: 'Romance', size: 'Large', position: { top: 10, right: 0 } },
+    { id: 'Family', label: 'Start a family', size: 'Largest', position: { top: 150, left: 75 } },
+    { id: 'Active', label: 'Active partner', size: 'Larger', position: { top: 270, left: 0 } },
+    { id: 'Casual', label: 'Casual dating', size: 'SmallPlus', position: { top: 295, right: 115 } },
+    { id: 'Friends', label: 'Friends first', size: 'Smaller', position: { top: 180, right: 30 } },
+    { id: 'Friendsplus', label: 'Friends with benefit', size: 'Smaller', position: { top:113, right: 0 } },
+    { id: 'Chat', label: 'Chat', size: 'Smallest', position: { top: 110, left: 180 } },
+    { id: 'Touring', label: 'Touring', size: 'Smaller', position: { top: 190, left: 0 } },
     { id: 'Marriage', label: 'Marriage', size: 'small', position: { bottom: 0, left: 65 } },
     { id: 'Pets', label: 'Pets', size: 'Smallest', position: { bottom: 10, left: 0 } },
-    { id: 'Surfing', label: 'Surfing', size: 'Large', position: { bottom: 75, right: 0 } },
+    { id: 'Surfing', label: 'Surfing', size: 'Large', position: { bottom: 85, right: 0 } },
     { id: 'Drinking', label: 'Drinking', size: 'Small', position: { bottom: 8, right: 70 } }, 
     { id: 'Dontknow', label: "Don't know", size: 'Smallest', position: { bottom: 10, right: 5 } },
-    { id: 'Connects', label: "connects", size: 'Tiny', position: { top: 228, right: 0 } },
+    { id: 'Connects', label: "connects", size: 'Tiny', position: { top: 238, right: 0 } },
   ];
 
   const getSizeStyles = (size: string) => {
@@ -81,7 +81,11 @@ export default function ExpectationsLifestyle({ selectedLifestyle, onUpdateLifes
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What are your expectations & Lifestyles?</Text>
+      <Text style={styles.title}>Expectations & Lifestyles?</Text>
+      <Text style={styles.subtitle}>
+      What are your <Text style={{ fontWeight: 'bold' }}>“relationship expectations”</Text> and 
+      “lifestyle preferences?”
+    </Text>
       
       <View style={styles.optionsContainer}>
         {options.map((option) => {
@@ -131,10 +135,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '400',
-    marginTop: 20,
-    marginBottom: 20,
+    fontSize: 22,
+    fontWeight: '500',
+    marginTop: 0,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 10,
   },
   optionsContainer: {
     flex: 1,
