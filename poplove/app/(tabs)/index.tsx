@@ -89,7 +89,8 @@ export default function HomeScreen() {
 ).current;
 
  // Fetch user preferences and profiles
- useEffect(() => {
+// Fetch user preferences and profiles
+useEffect(() => {
   let isMounted = true;
   
   const loadData = async () => {
@@ -123,6 +124,8 @@ export default function HomeScreen() {
       // Determine opposite gender for matching
       const genderPreference = userGender === 'male' ? 'female' : 'male';
       const blockedUsers = userData.blockedUsers || [];
+      const dealBreakerEnabled = userData.dealBreaker || false;
+      const userInterests = userData.interests || [];
       
       // Location processing (if available)
       if (userData.latitude && userData.longitude) {
@@ -159,14 +162,38 @@ export default function HomeScreen() {
             interests: data.interests || [],
             gender: data.gender || '',
             profession: data.profession || '',
+            pronouns: data.pronouns || '',
+            height: data.height || '',
+            ethnicity: data.ethnicity || '',
+            hasChildren: data.hasChildren || '',
             distance: Math.floor(Math.random() * 30) + 1, // Simulate distance
           };
         })
-        .filter(profile => 
-          profile.id !== user.uid && 
-          !blockedUsers.includes(profile.id) && 
-          profile.gender === genderPreference
-        );
+        .filter(profile => {
+          // Basic filtering - exclude self and blocked users
+          if (profile.id === user.uid || blockedUsers.includes(profile.id)) {
+            return false;
+          }
+          
+          // Ensure correct gender match
+          if (profile.gender !== genderPreference) {
+            return false;
+          }
+          
+          // Deal breaker check - if enabled, require at least one shared interest
+          if (dealBreakerEnabled && userInterests.length > 0) {
+            const profileInterests = profile.interests || [];
+            if (profileInterests.length === 0) return false;
+            
+            const hasMatchingInterest = userInterests.some(interest => 
+              profileInterests.includes(interest)
+            );
+            
+            if (!hasMatchingInterest) return false;
+          }
+          
+          return true;
+        });
       
       // Update state safely
       if (isMounted) {

@@ -1,4 +1,4 @@
-// FilterButton.tsx with dual-thumb slider implementation
+// FilterButton.tsx with new filters
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
@@ -8,68 +8,70 @@ import {
   StyleSheet, 
   ScrollView,
   TouchableWithoutFeedback,
-  Dimensions
+  Dimensions,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import DualThumbSlider from '../components/DualThumbSlider';
 
-// Get device dimensions
 const { width } = Dimensions.get('window');
 
-// Define the filter state interface
 interface FilterState {
   location: string;
   distance: [number, number];
   ageRange: [number, number];
+  height: [number, number];
+  ethnicity: string[];
+  hasChildren: string[];
   interests: string[];
 }
 
-// Define location interface
-interface LocationData {
-  name: string;
-  code: string;
-}
-
-// Define profile interface
-interface Profile {
-  id: string;
-  displayName: string;
-  photoURL: string;
-  bio?: string;
-  location?: string;
-  distance?: number;
-  age?: string;
-  ageRange?: string;
-  interests?: string[];
-  gender?: string;
-  profession?: string;
-}
-
-// FilterPopup props interface
 interface FilterPopupProps {
   visible: boolean;
   onClose: () => void;
   onApply: (filters: FilterState) => void;
 }
 
-// FilterButton props interface
 interface FilterButtonProps {
-  profiles: Profile[];
-  setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
-  allProfiles?: Profile[]; // Optional original unfiltered profiles
+  profiles: any[];
+  setProfiles: React.Dispatch<React.SetStateAction<any[]>>;
+  allProfiles?: any[];
 }
 
+const ethnicityOptions = [
+  'Asian',
+  'Black/African',
+  'Caucasian/White',
+  'Hispanic/Latino',
+  'Middle Eastern',
+  'Native American',
+  'Pacific Islander',
+  'Multiracial',
+  'Other',
+  'Prefer not to say'
+];
+
+const childrenOptions = [
+  'No children',
+  'Have children',
+  'Want children someday',
+  'Don\'t want children',
+  'Prefer not to say'
+];
+
 const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) => {
-  // Initial filter state
   const [filters, setFilters] = useState<FilterState>({
     location: '',
     distance: [17, 30],
     ageRange: [18, 35],
+    height: [150, 200],
+    ethnicity: [],
+    hasChildren: [],
     interests: []
   });
-  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [locations, setLocations] = useState<{name: string, code: string}[]>([]);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -80,20 +82,16 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     loadLocations();
   }, []); 
 
-  console.log("Slider values:", filters.distance, filters.ageRange);
-
-  const getLocations = async (): Promise<LocationData[]> => {
+  const getLocations = async () => {
     try {
       const locationService = require('../services/location').default;
-      const countries = locationService.getAllCountries();
-      return countries;
+      return locationService.getAllCountries();
     } catch (error) {
       console.error('Error fetching locations:', error);
       return []; 
     }
   };
 
-  // Available interests for selection
   const availableInterests = [
     'Swimming', 'Photography', 'Shopping', 
     'Karaoke', 'Cooking', 'K-Pop', 
@@ -101,7 +99,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     'Video games', 'Drinks'
   ];
 
-  // Toggle interest selection
   const toggleInterest = (interest: string) => {
     setFilters(prev => {
       if (prev.interests.includes(interest)) {
@@ -118,30 +115,65 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     });
   };
 
-  // Handle applying filters
+  const toggleEthnicity = (ethnicity: string) => {
+    setFilters(prev => {
+      if (prev.ethnicity.includes(ethnicity)) {
+        return {
+          ...prev,
+          ethnicity: prev.ethnicity.filter(e => e !== ethnicity)
+        };
+      } else {
+        return {
+          ...prev,
+          ethnicity: [...prev.ethnicity, ethnicity]
+        };
+      }
+    });
+  };
+
+  const toggleChildren = (option: string) => {
+    setFilters(prev => {
+      if (prev.hasChildren.includes(option)) {
+        return {
+          ...prev,
+          hasChildren: prev.hasChildren.filter(c => c !== option)
+        };
+      } else {
+        return {
+          ...prev,
+          hasChildren: [...prev.hasChildren, option]
+        };
+      }
+    });
+  };
+
   const handleApply = () => {
     onApply(filters);
     onClose();
   };
 
-  // Reset filters to initial state
   const handleReset = () => {
     setFilters({
       location: '',
       distance: [17, 30],
       ageRange: [18, 35],
+      height: [150, 200],
+      ethnicity: [],
+      hasChildren: [],
       interests: []
     });
   };
 
-  // Handle distance slider change
   const handleDistanceChange = useCallback((low: number, high: number) => {
     setFilters(prev => ({...prev, distance: [low, high]}));
   }, []);
   
-  // Handle age slider change
   const handleAgeChange = useCallback((low: number, high: number) => {
     setFilters(prev => ({...prev, ageRange: [low, high]}));
+  }, []);
+
+  const handleHeightChange = useCallback((low: number, high: number) => {
+    setFilters(prev => ({...prev, height: [low, high]}));
   }, []);
 
   return (
@@ -163,7 +195,10 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.scrollContent}>
+              <ScrollView 
+                style={styles.scrollContent}
+                contentContainerStyle={{paddingBottom: 0}} // Add this
+              >
                 {/* Location Section */}
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Location</Text>
@@ -223,6 +258,73 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                   </View>
                 </View>
 
+                {/* Height Range */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.sectionTitle}>Height (cm)</Text>
+                  <View style={styles.rangeContainer}>
+                    <View style={styles.rangeLabels}>
+                      <Text style={styles.rangeLabel}>{filters.height[0]} cm</Text>
+                      <Text style={styles.rangeLabel}>{filters.height[1]} cm</Text>
+                    </View>
+                    <DualThumbSlider
+                      min={140}
+                      max={220}
+                      step={5}
+                      initialLow={filters.height[0]}
+                      initialHigh={filters.height[1]}
+                      onValueChanged={handleHeightChange}
+                    />
+                  </View>
+                </View>
+
+                {/* Ethnicity */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.sectionTitle}>Ethnicity</Text>
+                  <View style={styles.checkboxContainer}>
+                    {ethnicityOptions.map(option => (
+                      <TouchableOpacity 
+                        key={option}
+                        style={styles.checkboxOption}
+                        onPress={() => toggleEthnicity(option)}
+                      >
+                        <View style={[
+                          styles.checkbox,
+                          filters.ethnicity.includes(option) && styles.checkboxChecked
+                        ]}>
+                          {filters.ethnicity.includes(option) && (
+                            <Ionicons name="checkmark" size={16} color="#FFF" />
+                          )}
+                        </View>
+                        <Text style={styles.checkboxLabel}>{option}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Children */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.sectionTitle}>Children</Text>
+                  <View style={styles.checkboxContainer}>
+                    {childrenOptions.map(option => (
+                      <TouchableOpacity 
+                        key={option}
+                        style={styles.checkboxOption}
+                        onPress={() => toggleChildren(option)}
+                      >
+                        <View style={[
+                          styles.checkbox,
+                          filters.hasChildren.includes(option) && styles.checkboxChecked
+                        ]}>
+                          {filters.hasChildren.includes(option) && (
+                            <Ionicons name="checkmark" size={16} color="#FFF" />
+                          )}
+                        </View>
+                        <Text style={styles.checkboxLabel}>{option}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
                 {/* Interests */}
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Interest</Text>
@@ -279,62 +381,70 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
   );
 };
 
-// Main filter button component that toggles the popup
 const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allProfiles }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState | null>(null);
-  
-  // Store original profiles if allProfiles not provided
   const [originalProfiles] = useState(allProfiles || profiles);
 
   const handleFilterApply = (filters: FilterState) => {
-    // Get the profiles to filter (either from allProfiles prop or original stored profiles)
     const profilesToFilter = allProfiles || originalProfiles;
     
-    // Apply filters to your data
     const filteredProfiles = profilesToFilter.filter(profile => {
-      // Apply location filter
+      // Location filter
       if (filters.location && profile.location !== filters.location) {
         return false;
       }
       
-      // IMPROVED: Extract numeric age from age field first, then ageRange as fallback
+      // Extract numeric age
       let profileAge = 0;
-      
-      // First try the dedicated age field (preferred source)
       if (profile.age) {
-        // Try parsing as a number
         const ageNum = parseInt(profile.age);
         if (!isNaN(ageNum)) {
           profileAge = ageNum;
         }
-      } 
-      // Fallback to parsing from ageRange
-      else if (profile.ageRange) {
-        // Try to extract from ageRange (assuming format like "25 to 30")
+      } else if (profile.ageRange) {
         const match = profile.ageRange.match(/^(\d+)/);
         if (match && match[1]) {
-          const ageNum = parseInt(match[1]);
-          if (!isNaN(ageNum)) {
-            profileAge = ageNum;
-          }
+          profileAge = parseInt(match[1]);
         }
       }
       
-      // Apply distance filter
+      // Distance filter
       if (profile.distance !== undefined && 
           (profile.distance < filters.distance[0] || profile.distance > filters.distance[1])) {
         return false;
       }
       
-      // Apply age filter if we have a valid age
+      // Age filter
       if (profileAge > 0) {
         if (profileAge < filters.ageRange[0] || profileAge > filters.ageRange[1]) {
           return false;
         }
       }
       
-      // Apply interests filter
+      // Height filter
+      if (profile.height) {
+        const height = parseInt(profile.height);
+        if (!isNaN(height) && (height < filters.height[0] || height > filters.height[1])) {
+          return false;
+        }
+      }
+      
+      // Ethnicity filter
+      if (filters.ethnicity.length > 0 && profile.ethnicity) {
+        if (!filters.ethnicity.includes(profile.ethnicity)) {
+          return false;
+        }
+      }
+      
+      // Children filter
+      if (filters.hasChildren.length > 0 && profile.hasChildren) {
+        if (!filters.hasChildren.includes(profile.hasChildren)) {
+          return false;
+        }
+      }
+      
+      // Interests filter
       if (filters.interests.length > 0 && 
           (!profile.interests || !profile.interests.some(interest => filters.interests.includes(interest)))) {
         return false;
@@ -343,16 +453,12 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
       return true;
     });
     
-    // Update profiles state with filtered profiles
     setProfiles(filteredProfiles);
-    
-    // Store active filters
     setActiveFilters(filters);
   };
 
   return (
     <View>
-      {/* Filter Button */}
       <TouchableOpacity 
         onPress={() => setIsFilterOpen(true)}
         style={styles.filterButton}
@@ -360,7 +466,6 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
         <Ionicons name="options" size={18} color="#FF6B6B" />
       </TouchableOpacity>
 
-      {/* Filter Popup */}
       <FilterPopup 
         visible={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
@@ -392,11 +497,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    height: '90%',
+    height: '95%',  // This should be high enough
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: 'hidden',
+    overflow: 'scroll'
   },
   modalHeader: {
     flexDirection: 'row',
@@ -415,6 +520,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   scrollContent: {
+    flex: 1, // Add this
     paddingHorizontal: 20,
   },
   filterSection: {
@@ -447,10 +553,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  slider: {
-    width: '100%',
-    height: 40,
+  checkboxContainer: {
     marginTop: 5,
+  },
+  checkboxOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#F5F5F5',
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#333',
   },
   interestContainer: {
     flexDirection: 'row',

@@ -84,6 +84,9 @@ export function ProfileDetailsModal(props) {
   const displayName = profile.displayName || 'User';
   const age = profile.age || '';
   const ageRange = profile.ageRange || '';
+  const ethnicity = profile.ethnicity;
+  const pronouns = profile.pronouns;
+  const hasChildren = profile.hasChildren;
   const location = profile.location;
   const bio = profile.bio;
   const height = profile.height;
@@ -166,7 +169,31 @@ export function ProfileDetailsModal(props) {
             <Text style={styles.sectionTitle}>About</Text>
             {renderSectionContent(bio)}
           </View>
-          
+
+                    {/* Pronouns Section */}
+                    <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pronouns</Text>
+            {renderSectionContent(pronouns || 'Not specified')}
+          </View>
+
+          {/* Height Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Height</Text>
+            {renderSectionContent(height ? `${height} cm` : 'Not specified')}
+          </View>
+
+          {/* Ethnicity Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ethnicity</Text>
+            {renderSectionContent(ethnicity || 'Not specified')}
+          </View>
+
+          {/* Children Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Children</Text>
+            {renderSectionContent(hasChildren || 'Not specified')}
+          </View>
+
           {/* Strength Section */}
           <TouchableOpacity 
             style={styles.expandableSection}
@@ -188,12 +215,6 @@ export function ProfileDetailsModal(props) {
             )}
           </TouchableOpacity>
 
-          {/* Height Section */}
-          {/* <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Height</Text>
-            {renderSectionContent(height)}
-          </View> */}
-          
           {/* Fear Section */}
           <TouchableOpacity 
             style={styles.expandableSection}
