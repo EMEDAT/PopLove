@@ -507,11 +507,8 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
     
     console.log("Filtered Profiles Count:", filteredProfiles.length);
     
-    // Fallback to all profiles if no results
-    const finalProfiles = filteredProfiles.length > 0 ? filteredProfiles : profilesToFilter;
-    
-    setProfiles(finalProfiles);
-    setActiveFilters(filters);
+    // Don't fall back to all profiles - use filtered results even if empty
+    setProfiles(filteredProfiles);
   };
 
   return (
