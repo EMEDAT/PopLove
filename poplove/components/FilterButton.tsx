@@ -9,10 +9,9 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Dimensions,
-  Switch
+  TextInput // Add this import
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import DualThumbSlider from '../components/DualThumbSlider';
 
@@ -72,6 +71,8 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
     interests: []
   });
   const [locations, setLocations] = useState<{name: string, code: string}[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [filteredLocations, setFilteredLocations] = useState<{name: string, code: string}[]>([]);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -199,25 +200,54 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                 style={styles.scrollContent}
                 contentContainerStyle={{paddingBottom: 0}} // Add this
               >
-                {/* Location Section */}
+                {/* Location Section - with autocomplete dropdown */}
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Location</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={filters.location}
-                      onValueChange={(value) => setFilters(prev => ({...prev, location: value}))}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="Select location" value="" />
-                      {locations.map(location => (
-                        <Picker.Item 
-                          key={location.code} 
-                          label={location.name} 
-                          value={location.name} 
-                        />
-                      ))}
-                    </Picker>
-                  </View>
+                  <TextInput
+                    style={[styles.textInput, {
+                      borderWidth: 1,
+                      borderColor: '#E5E5E5',
+                      borderRadius: 8,
+                      backgroundColor: '#F9F9F9',
+                      height: 50,
+                      paddingHorizontal: 12
+                    }]}
+                    placeholder="Type to search locations..."
+                    value={filters.location}
+                    onChangeText={(text) => {
+                      setFilters(prev => ({...prev, location: text}));
+                      // Get filtered location suggestions
+                      if (text.length > 0) {
+                        const filtered = locations.filter(location => 
+                          location.name.toLowerCase().includes(text.toLowerCase())
+                        );
+                        setFilteredLocations(filtered);
+                        setShowDropdown(true);
+                      } else {
+                        setShowDropdown(false);
+                      }
+                    }}
+                  />
+                  
+                  {/* Dropdown suggestions */}
+                  {showDropdown && (
+                    <View style={styles.dropdownContainer}>
+                      <ScrollView style={styles.dropdown} nestedScrollEnabled={true}>
+                        {filteredLocations.map((location, index) => (
+                          <TouchableOpacity
+                            key={location.code}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setFilters(prev => ({...prev, location: location.name}));
+                              setShowDropdown(false);
+                            }}
+                          >
+                            <Text style={styles.dropdownText}>{location.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
 
                 {/* Distance Range */}
@@ -532,6 +562,10 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
+  textInput: {
+    fontSize: 16,
+    color: '#333',
+  },
   scrollContent: {
     flex: 1, // Add this
     paddingHorizontal: 20,
@@ -652,7 +686,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: 'white',
-  }
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  dropdown: {
+    maxHeight: 200,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#333',
+  },
 });
 
 export default FilterButton;

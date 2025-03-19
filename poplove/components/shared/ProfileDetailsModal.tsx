@@ -194,6 +194,12 @@ export function ProfileDetailsModal(props) {
             {renderSectionContent(hasChildren || 'Not specified')}
           </View>
 
+          {/* Profession Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Profession</Text>
+          {renderSectionContent(profile.profession || 'Not specified')}
+        </View>
+
           {/* Strength Section */}
           <TouchableOpacity 
             style={styles.expandableSection}
