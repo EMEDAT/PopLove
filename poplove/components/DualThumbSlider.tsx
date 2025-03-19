@@ -1,5 +1,5 @@
-// DualThumbSlider.tsx - Simplified approach
-import React, { useState } from 'react';
+// DualThumbSlider.tsx - Updated with values prop support
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
@@ -10,6 +10,7 @@ interface DualThumbSliderProps {
   initialHigh: number;
   step: number;
   onValueChanged: (low: number, high: number) => void;
+  values?: [number, number]; 
 }
 
 const DualThumbSlider = ({
@@ -18,21 +19,29 @@ const DualThumbSlider = ({
   initialLow, 
   initialHigh, 
   step, 
-  onValueChanged
+  onValueChanged,
+  values
 }: DualThumbSliderProps) => {
-  // Initial values
-  const [values, setValues] = useState([initialLow, initialHigh]);
+  // Use state to track current values
+  const [sliderValues, setSliderValues] = useState([initialLow, initialHigh]);
+
+  // Update when external values change (like reset)
+  useEffect(() => {
+    if (values) {
+      setSliderValues(values);
+    }
+  }, [values]);
 
   // Handle value change
   const handleValuesChange = (newValues: number[]) => {
-    setValues(newValues);
+    setSliderValues(newValues);
     onValueChanged(newValues[0], newValues[1]);
   };
 
   return (
     <View style={styles.container}>
       <MultiSlider
-        values={values}
+        values={sliderValues}
         min={min}
         max={max}
         step={step}

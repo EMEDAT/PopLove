@@ -156,9 +156,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
   const handleReset = () => {
     setFilters({
       location: '',
-      distance: [17, 30],
-      ageRange: [18, 35],
-      height: [150, 200],
+      distance: [1, 100],
+      ageRange: [18, 70],
+      height: [140, 220],
       ethnicity: [],
       hasChildren: [],
       interests: []
@@ -262,8 +262,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       min={1}
                       max={100}
                       step={1}
-                      initialLow={filters.distance[0]}
-                      initialHigh={filters.distance[1]}
+                      initialLow={1}
+                      initialHigh={100}
+                      values={filters.distance}
                       onValueChanged={handleDistanceChange}
                     />
                   </View>
@@ -281,8 +282,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       min={18}
                       max={70}
                       step={1}
-                      initialLow={filters.ageRange[0]}
-                      initialHigh={filters.ageRange[1]}
+                      initialLow={18}
+                      initialHigh={70}
+                      values={filters.ageRange}
                       onValueChanged={handleAgeChange}
                     />
                   </View>
@@ -300,8 +302,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       min={140}
                       max={220}
                       step={5}
-                      initialLow={filters.height[0]}
-                      initialHigh={filters.height[1]}
+                      initialLow={140}
+                      initialHigh={220}
+                      values={filters.height}
                       onValueChanged={handleHeightChange}
                     />
                   </View>
@@ -417,11 +420,22 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
   const [originalProfiles] = useState(allProfiles || profiles);
 
   const handleFilterApply = (filters: FilterState) => {
-    const profilesToFilter = allProfiles || originalProfiles;
+    // Always use available profiles - prioritize allProfiles if provided
+    const profilesToFilter = allProfiles || profiles || [];
     
     console.log("Raw Filters:", JSON.stringify(filters, null, 2));
     console.log("Total Profiles:", profilesToFilter.length);
-    console.log("Sample Profile:", JSON.stringify(profilesToFilter[0], null, 2));
+    
+    // Guard against empty profiles array
+    if (profilesToFilter.length === 0) {
+      console.error("No profiles available to filter!");
+      return; // Don't update state with empty profiles
+    }
+    
+    // Log a sample profile for debugging
+    if (profilesToFilter[0]) {
+      console.log("Sample Profile:", JSON.stringify(profilesToFilter[0], null, 2));
+    }
   
     const filteredProfiles = profilesToFilter.filter(profile => {
       // Location Filter

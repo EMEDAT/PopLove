@@ -34,6 +34,7 @@ export default function HomeScreen() {
  const { user } = useAuthContext();
  const [loading, setLoading] = useState(true);
  const [profiles, setProfiles] = useState<any[]>([]);
+ const [originalProfiles, setOriginalProfiles] = useState<any[]>([]);
  const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
  const [userPreferences, setUserPreferences] = useState<any>(null);
  const [userLocation, setUserLocation] = useState({ lat: 0, lon: 0 });
@@ -202,6 +203,7 @@ useEffect(() => {
         
         // Update profiles
         setProfiles(fetchedProfiles);
+        setOriginalProfiles(fetchedProfiles);
         setLoading(false);
         
         // Handle empty profiles case
@@ -611,7 +613,8 @@ const sendEmojiMessage = async (emoji: string) => {
         <NotificationBadge />
         <FilterButton 
           profiles={profiles} 
-          setProfiles={setProfiles} 
+          setProfiles={setProfiles}
+          allProfiles={originalProfiles} // Add this line
         />
       </View>
       </View>
