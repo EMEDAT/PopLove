@@ -63,11 +63,13 @@ if (item.type === 'intro') {
       <Video
         ref={videoRef}
         source={item.video}
-        style={[styles.fullImage, { paddingLeft: 50 }]} // Shift right by 20px
+        posterStyle={{ width, height: '100%' }}
+        style={styles.fullImage}
         resizeMode={ResizeMode.COVER}
-        shouldPlay={activeIndex === 0} // Only play when active
-        isLooping={false}
+        shouldPlay={activeIndex === 0}
+        isLooping={true}
         isMuted={true}
+        rate={2.0}
         useNativeControls={false}
         onLoad={() => console.log("Video loaded")}
         onError={(error) => console.log("Video error:", error)}
