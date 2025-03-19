@@ -63,6 +63,8 @@ if (item.type === 'intro') {
       <Video
         ref={videoRef}
         source={item.video}
+        posterSource={require('../../assets/images/onboarding/SplashScreen1.jpg')}
+        usePoster={true}
         posterStyle={{ width, height: '100%' }}
         style={styles.fullImage}
         resizeMode={ResizeMode.COVER}
