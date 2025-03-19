@@ -40,6 +40,7 @@ class AuthService {
             email: email,
             createdAt: serverTimestamp(),
             hasCompletedOnboarding: false,
+            pronouns: '', // Add this line
             status: 'active'
           });
           

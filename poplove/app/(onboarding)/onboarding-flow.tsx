@@ -20,6 +20,7 @@ import { firestore, serverTimestamp } from '../../lib/firebase';
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
 import AgeSelection from '../../components/onboarding/AgeSelection';
+import PronounsSelection from '../../components/onboarding/PronounsSelection';
 import HeightSelection from '../../components/onboarding/HeightSelection';
 import EthnicitySelection from '../../components/onboarding/EthnicitySelection';
 import ChildrenSelection from '../../components/onboarding/ChildrenSelection';
@@ -35,6 +36,7 @@ import OnboardingNavigation from '../../components/onboarding/OnboardingNavigati
 const STEPS = [
   'profile',
   'gender',
+  'pronouns',
   'age',
   'height',
   'ethnicity',
@@ -45,6 +47,7 @@ const STEPS = [
   'subscription',
   'welcome'
 ];
+
 
 export default function OnboardingFlow() {
   const { user, setHasCompletedOnboarding, startOnboarding, saveOnboardingProgress } = useAuthContext();
@@ -61,6 +64,7 @@ export default function OnboardingFlow() {
     bio: '',
     location: '',
     gender: '',
+    pronouns: '',
     ageRange: '',
     age: '',
     height: '',
@@ -189,6 +193,7 @@ export default function OnboardingFlow() {
     bio: string;
     location: string;
     gender: string;
+    pronouns: string;
     ageRange: string;
     age: string;
     height: string;
@@ -276,6 +281,7 @@ export default function OnboardingFlow() {
             displayName: profileData.displayName,
             gender: profileData.gender, 
             age: profileData.age,
+            pronoun: profileData.pronouns,
             ageRange: profileData.ageRange,
             height: profileData.height,
             ethnicity: profileData.ethnicity,
@@ -290,6 +296,7 @@ export default function OnboardingFlow() {
             bio: profileData.bio,
             location: profileData.location,
             gender: profileData.gender, 
+            pronouns: profileData.pronouns,
             age: profileData.age,
             ageRange: profileData.ageRange,
             height: profileData.height,
@@ -315,6 +322,8 @@ export default function OnboardingFlow() {
             const userData = verifyDoc.data();
             console.log('Verified saved gender:', userData.gender);
             console.log('Verified saved age:', userData.age);
+            console.log('Verified saved pronouns:', userData.pronouns);
+            console.log('Verified saved ageRange:', userData.ageRange);
             console.log('Verified saved height:', userData.height);
             console.log('Verified saved ethnicity:', userData.ethnicity);
             console.log('Verified saved hasChildren:', userData.hasChildren);
@@ -359,6 +368,8 @@ export default function OnboardingFlow() {
         return !!profileData.gender;
       case 'age':
         return !!profileData.ageRange && !!profileData.age;
+      case 'pronouns':
+        return !!profileData.pronouns;
       case 'height':
         return !!profileData.height;
       case 'ethnicity':
@@ -399,6 +410,8 @@ export default function OnboardingFlow() {
       case 'age':
         title = 'Age';
         break;
+      case 'pronouns':
+        title = 'Pronouns';
       case 'height':
         title = 'Height';
         break;
@@ -473,6 +486,13 @@ export default function OnboardingFlow() {
             onAgeChange={(age) => updateProfile('age', age)}
           />
         );
+        case 'pronouns':
+          return (
+            <PronounsSelection 
+              selectedPronouns={profileData.pronouns}
+              onSelectPronouns={(pronouns) => updateProfile('pronouns', pronouns)}
+            />
+          );
         case 'height':
           return (
             <HeightSelection
