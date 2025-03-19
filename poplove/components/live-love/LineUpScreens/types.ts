@@ -43,7 +43,7 @@ export interface Contestant {
   export interface LineUpSessionData {
     id: string;
     category: string[];
-    currentContestantId: string;
+    currentSpotlightId: string;
     contestants: string[]; // Array of user IDs
     startTime: any; // Firestore timestamp
     endTime: any;   // Firestore timestamp (4 hours later)

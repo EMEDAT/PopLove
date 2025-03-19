@@ -1,4 +1,4 @@
-// components/live-love/LineUpScreens/ContestantPrivateScreen.tsx
+// components/live-love/LineUpScreens/SpotlightPrivateScreen.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -24,32 +24,32 @@ import * as LineupService from '../../../services/lineupService';
 import ChatInputBar from './ChatInputBar';
 
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
-const CONTESTANT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
 
 // Create a logger function for this component
 const logPrivate = (message: string, data?: any) => {
-  console.log(`[${new Date().toISOString()}] [ContestantPrivateScreen] 👑 ${message}`, data ? data : '');
+  console.log(`[${new Date().toISOString()}] [SpotlightPrivateScreen] 👑 ${message}`, data ? data : '');
 };
 
-interface ContestantPrivateScreenProps {
+interface SpotlightPrivateScreenProps {
   onBack?: () => void;
 }
 
-export default function ContestantPrivateScreen({ onBack }: ContestantPrivateScreenProps = {}) {
+export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScreenProps = {}) {
   logPrivate('Component rendering');
   
   const { 
     goBack, 
     loading, 
     sessionId, 
-    contestantTimeLeft, 
+    spotlightTimeLeft, 
     popCount, 
     likeCount, 
     setStep,
     messages,
     sendMessage,
-    setContestantTimeLeft,
-    setSelectedMatches,  // Add this // Add this
+    setSpotlightTimeLeft,
+    setSelectedMatches,
   } = useLineUp();
   
   const { user } = useAuthContext();
@@ -79,19 +79,19 @@ export default function ContestantPrivateScreen({ onBack }: ContestantPrivateScr
 
   // Format time left
   const formatTimeLeft = () => {
-    const hours = Math.floor(contestantTimeLeft / 3600);
-    const minutes = Math.floor((contestantTimeLeft % 3600) / 60);
-    const seconds = contestantTimeLeft % 60;
+    const hours = Math.floor(spotlightTimeLeft / 3600);
+    const minutes = Math.floor((spotlightTimeLeft % 3600) / 60);
+    const seconds = spotlightTimeLeft % 60;
     
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   // Add this useEffect to track and log completion:
     useEffect(() => {
-      if (contestantTimeLeft <= 0 && !hasLoggedCompletionRef.current) {
+      if (spotlightTimeLeft <= 0 && !hasLoggedCompletionRef.current) {
         hasLoggedCompletionRef.current = true;
         
-        logPrivate(`Contestant time reached zero for user ${user?.uid}`);
+        logPrivate(`Spotlight time reached zero for user ${user?.uid}`);
         
         // Log completion event
         if (sessionId && user) {
@@ -117,10 +117,10 @@ export default function ContestantPrivateScreen({ onBack }: ContestantPrivateScr
           }
         }
       }
-    }, [contestantTimeLeft, sessionId, user]);
+    }, [spotlightTimeLeft, sessionId, user]);
 
   useEffect(() => {
-    if (contestantTimeLeft <= 0 && timerHandled === false) {
+    if (spotlightTimeLeft <= 0 && timerHandled === false) {
       logPrivate('Timer reached zero, checking for matches');
       setTimerHandled(true);
       
@@ -151,7 +151,7 @@ export default function ContestantPrivateScreen({ onBack }: ContestantPrivateScr
         checkAndNavigate();
       }, 300);
     }
-  }, [contestantTimeLeft, timerHandled, setStep, sessionId, user]);
+  }, [spotlightTimeLeft, timerHandled, setStep, sessionId, user]);
 
   // Add this useEffect right after the existing timer useEffect
 useEffect(() => {
@@ -175,10 +175,10 @@ useEffect(() => {
       
       // Calculate time exactly
       const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
-      const remainingTime = Math.max(0, CONTESTANT_TIMER_SECONDS - elapsedSeconds);
+      const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
       
       // Update correct timer based on gender
-      setContestantTimeLeft(remainingTime);
+      setSpotlightTimeLeft(remainingTime);
     } catch (error) {
       console.error('Error calculating remaining time:', error);
     }
@@ -205,7 +205,7 @@ useEffect(() => {
     logPrivate(`Setting up stats listener for user ${user.uid} in session ${sessionId}`);
     setStatSubscribed(true);
     
-    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'contestantStats', user.uid);
+    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', user.uid);
     
     const unsubscribe = onSnapshot(statsRef, 
       (snapshot) => {
@@ -335,7 +335,7 @@ useEffect(() => {
         </View>
         
         <Text style={styles.headerSubtitle}>
-          You are the current contestant! Others can see and interact with your profile.
+          You are in the spotlight! Others can see and interact with your profile.
         </Text>
       </View>
       
@@ -379,32 +379,19 @@ useEffect(() => {
           <Text style={styles.timerLabel}>Countdown timer</Text>
             <View style={styles.timerDigits}>
               <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{Math.floor(contestantTimeLeft / 3600).toString().padStart(2, '0')}</Text>
+                <Text style={styles.digit}>{Math.floor(spotlightTimeLeft / 3600).toString().padStart(2, '0')}</Text>
                 <Text style={styles.digitLabel}>hr</Text>
               </View>
               <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{Math.floor((contestantTimeLeft % 3600) / 60).toString().padStart(2, '0')}</Text>
+                <Text style={styles.digit}>{Math.floor((spotlightTimeLeft % 3600) / 60).toString().padStart(2, '0')}</Text>
                 <Text style={styles.digitLabel}>min</Text>
               </View>
               <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{(contestantTimeLeft % 60).toString().padStart(2, '0')}</Text>
+                <Text style={styles.digit}>{(spotlightTimeLeft % 60).toString().padStart(2, '0')}</Text>
                 <Text style={styles.digitLabel}>sec</Text>
               </View>
             </View>
           </View>
-          
-          {/* <TouchableOpacity 
-            style={styles.liveChatButton}
-            onPress={() => {
-              logPrivate('Live chat button pressed, switching to chat view');
-              setShowChat(true);
-            }}
-          >
-            <View style={styles.liveChatIcon}>
-              <Ionicons name="chatbubbles" size={16} color="#FF6B6B" />
-            </View>
-            <Text style={styles.liveChatText}>Open Live Chat</Text>
-          </TouchableOpacity> */}
           
           <TouchableOpacity 
           style={styles.sampleMessageContainer}

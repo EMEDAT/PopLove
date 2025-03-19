@@ -9,7 +9,7 @@ initializeApp();
 const firestore = getFirestore();
 
 // Constants for lineup
-const CONTESTANT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds
 // const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 48 hours - TODO: Use in elimination handler
 
 // This function runs once per day to clean up expired stories
@@ -191,7 +191,7 @@ async function checkAndRotateGender(sessionDoc: DocumentSnapshot, gender: string
   const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
   
   // Check if rotation time has elapsed (4 hours)
-  if (elapsedSeconds > CONTESTANT_TIMER_SECONDS) {
+  if (elapsedSeconds > SPOTLIGHT_TIMER_SECONDS) {
     console.log(`Time to rotate ${gender} contestant in session ${sessionId} (elapsed: ${elapsedSeconds}s)`);
     
     try {

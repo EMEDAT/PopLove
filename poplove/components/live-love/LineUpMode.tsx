@@ -5,7 +5,7 @@ import { useLineUp } from './LineUpScreens/LineUpContext';
 import LineUpProviderWrapper from './LineUpProviderWrapper';
 import SelectionScreen from './LineUpScreens/SelectionScreen';
 import LineUpScreen from './LineUpScreens/LineUpScreen';
-import ContestantPrivateScreen from './LineUpScreens/ContestantPrivateScreen';
+import ContestantPrivateScreen from './LineUpScreens/SpotlightPrivateScreen';
 import MatchSelectionScreen from './LineUpScreens/MatchSelectionScreen';
 import ConfirmationScreen from './LineUpScreens/ConfirmationScreen';
 import EliminatedScreen from './LineUpScreens/EliminatedScreen';

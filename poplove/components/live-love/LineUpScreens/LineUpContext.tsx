@@ -36,16 +36,16 @@ import { calculateMatchPercentage } from '../../../utils/matchCalculation';
 import { getOrderedContestantsByGender } from '../../../services/lineupService';
 
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
-const CONTESTANT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 1 hour for testing (should be 48 * 60 * 60)
 
 interface LineUpContextType {
   // State
   step: LineUpStep;
   categories: LineUpCategory[];
-  upcomingContestants: Contestant[];
-  currentContestant: Contestant | null;
-  setContestantTimeLeft: (time: number) => void;
+  upcomingSpotlights: Contestant[];  // Changed from upcomingContestants
+  currentSpotlight: Contestant | null;  // Changed from currentContestant
+  setSpotlightTimeLeft: (time: number) => void;  // Changed from setContestantTimeLeft
   checkUserMatches: () => Promise<void>;
   selectedMatches: MatchData[];
   messages: ChatMessage[];
@@ -54,29 +54,29 @@ interface LineUpContextType {
   loading: boolean;
   error: string | null;
   sessionId: string | null;
-  timeLeft: number; // Time left for the current contestant (in seconds)
-  contestantTimeLeft: number; // Time left for the user's turn (4 hours in seconds)
-  eliminationTimeLeft: number; // Time left for eliminated users (48 hours in seconds)
-  popCount: number; // Number of pops received by the current user
-  likeCount: number; // Number of likes received by the current user
+  timeLeft: number; 
+  spotlightTimeLeft: number;  // Changed from contestantTimeLeft
+  eliminationTimeLeft: number;
+  popCount: number;
+  likeCount: number;
   
   // Methods
   setStep: (step: LineUpStep) => void;
   toggleCategory: (id: string) => void;
   startLineUp: () => Promise<void>;
-  handleAction: (action: 'like' | 'pop', contestantId: string) => Promise<void>;
+  handleAction: (action: 'like' | 'pop', spotlightId: string) => Promise<void>;  // Changed from contestantId
   sendMessage: (text: string) => Promise<void>;
   selectMatch: (match: MatchData) => void;
   confirmMatch: (match: MatchData) => Promise<string | null>;
   goBack: () => void;
   checkEligibility: () => Promise<boolean>;
-  refreshContestants: () => Promise<Contestant[]>;
+  refreshSpotlights: () => Promise<Contestant[]>;  // Changed from refreshContestants
   setMessages: (messages: ChatMessage[]) => void;
   setSelectedMatches: (matches: MatchData[]) => void;
   setIsCurrentUser: (isCurrentUser: boolean) => void;
   setLikeCount: (count: number) => void;
   setPopCount: (count: number) => void;
-  startContestantTimer: () => void;
+  startSpotlightTimer: () => void;  // Changed from startContestantTimer
   setSessionId: (id: string | null) => void;
 }
 
@@ -94,8 +94,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     { id: 'adventurous', name: 'Adventurous Singles', selected: false },
     { id: 'others', name: 'Others', selected: false },
   ]);
-  const [upcomingContestants, setUpcomingContestants] = useState<Contestant[]>([]);
-  const [currentContestant, setCurrentContestant] = useState<Contestant | null>(null);
+  const [upcomingSpotlights, setUpcomingSpotlights] = useState<Contestant[]>([]);
+  const [currentSpotlight, setCurrentSpotlight] = useState<Contestant | null>(null);
   const [selectedMatches, setSelectedMatches] = useState<MatchData[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isCurrentUser, _setIsCurrentUser] = useState(false);
@@ -103,8 +103,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, _setSessionId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(CONTESTANT_TIMER_SECONDS);
-  const [contestantTimeLeft, setContestantTimeLeft] = useState<number>(CONTESTANT_TIMER_SECONDS);
+  const [timeLeft, setTimeLeft] = useState<number>(SPOTLIGHT_TIMER_SECONDS);
+  const [spotlightTimeLeft, setSpotlightTimeLeft] = useState<number>(SPOTLIGHT_TIMER_SECONDS);
   const [eliminationTimeLeft, setEliminationTimeLeft] = useState<number>(ELIMINATION_TIMER_SECONDS);
   const [popCount, setPopCount] = useState<number>(0);
   const [likeCount, setLikeCount] = useState<number>(0);
@@ -314,7 +314,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
   // Start contestant timer (4 hours)
-  const startContestantTimer = useCallback(() => {
+  const startSpotlightTimer = useCallback(() => {
     console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Starting contestant timer`);
     
     // Reset timer zero flag
@@ -358,7 +358,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         // Calculate remaining time precisely
         const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
-        const remainingSeconds = Math.max(0, CONTESTANT_TIMER_SECONDS - elapsedSeconds);
+        const remainingSeconds = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
         
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Timer sync: ${remainingSeconds}s remaining`);
         
@@ -611,7 +611,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!lastRotationTime) return;
         
         const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
-        const remainingTime = Math.max(0, CONTESTANT_TIMER_SECONDS - elapsedSeconds);
+        const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
         
         setContestantTimeLeft(remainingTime);
       } catch (error) {
@@ -690,7 +690,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Refresh contestants with better error handling and gender filtering
-  const refreshContestants = async (): Promise<Contestant[]> => {
+  const refreshSpotlights = async (): Promise<Contestant[]> => {
     if (!sessionIdRef.current || !user) {
       console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ Cannot refresh contestants: missing sessionId=${sessionIdRef.current} or user=${user?.uid}`);
       return [];
@@ -784,7 +784,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             };
             
             // Set current contestant and return directly
-            setCurrentContestant(newContestant);
+            setcurrentSpotlight(newContestant);
             console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Auto-selected new contestant: ${newContestant.displayName}`);
             
             isRefreshingRef.current = false;
@@ -833,10 +833,10 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Set current contestant if found
       if (currentContestant) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Setting current contestant: ${currentContestant.displayName}`);
-        setCurrentContestant(currentContestant);
+        setcurrentSpotlight(currentContestant);
       } else {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ No current contestant found for gender: ${oppositeGender}`);
-        setCurrentContestant(null);
+        setcurrentSpotlight(null);
       }
       
       // Filter upcoming contestants - make sure to exclude completed users
@@ -908,7 +908,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Move to next contestant if available
       if (upcomingContestants.length > 0) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ➡️ Moving to next contestant from list`);
-        setCurrentContestant(upcomingContestants[0]);
+        setcurrentSpotlight(upcomingContestants[0]);
         setUpcomingContestants(prev => prev.slice(1));
       } else {
         // Only check for elimination for pop action
@@ -952,7 +952,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const unsubscribe = LineupService.subscribeToGenderFilteredMessages(
       sessionIdRef.current, 
       user?.uid || '', 
-      currentContestant?.id || null,
+      currentSpotlight?.id || null,
       (newMessages) => {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 💬 Received ${newMessages.length} filtered messages from subscription`);
         setMessages(newMessages);
@@ -970,7 +970,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🧹 Cleaning up message subscription`);
       unsubscribe();
     };
-  }, [sessionId, user, isCurrentUser, currentContestant]);
+  }, [sessionId, user, isCurrentUser, currentSpotlight]);
 
   // Send chat message
   const sendMessage = async (text: string) => {
@@ -1059,13 +1059,13 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSessionId(session.id);
       
       // Critical check for current contestant
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Current contestant ID from session: ${session.currentContestantId}`);
+      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Current contestant ID from session: ${session.currentSpotlightId}`);
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Comparing with user ID: ${user.uid}`);
       
       // Check gender-specific field
       const genderField = userGender === 'male' ? 'currentMaleContestantId' : 'currentFemaleContestantId';
       const isUserCurrentContestant = 
-        session.currentContestantId === user.uid || 
+        session.currentSpotlightId === user.uid || 
         session[genderField] === user.uid;
       
       if (isUserCurrentContestant) {
@@ -1414,7 +1414,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // Add notification
             NotificationService.addLineupTurnNotification(user.uid, sessionId);
             
-            setContestantTimeLeft(CONTESTANT_TIMER_SECONDS);
+            setContestantTimeLeft(SPOTLIGHT_TIMER_SECONDS);
             startContestantTimer();
             
             setTimeout(() => {
@@ -1446,8 +1446,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const contextValue: LineUpContextType = {
     step,
     categories,
-    upcomingContestants,
-    currentContestant,
+    upcomingSpotlights,
+    currentSpotlight,
     selectedMatches,
     messages,
     isCurrentUser,

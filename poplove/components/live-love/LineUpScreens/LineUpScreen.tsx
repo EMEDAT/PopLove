@@ -32,7 +32,7 @@ const { width, height } = Dimensions.get('window');
 export default function LineUpScreen() {
   const { 
     upcomingContestants: contextUpcomingContestants, 
-    currentContestant,
+    currentSpotlight,
     handleAction, 
     goBack, 
     loading,
