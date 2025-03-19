@@ -125,7 +125,7 @@ useEffect(() => {
       // Determine opposite gender for matching
       const genderPreference = userGender === 'male' ? 'female' : 'male';
       const blockedUsers = userData.blockedUsers || [];
-      const dealBreakerEnabled = userData.dealBreaker || false;
+      const dealBreakerEnabled = userData.dealBreaker === true;
       const userInterests = userData.interests || [];
       
       // Location processing (if available)

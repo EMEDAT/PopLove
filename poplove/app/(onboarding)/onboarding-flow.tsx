@@ -304,7 +304,7 @@ export default function OnboardingFlow() {
             hasChildren: profileData.hasChildren,
             lifestyle: profileData.lifestyle,
             interests: profileData.interests,
-            dealBreaker: profileData.dealBreaker,
+            dealBreaker: Boolean(profileData.dealBreaker),
             prompts: profileData.prompts,
             subscriptionPlan: profileData.subscriptionPlan,
             hasCompletedOnboarding: true,
