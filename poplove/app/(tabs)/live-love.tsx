@@ -406,9 +406,9 @@ export default function LiveLoveScreen() {
             />
           </View>
           <View style={styles.modeTextContainer}>
-            <Text style={styles.modeTitle}>Speed Dating Mode</Text>
-            <Text style={styles.modeSubtitle}>(1-on-1)</Text>
-          </View>
+          <Text style={styles.modeTitle}>Speed Dating Mode</Text>
+          <Text style={styles.modeSubtitle}>(Instant Match 1-on-1)</Text>
+        </View>
           {selectedDatingMode === 'speed-dating' && (
             <View style={styles.checkmarkContainer}>
               <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />

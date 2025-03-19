@@ -515,10 +515,10 @@ export default function LineUpScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.upcomingTitle}>Upcoming Contestant</Text>
+      <Text style={styles.upcomingTitle}>Next in Line</Text>
       {renderUpcomingContestants()}
       
-      <Text style={styles.currentContestantTitle}>Current Contestant</Text>
+      <Text style={styles.currentContestantTitle}>Now in the Spotlight</Text>
       
       {showChat ? (
         <View style={styles.chatContainer}>
@@ -615,7 +615,7 @@ export default function LineUpScreen() {
           
           {/* Next Contestant Timer */}
           <View style={styles.timerContainer}>
-            <Text style={styles.timerLabel}>Next contestant in</Text>
+          <Text style={styles.timerLabel}>Countdown timer</Text>
             <View style={styles.timerDigits}>
               <View style={styles.timerDigit}>
                 <Text style={styles.digit}>{formattedTime.hours}</Text>

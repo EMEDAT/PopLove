@@ -12,6 +12,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { Video } from 'expo-av';
+import { ResizeMode } from 'expo-av';
 
 
 const { width, height } = Dimensions.get('window');
@@ -21,7 +23,8 @@ const SPLASH_SCREENS = [
   {
     id: 1,
     type: 'intro',
-    image: require('../../assets/images/onboarding/SplashScreen1.png'),
+    // Replace image with video source
+    video: require('../../assets/images/onboarding/video/SplashScreen1.mp4'),
   },
   {
     id: 2,
@@ -46,31 +49,38 @@ const SPLASH_SCREENS = [
 export default function SplashScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const videoRef = useRef<Video>(null);
 
   // Auto-advance from first screen after 2 seconds
   useEffect(() => {
-    if (activeIndex === 0) {
-      const timer = setTimeout(() => {
-        setActiveIndex(1);
-        flatListRef.current?.scrollToIndex({ index: 1, animated: true });
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
+    // Don't need timer anymore - video end will trigger navigation
   }, [activeIndex]);
   
   const renderScreen = ({ item, index }: { item: any, index: number }) => {
-    if (item.type === 'intro') {
-      return (
-        <View style={styles.slide}>
-          <Image 
-            source={item.image} 
-            style={styles.fullImage}
-            resizeMode="cover"
-          />
-        </View>
-      );
-    } else {
+if (item.type === 'intro') {
+  return (
+    <View style={styles.slide}>
+      <Video
+        ref={videoRef}
+        source={item.video}
+        style={[styles.fullImage, { paddingLeft: 50 }]} // Shift right by 20px
+        resizeMode={ResizeMode.COVER}
+        shouldPlay={activeIndex === 0} // Only play when active
+        isLooping={false}
+        isMuted={true}
+        useNativeControls={false}
+        onLoad={() => console.log("Video loaded")}
+        onError={(error) => console.log("Video error:", error)}
+        onPlaybackStatusUpdate={(status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            setActiveIndex(1);
+            flatListRef.current?.scrollToIndex({ index: 1, animated: true });
+          }
+        }}
+      />
+    </View>
+  );
+} else {
       return (
         <View style={styles.slide}>
           <Image 
@@ -163,6 +173,12 @@ export default function SplashScreen() {
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={{
           itemVisiblePercentThreshold: 50
+        }}
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / width);
+          if (index === 0 && videoRef.current) {
+            videoRef.current.replayAsync();
+          }
         }}
       />
     </View>
@@ -279,4 +295,8 @@ const styles = StyleSheet.create({
   inactivePaginationDot: {
     backgroundColor: '#DDD',
   },
+  centeredVideo: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+  }
 });

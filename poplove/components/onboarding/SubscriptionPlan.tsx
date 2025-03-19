@@ -45,8 +45,8 @@ export default function SubscriptionPlan({
     {
       id: 'premium',
       title: 'Premium ✨',
-      price: '$155/yr',
       monthlyPrice: '$12.99/month',
+      weeklyPrice: '$5.99/week',
       features: [
         { text: 'Unlimited Pop or Find Love', included: true },
         { text: 'Advance match filters: Height, religion, lifestyle, race', included: true },
@@ -62,8 +62,8 @@ export default function SubscriptionPlan({
     {
       id: 'vip',
       title: 'VIP 👑',
-      price: '$300/yr',
       monthlyPrice: '$25.99/month',
+      weeklyPrice: '$14.99/week',
       features: [
         { text: 'Unlimited Pop or Find Love', included: true },
         { text: 'Advance match filters: All Filters + AI Suggestions', included: true },
@@ -127,9 +127,9 @@ export default function SubscriptionPlan({
                   style={styles.planGradient}
                 >
                   <Text style={styles.planTitle}>{plan.title.split(' ')[0]}</Text>
-                  <Text style={styles.planPrice}>{plan.price}</Text>
+                  <Text style={styles.monthlyPrice}>{plan.monthlyPrice}</Text>
                   {plan.monthlyPrice && (
-                    <Text style={styles.monthlyPrice}>({plan.monthlyPrice})</Text>
+                    <Text style={styles.weeklyPrice}>{plan.weeklyPrice}</Text>
                   )}
                 </LinearGradient>
               </View>
@@ -235,13 +235,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'white',
   },
-  planPrice: {
+  monthlyPrice: {
     fontSize: 24,
     fontWeight: '400',
     color: 'white',
     marginTop: 8,
   },
-  monthlyPrice: {
+  weeklyPrice: {
     fontSize: 15,
     fontWeight: 'bold',
     color: 'white',

@@ -24,7 +24,7 @@ import * as LineupService from '../../../services/lineupService';
 import ChatInputBar from './ChatInputBar';
 
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
-const CONTESTANT_TIMER_SECONDS = 3 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
+const CONTESTANT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
 
 // Create a logger function for this component
 const logPrivate = (message: string, data?: any) => {
@@ -375,24 +375,8 @@ useEffect(() => {
             </View>
           </View>
           
-          <TouchableOpacity 
-            style={styles.aboutMeButton}
-            onPress={() => {
-              setShowProfileModal(true);
-            }}
-          >
-            <Text style={styles.aboutMeTitle}>About Me</Text>
-            {showBio ? (
-              <Text style={styles.bioText}>{'Click to view'}</Text>
-            ) : (
-            <Text style={styles.bioPreview} numberOfLines={2}>
-              {'Click to view'}
-            </Text>
-            )}
-          </TouchableOpacity>
-          
           <View style={styles.timerContainer}>
-            <Text style={styles.timerLabel}>Next contestant in</Text>
+          <Text style={styles.timerLabel}>Countdown timer</Text>
             <View style={styles.timerDigits}>
               <View style={styles.timerDigit}>
                 <Text style={styles.digit}>{Math.floor(contestantTimeLeft / 3600).toString().padStart(2, '0')}</Text>
@@ -601,7 +585,8 @@ const styles = StyleSheet.create({
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 39,
+    marginBottom: 94,
+    marginTop: 60,
   },
   timerLabel: {
     fontSize: 14,

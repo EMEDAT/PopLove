@@ -26,8 +26,8 @@ import { addLineupTurnNotification } from '../services/notificationService';
 
 
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
-const CONTESTANT_TIMER_SECONDS = 3 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
-const ELIMINATION_TIMER_SECONDS = 60 * 60; // 1 hour for testing (should be 48 * 60 * 60)
+const CONTESTANT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
+const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 1 hour for testing (should be 48 * 60 * 60)
 
 // Debug helper
 const debugLog = (area: string, message: string, data?: any) => {
