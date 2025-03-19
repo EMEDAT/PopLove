@@ -13,7 +13,8 @@ import {
   getDoc, 
   updateDoc,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  documentId
 } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
@@ -61,6 +62,12 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const chatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reminderTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (currentStep === 'results') {
+      setMatchesFoundVisible(false);
+    }
+  }, [currentStep]);
 
   const getOppositeGender = (gender: string): string => {
     return gender === 'male' ? 'female' : 'male';
@@ -180,7 +187,7 @@ const findMatches = async () => {
   try {
     setLoading(true);
     
-    // Extend search time to 60 seconds
+    // Wait for 60 seconds
     await new Promise(resolve => setTimeout(resolve, 60000));
     
     const userDoc = await getDoc(doc(firestore, 'users', user.uid));
@@ -199,7 +206,7 @@ const findMatches = async () => {
     const userAgeMax = userAgeMatch ? parseInt(userAgeMatch[2]) : 30;
     const userAgeMid = Math.floor((userAgeMin + userAgeMax) / 2);
     
-    // Broader, more inclusive active users query
+    // Get active users in speed dating mode
     const speedDatingSessionsRef = collection(firestore, 'speedDatingSessions');
     const activeUsersQuery = query(
       speedDatingSessionsRef,
@@ -207,35 +214,42 @@ const findMatches = async () => {
       where('userId', '!=', user.uid),
       where('createdAt', '>', new Date(Date.now() - 5 * 60 * 1000)) // Last 5 minutes
     );
-
     const activeUsersSnapshot = await getDocs(activeUsersQuery);
-
+    
     console.log(`Total active speed dating sessions: ${activeUsersSnapshot.size}`);
     console.log(`Current user gender: ${userGender}`);
-
-    // If no active users after extended search, show no users overlay
+    
     if (activeUsersSnapshot.empty) {
       setNoUsersAvailable(true);
       return;
     }
-
-    // Fetch potential matches of opposite gender
-    const matchesRef = collection(firestore, 'users');
-    const matchQuery = query(
-      matchesRef,
-      where('gender', '!=', userGender),
-      where('hasCompletedOnboarding', '==', true)
-    );
     
-    const snapshot = await getDocs(matchQuery);
+    // Extract the user IDs from active sessions
+    const activeUserIds = activeUsersSnapshot.docs.map(doc => doc.data().userId);
+    console.log(`Found ${activeUserIds.length} active users in speed dating`);
+    
+    // Only fetch profiles for users with active speed dating sessions
+    let snapshot = [];
+    if (activeUserIds.length > 0) {
+      const userDocs = await Promise.all(
+        activeUserIds.map(userId => getDoc(doc(firestore, 'users', userId)))
+      );
+      
+      // Filter for completed profiles of opposite gender
+      snapshot = userDocs.filter(doc => {
+        if (!doc.exists()) return false;
+        const data = doc.data();
+        return data.gender !== userGender && data.hasCompletedOnboarding === true;
+      });
+    }
     
     // BOOSTING FUNCTION FOR HIGHER PERCENTAGES
     const boostScore = (score, factor = 1.4) => {
       return Math.min(100, Math.round(score * factor));
     };
     
-    // Comprehensive compatibility analysis
-    const potentialMatches = await Promise.all(snapshot.docs.map(async (doc) => {
+    // Rest of your compatibility analysis remains unchanged
+    const potentialMatches = await Promise.all(snapshot.map(async (doc) => {
       const data = doc.data();
       const matchInterests = data.interests || [];
       const matchLifestyle = data.lifestyle || [];
