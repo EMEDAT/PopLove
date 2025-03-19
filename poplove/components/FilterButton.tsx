@@ -389,71 +389,84 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
   const handleFilterApply = (filters: FilterState) => {
     const profilesToFilter = allProfiles || originalProfiles;
     
+    console.log("Raw Filters:", JSON.stringify(filters, null, 2));
+    console.log("Total Profiles:", profilesToFilter.length);
+    console.log("Sample Profile:", JSON.stringify(profilesToFilter[0], null, 2));
+  
     const filteredProfiles = profilesToFilter.filter(profile => {
-      // Location filter
-      if (filters.location && profile.location !== filters.location) {
-        return false;
-      }
-      
-      // Extract numeric age
-      let profileAge = 0;
-      if (profile.age) {
-        const ageNum = parseInt(profile.age);
-        if (!isNaN(ageNum)) {
-          profileAge = ageNum;
-        }
-      } else if (profile.ageRange) {
-        const match = profile.ageRange.match(/^(\d+)/);
-        if (match && match[1]) {
-          profileAge = parseInt(match[1]);
+      // Location Filter
+      if (filters.location) {
+        const profileLocation = profile.location?.toLowerCase() || '';
+        const filterLocation = filters.location.toLowerCase();
+        if (!profileLocation.includes(filterLocation)) {
+          return false;
         }
       }
       
-      // Distance filter
+      // Distance Filter
       if (profile.distance !== undefined && 
           (profile.distance < filters.distance[0] || profile.distance > filters.distance[1])) {
         return false;
       }
       
-      // Age filter
+      // Age Filter with Robust Extraction
+      let profileAge = 0;
+      if (profile.age) {
+        const ageNum = parseInt(profile.age);
+        if (!isNaN(ageNum)) profileAge = ageNum;
+      } else if (profile.ageRange) {
+        const match = profile.ageRange.match(/^(\d+)/);
+        if (match && match[1]) profileAge = parseInt(match[1]);
+      }
+      
       if (profileAge > 0) {
         if (profileAge < filters.ageRange[0] || profileAge > filters.ageRange[1]) {
           return false;
         }
       }
       
-      // Height filter
-      if (profile.height) {
-        const height = parseInt(profile.height);
-        if (!isNaN(height) && (height < filters.height[0] || height > filters.height[1])) {
+      // Height Filter
+      if (filters.height[0] !== 150 || filters.height[1] !== 200) {
+        if (profile.height) {
+          const height = parseInt(profile.height);
+          if (!isNaN(height) && (height < filters.height[0] || height > filters.height[1])) {
+            return false;
+          }
+        }
+      }
+      
+      // Ethnicity Filter
+      if (filters.ethnicity.length > 0) {
+        if (!profile.ethnicity || !filters.ethnicity.includes(profile.ethnicity)) {
           return false;
         }
       }
       
-      // Ethnicity filter
-      if (filters.ethnicity.length > 0 && profile.ethnicity) {
-        if (!filters.ethnicity.includes(profile.ethnicity)) {
+      // Children Filter
+      if (filters.hasChildren.length > 0) {
+        if (!profile.hasChildren || !filters.hasChildren.includes(profile.hasChildren)) {
           return false;
         }
       }
       
-      // Children filter
-      if (filters.hasChildren.length > 0 && profile.hasChildren) {
-        if (!filters.hasChildren.includes(profile.hasChildren)) {
+      // Interests Filter
+      if (filters.interests.length > 0) {
+        if (!profile.interests || !profile.interests.some(interest => 
+          filters.interests.includes(interest)
+        )) {
           return false;
         }
-      }
-      
-      // Interests filter
-      if (filters.interests.length > 0 && 
-          (!profile.interests || !profile.interests.some(interest => filters.interests.includes(interest)))) {
-        return false;
       }
       
       return true;
     });
     
-    setProfiles(filteredProfiles);
+    console.log("Filtered Profiles Count:", filteredProfiles.length);
+    
+    // Fallback to all profiles if no results
+    const finalProfiles = filteredProfiles.length > 0 ? filteredProfiles : profilesToFilter;
+    
+    setProfiles(finalProfiles);
     setActiveFilters(filters);
   };
 

@@ -37,22 +37,29 @@ interface PersonalDetailsScreenProps {
     bio: string;
     location: string;
     profession: string;
-    education: string;
-    interests: string[]; // Change from never[] to string[]
+    interests: string[];
     photoURL: string;
     ageRange: string;
     age: string;
+    // Add these fields:
+    pronouns: string;
+    height: string;
+    ethnicity: string;
+    hasChildren: string;
   }>({
     displayName: '',
     email: '',
     bio: '',
     location: '',
     profession: '',
-    education: '',
     interests: [],
     photoURL: '',
     ageRange: '',
     age: '',
+    pronouns: '',
+    height: '',
+    ethnicity: '',
+    hasChildren: ''
   });
   
   // Load user details
@@ -74,11 +81,14 @@ interface PersonalDetailsScreenProps {
             bio: userData.bio || '',
             location: userData.location || '',
             profession: userData.profession || '',
-            education: userData.education || '',
             interests: userData.interests || [],
             photoURL: userData.photoURL || user.photoURL || '',
             age: userData.age || userData.ageRange || '',
             ageRange: userData.ageRange || '',
+            pronouns: userData.pronouns || '',
+            height: userData.height || '',
+            ethnicity: userData.ethnicity || '',
+            hasChildren: userData.hasChildren || ''
           });
         } else {
           // If no document exists, use auth data
@@ -88,11 +98,14 @@ interface PersonalDetailsScreenProps {
             bio: '',
             location: '',
             profession: '',
-            education: '',
             interests: [],
             photoURL: user.photoURL || '',
             age: '',
             ageRange: '',
+            pronouns: '',
+            height: '',
+            ethnicity: '',
+            hasChildren: ''
           });
         }
         setLoading(false);
@@ -158,11 +171,14 @@ interface PersonalDetailsScreenProps {
         bio: userDetails.bio,
         location: userDetails.location,
         profession: userDetails.profession,
-        education: userDetails.education,
         interests: userDetails.interests,
         age: userDetails.age,
         ageRange: userDetails.ageRange,
         photoURL: userDetails.photoURL,
+        pronouns: userDetails.pronouns,
+        height: userDetails.height,
+        ethnicity: userDetails.ethnicity,
+        hasChildren: userDetails.hasChildren,
         updatedAt: serverTimestamp()
       });
       
@@ -230,6 +246,47 @@ interface PersonalDetailsScreenProps {
           />
           <Text style={styles.helperText}>Your exact age is important for better matches</Text>
         </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Pronouns</Text>
+          <TextInput
+            style={styles.textInput}
+            value={userDetails.pronouns}
+            onChangeText={(value) => handleInputChange('pronouns', value)}
+            placeholder="Your pronouns"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Height (cm)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={userDetails.height}
+            onChangeText={(value) => handleInputChange('height', value)}
+            placeholder="Your height in cm"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Ethnicity</Text>
+          <TextInput
+            style={styles.textInput}
+            value={userDetails.ethnicity}
+            onChangeText={(value) => handleInputChange('ethnicity', value)}
+            placeholder="Your ethnicity"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Children</Text>
+          <TextInput
+            style={styles.textInput}
+            value={userDetails.hasChildren}
+            onChangeText={(value) => handleInputChange('hasChildren', value)}
+            placeholder="Children status"
+          />
+        </View>
         
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Email</Text>
@@ -273,16 +330,6 @@ interface PersonalDetailsScreenProps {
             value={userDetails.profession}
             onChangeText={(value) => handleInputChange('profession', value)}
             placeholder="Your profession"
-          />
-        </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Education</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.education}
-            onChangeText={(value) => handleInputChange('education', value)}
-            placeholder="Your education"
           />
         </View>
         
