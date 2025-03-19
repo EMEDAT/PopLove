@@ -33,7 +33,7 @@ import {
 import { runTransaction } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 import { calculateMatchPercentage } from '../../../utils/matchCalculation';
-import { getOrderedContestantsByGender } from '../../../services/lineupService';
+import { getOrderedSpotlightsByGender } from '../../../services/lineupService';
 
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
 const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
@@ -94,8 +94,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     { id: 'adventurous', name: 'Adventurous Singles', selected: false },
     { id: 'others', name: 'Others', selected: false },
   ]);
-  const [upcomingSpotlights, setUpcomingSpotlights] = useState<Contestant[]>([]);
-  const [currentSpotlight, setCurrentSpotlight] = useState<Contestant | null>(null);
+  const [upcomingSpotlights, setUpcomingSpotlights] = useState<Contestant[]>([]); 
+  const [currentSpotlight, setCurrentSpotlight] = useState<Contestant | null>(null); 
   const [selectedMatches, setSelectedMatches] = useState<MatchData[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isCurrentUser, _setIsCurrentUser] = useState(false);
@@ -168,7 +168,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         window.lineupContextRef.current = {
           setIsCurrentUser,
           setSessionId,
-          startContestantTimer,
+          startSpotlightTimer,
           setStep
         };
       }
@@ -227,7 +227,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // If going to private screen, ensure timer is started
       if (newStep === 'private' && !timerIntervalRef.current) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Starting contestant timer for private screen`);
-        startContestantTimer();
+        startSpotlightTimer();
       }
     }
     
@@ -292,11 +292,11 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ User is current contestant - going to private screen`);
           setIsCurrentUser(true);
           isCurrentUserRef.current = true;
-          startContestantTimer();
+          startSpotlightTimer();
           setStep('private');
         } else {
           console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ User is NOT current contestant - going to lineup screen`);
-          await refreshContestants();
+          await refreshSpotlights();
           setStep('lineup');
         }
         
@@ -363,7 +363,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Timer sync: ${remainingSeconds}s remaining`);
         
         // Update timer state
-        setContestantTimeLeft(remainingSeconds);
+        setSpotlightTimeLeft(remainingSeconds);
       } catch (error) {
         console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error syncing timer:`, error);
       }
@@ -374,7 +374,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Set up countdown timer
     const timerInterval = setInterval(() => {
-      setContestantTimeLeft(prev => Math.max(0, prev - 1));
+      setSpotlightTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     
     timerIntervalRef.current = timerInterval;
@@ -401,7 +401,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Optimized timer expiration handler with better error recovery
   useEffect(() => {
-    if (contestantTimeLeft <= 0 && isCurrentUser && !timerZeroReachedRef.current) {
+    if (spotlightTimeLeft <= 0 && isCurrentUser && !timerZeroReachedRef.current) {
       timerZeroReachedRef.current = true;
       
       const handleRotation = async () => {
@@ -545,7 +545,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       setTimeout(handleRotation, 1000);
     }
-  }, [contestantTimeLeft, isCurrentUser, sessionId, user]);
+  }, [spotlightTimeLeft, isCurrentUser, sessionId, user]);
   
   // Helper function to remove user from lineup session after their turn is complete
   const removeUserFromLineupSession = async (sessionId: string, userId: string) => {
@@ -613,7 +613,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
         const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
         
-        setContestantTimeLeft(remainingTime);
+        setSpotlightTimeLeft(remainingTime);
       } catch (error) {
         console.error('Error calculating remaining time:', error);
       }
@@ -640,7 +640,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Rotation event detected, refreshing contestants`);
         
         // Force refresh contestants immediately
-        refreshContestants();
+        refreshSpotlights();
       }
     });
     
@@ -743,7 +743,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 No current ${oppositeGender} contestant, attempting to select one`);
         
         // Get list of available opposite gender contestants
-        const orderedContestants = await getOrderedContestantsByGender(sessionIdRef.current, oppositeGender);
+        const orderedContestants = await getOrderedSpotlightsByGender(sessionIdRef.current, oppositeGender);
         
         if (orderedContestants.length > 0) {
           console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Found ${orderedContestants.length} ${oppositeGender} contestants, selecting first as current`);
@@ -784,7 +784,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             };
             
             // Set current contestant and return directly
-            setcurrentSpotlight(newContestant);
+            setCurrentSpotlight(newContestant);
             console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Auto-selected new contestant: ${newContestant.displayName}`);
             
             isRefreshingRef.current = false;
@@ -794,7 +794,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       // Normal flow - get contestants from service with proper gender filtering
-      const contestants = await LineupService.getContestants(sessionIdRef.current, user.uid);
+      const contestants = await LineupService.getSpotlights(sessionIdRef.current, user.uid);
       
       // Find current contestant in the list
       let currentContestant = contestants.find(c => c.id === currentContestantId);
@@ -833,10 +833,10 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Set current contestant if found
       if (currentContestant) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Setting current contestant: ${currentContestant.displayName}`);
-        setcurrentSpotlight(currentContestant);
+        setCurrentSpotlight(currentContestant);
       } else {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ No current contestant found for gender: ${oppositeGender}`);
-        setcurrentSpotlight(null);
+        setCurrentSpotlight(null);
       }
       
       // Filter upcoming contestants - make sure to exclude completed users
@@ -845,12 +845,12 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       
       console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Upcoming contestants after filtering: ${upcomingContestants.length}`);
-      setUpcomingContestants(upcomingContestants);
+      setUpcomingSpotlights(upcomingContestants);
       
       // Extra check - if we're the current contestant, ensure timer is running
       if (isCurrentUserRef.current && !timerIntervalRef.current) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Starting contestant timer during refresh`);
-        startContestantTimer();
+        startSpotlightTimer();
       }
       
       isRefreshingRef.current = false;
@@ -906,10 +906,10 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       // Move to next contestant if available
-      if (upcomingContestants.length > 0) {
+      if (upcomingSpotlights.length > 0) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ➡️ Moving to next contestant from list`);
-        setcurrentSpotlight(upcomingContestants[0]);
-        setUpcomingContestants(prev => prev.slice(1));
+        setCurrentSpotlight(upcomingSpotlights[0]);
+        setUpcomingSpotlights(prev => prev.slice(1));
       } else {
         // Only check for elimination for pop action
         if (action === 'pop') {
@@ -928,7 +928,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         // If no more contestants, refresh to see if new ones joined
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 No more upcoming contestants, refreshing`);
-        await refreshContestants();
+        await refreshSpotlights();
       }
       
     } catch (err) {
@@ -1071,7 +1071,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isUserCurrentContestant) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 👑 USER IS THE CURRENT CONTESTANT - GOING TO PRIVATE SCREEN`);
         setIsCurrentUser(true);
-        startContestantTimer();
+        startSpotlightTimer();
         safeSetStep('private');
         setLoading(false);
         return;
@@ -1089,7 +1089,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // Check if first of gender (needs special handling)
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Checking if user is first of gender`);
-      const sameGenderCount = await LineupService.getContestantsOfSameGender(session.id, userGender || '');
+      const sameGenderCount = await LineupService.getSpotlightsOfSameGender(session.id, userGender || '');
       const isFirstOfGender = sameGenderCount <= 1;
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Same gender count: ${sameGenderCount}, isFirstOfGender: ${isFirstOfGender}`);
     
@@ -1113,7 +1113,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         // Start 4-hour timer for contestant
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Starting contestant timer`);
-        startContestantTimer();
+        startSpotlightTimer();
         
         // Move to private screen
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔀 Moving to private screen`);
@@ -1140,7 +1140,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           });
           
           await NotificationService.addLineupTurnNotification(user.uid, session.id);
-          startContestantTimer();
+          startSpotlightTimer();
           setStep('private');
           return;
         }
@@ -1185,7 +1185,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   console.log(`[${new Date().toISOString()}] [LineUpProvider] 🎯 It's now the user's turn - navigating to private screen`);
                   setIsCurrentUser(true);
                   await NotificationService.addLineupTurnNotification(user.uid, sessionId);
-                  startContestantTimer();
+                  startSpotlightTimer();
                   setStep('private');
                 }
               }
@@ -1343,7 +1343,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     while (attempts < maxAttempts && (contestants.length === 0)) {
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Attempt ${attempts+1} to load contestants`);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      contestants = await refreshContestants();
+      contestants = await refreshSpotlights();
       
       if (contestants.length === 0) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ No contestants found, retrying...`);
@@ -1414,8 +1414,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // Add notification
             NotificationService.addLineupTurnNotification(user.uid, sessionId);
             
-            setContestantTimeLeft(SPOTLIGHT_TIMER_SECONDS);
-            startContestantTimer();
+            setSpotlightTimeLeft(SPOTLIGHT_TIMER_SECONDS);
+            startSpotlightTimer();
             
             setTimeout(() => {
               setStep('private');
@@ -1446,8 +1446,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const contextValue: LineUpContextType = {
     step,
     categories,
-    upcomingSpotlights,
-    currentSpotlight,
+    upcomingSpotlights, // changed from upcomingContestants
+    currentSpotlight,   // changed from currentContestant
     selectedMatches,
     messages,
     isCurrentUser,
@@ -1456,7 +1456,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     error,
     sessionId,
     timeLeft,
-    contestantTimeLeft,
+    spotlightTimeLeft,  // changed from contestantTimeLeft
     eliminationTimeLeft,
     popCount,
     likeCount,
@@ -1470,14 +1470,14 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     confirmMatch,
     goBack,
     checkEligibility,
-    refreshContestants,
+    refreshSpotlights, 
     setMessages,
     setSelectedMatches,
     setIsCurrentUser,
-    setContestantTimeLeft,
+    setSpotlightTimeLeft, 
     setLikeCount,
     setPopCount,
-    startContestantTimer,
+    startSpotlightTimer,
     setSessionId
   };
 

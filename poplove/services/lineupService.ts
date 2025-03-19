@@ -219,7 +219,12 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           ...updatedSessionData, 
           id: sessionDoc.id,
           spotlights: updatedSessionData.spotlights || [],
-          category: updatedSessionData.category || [categoryId]
+          category: updatedSessionData.category || [categoryId],
+          contestants: updatedSessionData.spotlights || [],
+          currentSpotlightId: updatedSessionData.currentSpotlightId || null,
+          startTime: updatedSessionData.startTime || serverTimestamp(),
+          endTime: updatedSessionData.endTime || null, 
+          status: updatedSessionData.status || 'active'
         } as LineUpSessionData;
       } else {
         // Create new session
@@ -259,7 +264,11 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           completed: false
         });
         
-        return { ...newSession, id: docRef.id } as LineUpSessionData;
+        return { 
+          ...newSession, 
+          id: docRef.id,
+          contestants: [userId] // Add this line
+        } as LineUpSessionData;
       }
     } catch (error) {
       debugLog('Join', `Error joining lineup session (attempt ${attempt + 1}):`, error);

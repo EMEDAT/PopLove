@@ -31,14 +31,14 @@ const { width, height } = Dimensions.get('window');
 
 export default function LineUpScreen() {
   const { 
-    upcomingContestants: contextUpcomingContestants, 
+    upcomingSpotlights: contextUpcomingContestants, 
     currentSpotlight,
     handleAction, 
     goBack, 
     loading,
     sessionId,
-    contestantTimeLeft,
-    refreshContestants
+    spotlightTimeLeft: contestantTimeLeft,
+    refreshSpotlights: refreshContestants
   } = useLineUp();
   
   const { user } = useAuthContext();
@@ -58,6 +58,7 @@ export default function LineUpScreen() {
   const isManuallyRefreshingRef = useRef<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const attemptedAutoSelectionRef = useRef(false);
+  const currentContestant = currentSpotlight;
 
   // State tracking to prevent UI jitter
   const [profileHeight, setProfileHeight] = useState<number>(width * 0.8);
@@ -462,7 +463,7 @@ export default function LineUpScreen() {
       determineOppositeGender().then(oppositeGender => {
         if (oppositeGender && sessionId) {
           logLineUp(`Triggering auto-selection for ${oppositeGender} contestants`);
-          LineupService.autoSelectContestantForGender(sessionId, oppositeGender)
+          LineupService.autoSelectSpotlightForGender(sessionId, oppositeGender)
             .then(contestantId => {
               if (contestantId) {
                 logLineUp(`Auto-selected contestant: ${contestantId}, refreshing`);
