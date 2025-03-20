@@ -625,7 +625,7 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
       // Add server timestamp for expiry
       const expiration = serverTimestamp();
       
-      // Create a temporary speed dating connection
+      // Create a temporary speed dating connection with explicit user mappings
       const connectionRef = await addDoc(collection(firestore, 'speedDatingConnections'), {
         users: [user.uid, match.id],
         userProfiles: {
@@ -640,13 +640,18 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
             continuePermanently: false
           }
         },
+        // Add these explicit mappings to avoid confusion
+        userMapping: {
+          [user.uid]: match.id, // Current user maps to match
+          [match.id]: user.uid  // Match maps to current user
+        },
         createdAt: serverTimestamp(),
         status: 'temporary',
         sessionType: 'speed-dating',
-        expiresAt: expiration, // Use server timestamp
-        startedAt: serverTimestamp() // Also use server timestamp
+        expiresAt: expiration,
+        startedAt: serverTimestamp()
       });
-      
+        
       // Store the temporary connection ID
       setChatRoomId(connectionRef.id);
       
