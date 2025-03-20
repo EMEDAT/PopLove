@@ -15,6 +15,7 @@ import {
   Image,
   AppState
 } from 'react-native';
+import { auth } from '../../lib/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../auth/AuthProvider';
 import { 
@@ -80,6 +81,12 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
   const [isFocused, setIsFocused] = useState(true);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [longPressedMessage, setLongPressedMessage] = useState<string | null>(null);
+  const [subscribedCollection, setSubscribedCollection] = useState<string | null>(null);
+
+  // Add inside component body, after state declarations
+useEffect(() => {
+  console.log("ACTUAL AUTH USER:", auth.currentUser?.uid);
+}, []);
   
   // Add a ref to track whether we've marked messages as read
   const hasMarkedMessagesAsRead = useRef(false);
@@ -109,21 +116,48 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     }
   }, [appActive, isFocused]);
 
-  // Subscribe to messages
-  useEffect(() => {
-    if (!matchId) return;
-
-    setLoading(true);
-    const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        status: doc.data().status || MessageStatus.SENT
-      })) as Message[];
+// Subscribe to messages
+useEffect(() => {
+  if (!matchId) return;
+  setLoading(true);
+  
+  const setupMessageListener = async () => {
+    // Try matches collection first
+    let matchRef = doc(firestore, 'matches', matchId);
+    let matchExists = (await getDoc(matchRef)).exists();
+    let collectionPath = 'matches';
+    
+    // If not found, try speedDatingConnections
+    if (!matchExists) {
+      collectionPath = 'speedDatingConnections';
+      matchRef = doc(firestore, 'speedDatingConnections', matchId);
+      matchExists = (await getDoc(matchRef)).exists();
       
+      if (!matchExists) {
+        console.error(`Chat not found: ${matchId}`);
+        setLoading(false);
+        return () => {};
+      }
+    }
+    
+    console.log(`Subscribing to: ${collectionPath}/${matchId}/messages`);
+    
+    const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
+    const q = query(messagesRef, orderBy('createdAt', 'asc'));
+    
+    return onSnapshot(q, (snapshot) => {
+      const newMessages = snapshot.docs.map(doc => {
+        // Add this debug log
+        console.log(`MESSAGE DATA: ${doc.id}`, JSON.stringify(doc.data()));
+        
+        return {
+          id: doc.id,
+          ...doc.data(),
+          status: doc.data().status || MessageStatus.SENT
+        };
+      }) as Message[];
+      
+      console.log(`Received ${newMessages.length} messages from ${collectionPath}`);
       setMessages(newMessages);
       setLoading(false);
       
@@ -138,10 +172,19 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       if (appActive && !hasMarkedMessagesAsRead.current) {
         markMessagesAsRead();
       }
+    }, (error) => {
+      console.error(`Error listening to messages: ${error}`);
     });
+  };
+  
+  let unsubscribe = () => {};
+  setupMessageListener().then(unsub => {
+    if (unsub) unsubscribe = unsub;
+  });
 
-    return unsubscribe;
-  }, [matchId]);
+  return () => unsubscribe();
+}, [matchId]);
+
 
   // Mark messages as read when chat is opened - FIXED VERSION
   useEffect(() => {
@@ -168,12 +211,25 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     if (!matchId || !user || !appActive) return;
     
     try {
+      // Determine correct collection
+      let collectionPath = 'matches';
+      let matchRef = doc(firestore, 'matches', matchId);
+      let matchExists = (await getDoc(matchRef)).exists();
+      
+      if (!matchExists) {
+        collectionPath = 'speedDatingConnections';
+        matchRef = doc(firestore, 'speedDatingConnections', matchId);
+        matchExists = (await getDoc(matchRef)).exists();
+        
+        if (!matchExists) return;
+      }
+      
       console.log("Marking messages as read");
       
-      // First, find messages that need to be updated to DELIVERED status
-      const deliveredMessagesRef = collection(firestore, 'matches', matchId, 'messages');
+      // Find messages that need to be marked as read
+      const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
       const deliveredQuery = query(
-        deliveredMessagesRef,
+        messagesRef,
         where('senderId', '==', otherUser.id),
         where('status', 'in', [MessageStatus.SENT, MessageStatus.DELIVERED])
       );
@@ -183,7 +239,7 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
       if (!deliveredMessages.empty) {
         console.log(`Found ${deliveredMessages.size} messages to mark as read`);
         
-        // Update directly to READ status in a batch
+        // Update to READ status in batch
         const batch = writeBatch(firestore);
         deliveredMessages.docs.forEach(messageDoc => {
           batch.update(messageDoc.ref, { 
@@ -194,13 +250,13 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
         
         await batch.commit();
         
-        // Reset unread count in match document
-        await updateDoc(doc(firestore, 'matches', matchId), {
-          [`unreadCount.${user.uid}`]: 0,
-          lastCheckedAt: serverTimestamp()
-        });
-        
-        console.log("Messages marked as read and unread count reset");
+        // Only update match document if using matches collection
+        if (collectionPath === 'matches') {
+          await updateDoc(doc(firestore, 'matches', matchId), {
+            [`unreadCount.${user.uid}`]: 0,
+            lastCheckedAt: serverTimestamp()
+          });
+        }
       }
     } catch (error) {
       console.error('Error updating message status:', error);
@@ -218,73 +274,108 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
     return () => clearInterval(checkDeliveryInterval);
   }, [appActive]);
   
-  // Function to update message status to DELIVERED when recipient is online
-  const checkDeliveryStatus = async () => {
-    if (!matchId || !user) return;
+// Function to update message status to DELIVERED when recipient is online
+const checkDeliveryStatus = async () => {
+  if (!matchId || !user) return;
+  
+  try {
+    // Determine correct collection
+    let collectionPath = 'matches';
+    let matchRef = doc(firestore, 'matches', matchId);
+    let matchExists = (await getDoc(matchRef)).exists();
     
-    try {
-      // Get undelivered messages sent by current user
-      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
-      const q = query(
-        messagesRef,
-        where('senderId', '==', user.uid),
-        where('status', '==', MessageStatus.SENT)
-      );
+    if (!matchExists) {
+      collectionPath = 'speedDatingConnections';
+      matchRef = doc(firestore, 'speedDatingConnections', matchId);
+      matchExists = (await getDoc(matchRef)).exists();
       
-      const undeliveredMessages = await getDocs(q);
-      
-      if (!undeliveredMessages.empty) {
-        // Check if recipient is online based on explicit isOnline flag
-        const userStatusDoc = await getDoc(doc(firestore, 'userStatus', otherUser.id));
-        const isOnline = userStatusDoc.exists() && userStatusDoc.data().isOnline === true;
-        
-        if (isOnline) {
-          // Update to DELIVERED in batch
-          const batch = writeBatch(firestore);
-          undeliveredMessages.docs.forEach(doc => {
-            batch.update(doc.ref, {
-              status: MessageStatus.DELIVERED,
-              deliveredAt: serverTimestamp()
-            });
-          });
-          
-          await batch.commit();
-        }
-      }
-    } catch (error) {
-      console.error('Error checking delivery status:', error);
+      if (!matchExists) return;
     }
-  };
+    
+    // Get undelivered messages sent by current user
+    const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
+    const q = query(
+      messagesRef,
+      where('senderId', '==', user.uid),
+      where('status', '==', MessageStatus.SENT)
+    );
+    
+    const undeliveredMessages = await getDocs(q);
+    
+    if (!undeliveredMessages.empty) {
+      // Check if recipient is online based on explicit isOnline flag
+      const userStatusDoc = await getDoc(doc(firestore, 'userStatus', otherUser.id));
+      const isOnline = userStatusDoc.exists() && userStatusDoc.data().isOnline === true;
+      
+      if (isOnline) {
+        // Update to DELIVERED in batch
+        const batch = writeBatch(firestore);
+        undeliveredMessages.docs.forEach(doc => {
+          batch.update(doc.ref, {
+            status: MessageStatus.DELIVERED,
+            deliveredAt: serverTimestamp()
+          });
+        });
+        
+        await batch.commit();
+      }
+    }
+  } catch (error) {
+    console.error('Error checking delivery status:', error);
+  }
+};
 
   // Send message
   const sendMessage = async () => {
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
   
     try {
+
+      // Add verification to ensure correct user is being used
+      console.log(`ACTUAL USER: ${user.uid}`); 
+
       // Prevent sending duplicate messages by clearing input immediately
       const messageText = inputMessage.trim();
       setInputMessage('');
       
+      // Determine correct collection
+      let collectionPath = 'matches';
+      let matchRef = doc(firestore, 'matches', matchId);
+      let matchExists = (await getDoc(matchRef)).exists();
+      
+      if (!matchExists) {
+        collectionPath = 'speedDatingConnections';
+        matchRef = doc(firestore, 'speedDatingConnections', matchId);
+        matchExists = (await getDoc(matchRef)).exists();
+        
+        if (!matchExists) {
+          console.error("Chat doesn't exist in either collection:", matchId);
+          return;
+        }
+      }
+      
       // Check if we're editing a message
       if (editingMessageId) {
         // Update the existing message
-        await updateDoc(doc(firestore, 'matches', matchId, 'messages', editingMessageId), {
+        await updateDoc(doc(firestore, collectionPath, matchId, 'messages', editingMessageId), {
           text: messageText,
           isEdited: true,
           editedAt: serverTimestamp()
         });
         
         // Check if this is the last message in the chat
-        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+        const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
         const lastMessageQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
         const lastMessageSnapshot = await getDocs(lastMessageQuery);
         
         if (!lastMessageSnapshot.empty && lastMessageSnapshot.docs[0].id === editingMessageId) {
-          // This is the last message, update the match document
-          await updateDoc(doc(firestore, 'matches', matchId), {
-            lastMessage: messageText,
-            lastMessageTime: serverTimestamp()
-          });
+          // This is the last message, update the match document (only if matches collection)
+          if (collectionPath === 'matches') {
+            await updateDoc(doc(firestore, collectionPath, matchId), {
+              lastMessage: messageText,
+              lastMessageTime: serverTimestamp()
+            });
+          }
         }
         
         // Clear editing state
@@ -295,28 +386,34 @@ export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
           text: messageText,
           senderId: user.uid,
           createdAt: serverTimestamp(),
-          status: MessageStatus.SENDING
+          status: MessageStatus.SENDING,
+          // Add metadata to track message source
+          _source: collectionPath
         };
+
+        console.log(`SENDING AS USER: ${user.uid}`);
         
         // Add message to Firestore
-        const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+        const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
         const messageDoc = await addDoc(messagesRef, messageData);
         
         // Update message status to SENT after adding
-        await updateDoc(doc(firestore, 'matches', matchId, 'messages', messageDoc.id), {
+        await updateDoc(doc(firestore, collectionPath, matchId, 'messages', messageDoc.id), {
           status: MessageStatus.SENT
         });
         
-        // Update match with last message and increment unread count for recipient
-        const otherUserId = otherUser.id;
-        await updateDoc(doc(firestore, 'matches', matchId), {
-          lastMessageTime: serverTimestamp(),
-          lastMessage: messageText,
-          [`unreadCount.${otherUserId}`]: messages.filter(m => 
-            m.senderId === user.uid && 
-            (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
-          ).length + 1
-        });
+        // Update match with last message and increment unread count for recipient - only if matches collection
+        if (collectionPath === 'matches') {
+          const otherUserId = otherUser.id;
+          await updateDoc(doc(firestore, collectionPath, matchId), {
+            lastMessageTime: serverTimestamp(),
+            lastMessage: messageText,
+            [`unreadCount.${otherUserId}`]: messages.filter(m => 
+              m.senderId === user.uid && 
+              (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
+            ).length + 1
+          });
+        }
       }
       
       // Force status check after sending

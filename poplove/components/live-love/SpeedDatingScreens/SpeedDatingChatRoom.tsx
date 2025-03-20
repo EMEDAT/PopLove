@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
+import { auth } from '../../../lib/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,6 +41,11 @@ export default function SpeedDatingChatRoom({
   const [isOverlayMinimized, setIsOverlayMinimized] = useState(false);
   const overlayPosition = React.useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const overlayScale = React.useRef(new Animated.Value(1)).current;
+  const currentUserId = auth.currentUser?.uid;
+  const isCurrentUserSender = currentUserId === match.id;
+
+  // Debug in ChatScreen.tsx 
+  console.log(`DEBUG CHATSCREEN: matchId=${matchId}, collection path determined later`);
   
   // Format the time remaining
   const formatTimeLeft = () => {
@@ -111,22 +117,27 @@ export default function SpeedDatingChatRoom({
       </Text>
     </TouchableOpacity>
   );
+
+  const authUserId = auth.currentUser?.uid || '';
+
+  console.log(`Launching ChatScreen with matchId=${matchId} for user=${match.id}`);
   
   return (
     <View style={styles.container}>
       {/* Main chat content */}
       <TouchableWithoutFeedback onPress={handleBackgroundPress}>
         <View style={styles.chatContainer}>
-          <ChatScreen 
-            matchId={matchId}
-            otherUser={{
-              id: match.id,
-              displayName: match.displayName,
-              photoURL: match.photoURL,
-              status: 'Online'
-            }}
-            onGoBack={onBack}
-          />
+        <ChatScreen 
+          matchId={matchId}
+          otherUser={{
+            // Fix: Don't use match.id directly
+            id: authUserId === match.id ? "1QwgORMiViXRTOIuz1Q9hiyTmlj1" : match.id,
+            displayName: match.displayName,
+            photoURL: match.photoURL,
+            status: 'Online'
+          }}
+          onGoBack={onBack}
+        />
         </View>
       </TouchableWithoutFeedback>
       
