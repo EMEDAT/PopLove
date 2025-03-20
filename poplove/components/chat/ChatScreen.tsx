@@ -332,10 +332,9 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
   
     try {
-
-      // Add verification to ensure correct user is being used
-      console.log(`ACTUAL USER: ${user.uid}`); 
-
+      // Use ONLY user.uid consistently throughout the function
+      const currentUserId = user.uid;
+      
       // Prevent sending duplicate messages by clearing input immediately
       const messageText = inputMessage.trim();
       setInputMessage('');
@@ -386,14 +385,11 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
         // Create a new message with initial status
         const messageData = {
           text: messageText,
-          senderId: user.uid,
+          senderId: currentUserId,  // Use user.uid consistently
           createdAt: serverTimestamp(),
           status: MessageStatus.SENDING,
-          // Add metadata to track message source
           _source: collectionPath
         };
-
-        console.log(`SENDING AS USER: ${user.uid}`);
         
         // Add message to Firestore
         const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
@@ -411,7 +407,7 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
             lastMessageTime: serverTimestamp(),
             lastMessage: messageText,
             [`unreadCount.${otherUserId}`]: messages.filter(m => 
-              m.senderId === user.uid && 
+              m.senderId === currentUserId && 
               (m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED)
             ).length + 1
           });
@@ -433,28 +429,55 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
     if (!matchId || !user) return;
     
     try {
-      await deleteDoc(doc(firestore, 'matches', matchId, 'messages', messageId));
+      // Determine correct collection
+      let collectionPath = 'matches';
+      let matchRef = doc(firestore, 'matches', matchId);
+      let matchExists = (await getDoc(matchRef)).exists();
+      
+      if (!matchExists) {
+        collectionPath = 'speedDatingConnections';
+        matchRef = doc(firestore, 'speedDatingConnections', matchId);
+        matchExists = (await getDoc(matchRef)).exists();
+        
+        if (!matchExists) {
+          console.error("Chat doesn't exist in either collection:", matchId);
+          return;
+        }
+      }
+      
+      // Delete message from the correct collection
+      await deleteDoc(doc(firestore, collectionPath, matchId, 'messages', messageId));
       
       // Check if this was the last message in the chat
-      const messagesRef = collection(firestore, 'matches', matchId, 'messages');
+      const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
       const remainingMessages = await getDocs(query(messagesRef, orderBy('createdAt', 'desc'), limit(1)));
-  
+      
       if (remainingMessages.empty) {
-        // No messages left, just delete the entire match document
-        try {
-          await deleteDoc(doc(firestore, 'matches', matchId));
-          router.replace('/(tabs)/matches'); // Navigate back to the chat list
-        } catch (err) {
-          console.error('Error deleting empty chat:', err);
+        // No messages left, but DON'T delete temp chats - only permanent matches
+        if (collectionPath === 'matches') {
+          try {
+            await deleteDoc(doc(firestore, 'matches', matchId));
+            router.replace('/(tabs)/matches');
+          } catch (err) {
+            console.error('Error deleting empty chat:', err);
+          }
         }
       } else {
-        // Update with the content of the new last message
-        const newLastMessage = remainingMessages.docs[0].data();
-        await updateDoc(doc(firestore, 'matches', matchId), {
-          lastMessage: newLastMessage.text,
-          lastMessageTime: newLastMessage.createdAt
-        });
+        // Update with the content of the new last message (only for permanent matches)
+        if (collectionPath === 'matches') {
+          const newLastMessage = remainingMessages.docs[0].data();
+          await updateDoc(doc(firestore, 'matches', matchId), {
+            lastMessage: newLastMessage.text,
+            lastMessageTime: newLastMessage.createdAt
+          });
+        }
       }
+      
+      // Only navigate if we're deleting from matches, not from speed dating connections
+      if (collectionPath === 'matches' && remainingMessages.empty) {
+        router.replace('/(tabs)/matches');
+      }
+      
     } catch (error) {
       console.error('Error deleting message:', error);
       Alert.alert('Error', 'Failed to delete message');
