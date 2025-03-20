@@ -191,10 +191,7 @@ useEffect(() => {
         status: doc.data().status || MessageStatus.SENT
       })) as Message[];
       
-      // Add this debug line
-      console.log("MESSAGE OBJECTS:", newMessages.map(m => ({id: m.id, senderId: m.senderId, text: m.text})));
-      
-      console.log(`Received ${newMessages.length} messages from ${actualCollectionPath}`);
+      // Important: Don't filter messages by sender - show ALL messages
       setMessages(newMessages);
       setLoading(false);
       
@@ -209,8 +206,6 @@ useEffect(() => {
       if (appActive && !hasMarkedMessagesAsRead.current) {
         markMessagesAsRead();
       }
-    }, (error) => {
-      console.error(`Error listening to messages: ${error}`);
     });
   };
   
@@ -397,14 +392,8 @@ useEffect(() => {
           senderId: user!.uid,
           recipientId: otherUser.id,
           createdAt: serverTimestamp(),
-          status: MessageStatus.SENDING,
-          _source: actualCollectionPath,
-          debugInfo: {
-            matchId,
-            currentUserId: user!.uid,
-            otherUserId: otherUser.id,
-            collection: actualCollectionPath
-          }
+          status: MessageStatus.SENT, // Set directly to SENT
+          _source: actualCollectionPath
         };
         
         console.log('DETAILED MESSAGE CREATION', {

@@ -146,16 +146,16 @@ export default function SpeedDatingChatRoom({
       <TouchableWithoutFeedback onPress={handleBackgroundPress}>
         <View style={styles.chatContainer}>
         <ChatScreen 
-          matchId={matchId}
-          otherUser={{
-            id: match.id,  // Recipient's ID
-            displayName: match.displayName,
-            photoURL: match.photoURL,
-            status: 'Online'
-          }}
-          forcedCollectionPath="speedDatingConnections"
-          onGoBack={onBack}
-        />
+            matchId={matchId}
+            otherUser={{
+              id: match.id,  // This should be the recipient's ID
+              displayName: match.displayName,
+              photoURL: match.photoURL,
+              status: 'Online'
+            }}
+            forcedCollectionPath="speedDatingConnections"
+            onGoBack={onBack}
+          />
         </View>
       </TouchableWithoutFeedback>
       
