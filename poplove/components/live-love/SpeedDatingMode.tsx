@@ -10,11 +10,13 @@ import {
   where, 
   serverTimestamp, 
   doc, 
+  limit,
   getDoc, 
   updateDoc,
   deleteDoc,
   writeBatch,
-  documentId
+  DocumentData,
+  DocumentSnapshot
 } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
@@ -36,6 +38,13 @@ export interface Match {
   ageRange: string;
   photoURL: string;
   matchPercentage: number;
+  // Add the scores property to match your data structure
+  scores: {
+    interests: number;
+    lifestyle: number;
+    age: number;
+    location: number;
+  };
 }
 
 type SpeedDatingStep = 'searching' | 'results' | 'detail' | 'rejection' | 'chat' | 'congratulations';
@@ -106,17 +115,65 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
   const handleOverlayDismiss = () => {
     console.log("Overlay auto-dismissed");
     setNoUsersAvailable(false);
-    // Navigate back to LiveLove
-    handleBackNavigation();
+    // Try finding matches again instead of navigating back
+    findMatches();
   };
 
   // Handler to navigate back to LiveLove screen
   const handleBackNavigation = () => {
-    // Clear all timers before navigating
+    // Stop all timers
     if (searchTimerRef.current) clearInterval(searchTimerRef.current);
     if (chatTimerRef.current) clearInterval(chatTimerRef.current);
     if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
     
+    // Reset all state
+    setMatches([]);
+    setChatRoomId(null);
+    setSelectedMatch(null);
+    setMatchesFoundVisible(false);
+    setNoUsersAvailable(false);
+    setChatTimeLeft(4 * 60 * 60);
+    setMiniOverlayVisible(false);
+    setTimeLeft(300);
+    
+    // IMPORTANT: Clean up speed dating session in Firestore
+    // to prevent it from appearing in future searches
+    if (user) {
+      try {
+        // Find and delete the user's active speed dating sessions
+        const cleanupSessions = async () => {
+          const sessionsRef = collection(firestore, 'speedDatingSessions');
+          const q = query(
+            sessionsRef,
+            where('userId', '==', user.uid),
+            where('status', '==', 'searching')
+          );
+          
+          const snapshot = await getDocs(q);
+          
+          if (!snapshot.empty) {
+            // Create a batch to delete all sessions
+            const batch = writeBatch(firestore);
+            
+            snapshot.docs.forEach(doc => {
+              batch.delete(doc.ref);
+            });
+            
+            await batch.commit();
+            console.log(`Cleaned up ${snapshot.size} speed dating sessions`);
+          }
+        };
+        
+        // Execute cleanup, but don't wait for it to navigate back
+        cleanupSessions().catch(err => 
+          console.error('Error cleaning up speed dating sessions:', err)
+        );
+      } catch (error) {
+        console.error('Error in session cleanup:', error);
+      }
+    }
+    
+    // Call the parent's onBack to return to the selection screen
     onBack();
   };
 
@@ -134,62 +191,91 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
     startSearch();
   }, []);
 
-  // Start the speed dating search
-  const startSearch = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      
-      // Create a speed dating session entry
-      await addDoc(collection(firestore, 'speedDatingSessions'), {
-        userId: user.uid,
-        status: 'searching',
-        createdAt: serverTimestamp(),
-        preferences: {
-          ageMin: 18,
-          ageMax: 50,
-        }
-      });
-      
-      // Set timer for 100 seconds (visual countdown)
-      setTimeLeft(300);
-      
-      // Set up the visual countdown timer
-      searchTimerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            if (searchTimerRef.current) clearInterval(searchTimerRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      // Start finding matches in the background
-      // Use a shorter timeout for demo purposes (25 seconds)
-      setTimeout(() => {
-        findMatches();
-      }, 25000);
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error starting speed dating search:', error);
-      Alert.alert('Error', 'Failed to start speed dating. Please try again.');
-      handleBackNavigation();
-    }
-  };
-  
-// Advanced matching algorithm with comprehensive compatibility analysis
-const findMatches = async () => {
+// Start the speed dating search
+const startSearch = async () => {
   if (!user) return;
   
   try {
     setLoading(true);
     
-    // Wait for 60 seconds
-    await new Promise(resolve => setTimeout(resolve, 60000));
+    // FIXED: Use coarser granularity for sync groups (2-minute windows)
+    const syncGroup = Math.floor(Date.now() / (2 * 60 * 1000)); 
     
+    // Create a speed dating session entry with the sync group
+    await addDoc(collection(firestore, 'speedDatingSessions'), {
+      userId: user.uid,
+      status: 'searching',
+      createdAt: serverTimestamp(),
+      syncGroup: syncGroup,
+      preferences: {
+        ageMin: 18,
+        ageMax: 50,
+      }
+    });
+    
+    // Set timer for visual countdown
+    setTimeLeft(300);
+    
+    // Set up the visual countdown timer
+    searchTimerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    // Calculate when to find matches based on sync group
+    // This ensures all users in the same group run findMatches at approximately the same time
+    const syncTimeOffset = (syncGroup + 1) * 30000 - Date.now() + 5000; // Add 5 seconds buffer
+    
+    console.log(`Will find matches in ${syncTimeOffset/1000} seconds (sync group: ${syncGroup})`);
+    
+    // Start finding matches at the synchronized time
+    setTimeout(() => {
+      findMatches();
+    }, syncTimeOffset);
+    
+    setLoading(false);
+  } catch (error) {
+    console.error('Error starting speed dating search:', error);
+    Alert.alert('Error', 'Failed to start speed dating. Please try again.');
+    handleBackNavigation();
+  }
+};
+  
+// Advanced matching algorithm with comprehensive compatibility analysis
+const findMatches = async () => {
+  // Prevent running if already in results or other non-searching states
+  if (!user || currentStep !== 'searching') return;
+  
+  // Prevent multiple simultaneous executions
+  if (loading) return;
+  
+  try {
+    setLoading(true);
+    
+    // First, get the user's sync group instead of just waiting
+    const userSessionsRef = collection(firestore, 'speedDatingSessions');
+    const userSessionQuery = query(
+      userSessionsRef,
+      where('userId', '==', user.uid),
+      where('status', '==', 'searching'),
+      limit(1)
+    );
+    
+    const userSessionSnapshot = await getDocs(userSessionQuery);
+    if (userSessionSnapshot.empty) {
+      console.error('User session not found');
+      return;
+    }
+    
+    const syncGroup = userSessionSnapshot.docs[0].data().syncGroup;
+    console.log(`User is in sync group: ${syncGroup}`);
+    
+    // The rest of your existing code continues here...
     const userDoc = await getDoc(doc(firestore, 'users', user.uid));
     const userData = userDoc.exists() ? userDoc.data() : {};
     
@@ -206,30 +292,25 @@ const findMatches = async () => {
     const userAgeMax = userAgeMatch ? parseInt(userAgeMatch[2]) : 30;
     const userAgeMid = Math.floor((userAgeMin + userAgeMax) / 2);
     
-    // Get active users in speed dating mode
-    const speedDatingSessionsRef = collection(firestore, 'speedDatingSessions');
+    // FIXED: Query ALL active sessions without sync group filter
     const activeUsersQuery = query(
-      speedDatingSessionsRef,
+      collection(firestore, 'speedDatingSessions'),
       where('status', '==', 'searching'),
       where('userId', '!=', user.uid),
-      where('createdAt', '>', new Date(Date.now() - 5 * 60 * 1000)) // Last 5 minutes
+      where('createdAt', '>', new Date(Date.now() - 5 * 60 * 1000))
     );
-    const activeUsersSnapshot = await getDocs(activeUsersQuery);
     
+    const activeUsersSnapshot = await getDocs(activeUsersQuery);
     console.log(`Total active speed dating sessions: ${activeUsersSnapshot.size}`);
     console.log(`Current user gender: ${userGender}`);
     
-    if (activeUsersSnapshot.empty) {
-      setNoUsersAvailable(true);
-      return;
-    }
-    
+    // FIXED: Don't trigger overlay or return early here
     // Extract the user IDs from active sessions
     const activeUserIds = activeUsersSnapshot.docs.map(doc => doc.data().userId);
     console.log(`Found ${activeUserIds.length} active users in speed dating`);
     
     // Only fetch profiles for users with active speed dating sessions
-    let snapshot = [];
+    let snapshot: DocumentSnapshot<DocumentData>[] = [];
     if (activeUserIds.length > 0) {
       const userDocs = await Promise.all(
         activeUserIds.map(userId => getDoc(doc(firestore, 'users', userId)))
@@ -241,16 +322,22 @@ const findMatches = async () => {
         const data = doc.data();
         return data.gender !== userGender && data.hasCompletedOnboarding === true;
       });
+      
+      // FIXED: Log how many profiles match gender filter
+      console.log(`Found ${snapshot.length} opposite gender profiles`);
     }
     
-    // BOOSTING FUNCTION FOR HIGHER PERCENTAGES
-    const boostScore = (score, factor = 1.4) => {
+    // Rest of compatibility analysis remains unchanged...
+    const boostScore = (score: number, factor = 1.4) => {
       return Math.min(100, Math.round(score * factor));
     };
     
-    // Rest of your compatibility analysis remains unchanged
     const potentialMatches = await Promise.all(snapshot.map(async (doc) => {
+      // Existing match calculation code...
       const data = doc.data();
+      if (!data) {
+        return null; // Return null for invalid data, will be filtered out later
+      }
       const matchInterests = data.interests || [];
       const matchLifestyle = data.lifestyle || [];
       const matchAgeRange = data.ageRange || '';
@@ -277,7 +364,7 @@ const findMatches = async () => {
       }
       
       // INTERESTS COMPATIBILITY
-      const interestWeights = {
+      const interestWeights: {[key: string]: number} = {
         'Travel': 2.0, 'Cooking': 1.8, 'Photography': 1.7,
         'Art': 1.9, 'Musics': 1.8, 'K-Pop': 1.9,
         'Video games': 1.7, 'Sports': 1.8, 'Running': 1.7,
@@ -305,7 +392,7 @@ const findMatches = async () => {
       const sharedInterests = matchInterests.filter(interest => userInterests.includes(interest));
       
       // LIFESTYLE COMPATIBILITY
-      const lifestyleCategories = {
+      const lifestyleCategories: {[key: string]: string[]} = {
         family: ['Family', 'Start a family', 'Marriage', 'Longterm', 'Long term relationship'],
         casual: ['Casual dating', 'Connects', 'Chat', 'House parties', 'Friendsplus'],
         romance: ['Romance', 'Vacation'],
@@ -382,9 +469,9 @@ const findMatches = async () => {
       
       return {
         id: doc.id,
-        displayName: data.displayName || 'User',
-        ageRange: data.ageRange || '??',
-        photoURL: data.photoURL || '',
+        displayName: data?.displayName || 'User', // Use optional chaining
+        ageRange: data?.ageRange || '??',
+        photoURL: data?.photoURL || '',
         matchPercentage,
         scores: {
           interests: Math.round(interestScore),
@@ -395,25 +482,58 @@ const findMatches = async () => {
       };
     }));
     
-    // Filter and sort matches
-    const validMatches = potentialMatches
-      .filter(match => match && match.id !== user.uid)
-      .sort((a, b) => b.matchPercentage - a.matchPercentage)
-      .slice(0, 3);
+    // After calculating all potential matches, deduplicate by ID
+    const seenIds = new Set<string>();
+    const uniqueMatches = potentialMatches
+      .filter(match => {
+        // Skip this match if we've seen this ID before or if it's the current user or if it's null
+        if (!match || match.id === user.uid || seenIds.has(match.id)) return false;
+        
+        // Add to seen IDs and keep this match
+        seenIds.add(match.id);
+        return true;
+      })
+      .sort((a, b) => {
+        // Handle potential null values during sort
+        if (a === null && b === null) return 0;
+        if (a === null) return 1; // Null values go last
+        if (b === null) return -1;
+        return b.matchPercentage - a.matchPercentage;
+      })
+      .slice(0, 3); // Top 3 matches
 
-    // If matches found, proceed with normal flow
-    if (validMatches.length > 0) {
-      console.log('Found compatible matches:', validMatches);
-      setMatches(validMatches);
-      setMatchesFoundVisible(true);
+    // FIXED: Improved logic for showing "No users available"
+    if (uniqueMatches.length > 0) {
+      console.log('Found compatible matches:', uniqueMatches);
       
-      setTimeout(() => {
-        setMatchesFoundVisible(false);
-        setCurrentStep('results');
-      }, 3000);
+      // EXPLICITLY reset no users available state
+      setNoUsersAvailable(false);
+      
+      // Only update UI if we're still in searching state
+      if (currentStep === 'searching') {
+        setMatches(uniqueMatches.filter((match): match is Match => match !== null));
+        setMatchesFoundVisible(true);
+        
+        // Use a timeout to transition to results
+        setTimeout(() => {
+          if (currentStep === 'searching') {
+            setMatchesFoundVisible(false);
+            setCurrentStep('results');
+          }
+        }, 3000);
+      }
     } else {
-      // If no matches, show no users available
+      // Only show no users if we really checked everything and found no matches
+      console.log('No compatible matches found after checking all users');
       setNoUsersAvailable(true);
+      
+      // FIXED: Add auto-recovery if no matches found
+      setTimeout(() => {
+        if (noUsersAvailable && currentStep === 'searching') {
+          console.log('Auto-recovery triggered - trying to find matches again');
+          findMatches(); // Try again after 5 seconds
+        }
+      }, 5000);
     }
   } catch (error) {
     console.error('Matching process error:', error);
@@ -581,151 +701,138 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
     if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
   };
   
-  // Continue to permanent chat
-  const handleContinueToPermanentChat = async () => {
-    if (!user || !selectedMatch || !chatRoomId) return;
+// Continue to permanent chat
+const handleContinueToPermanentChat = async () => {
+  if (!user || !selectedMatch || !chatRoomId) return;
+  
+  try {
+    setLoading(true);
+
+    const matchesRef = collection(firestore, 'matches');
+    const q = query(
+      matchesRef, 
+      where('users', 'array-contains', user.uid)
+    );
     
-    try {
-      setLoading(true);
-
-      const matchesRef = collection(firestore, 'matches');
-      const q = query(
-        matchesRef, 
-        where('users', 'array-contains', user.uid)
-      );
-      
-      const matchesSnapshot = await getDocs(q);
-      let existingMatchId: string | null = null;
-      
-      // Check each document to see if the selectedMatch.id is in the users array
-      for (const docSnapshot of matchesSnapshot.docs) {
-        const matchData = docSnapshot.data();
-        if (matchData.users && matchData.users.includes(selectedMatch.id)) {
-          existingMatchId = docSnapshot.id;
-          break;
-        }
+    const matchesSnapshot = await getDocs(q);
+    let existingMatchId: string | null = null;
+    
+    // Check each document to see if the selectedMatch.id is in the users array
+    for (const docSnapshot of matchesSnapshot.docs) {
+      const matchData = docSnapshot.data();
+      if (matchData.users && Array.isArray(matchData.users) && matchData.users.includes(selectedMatch.id)) {
+        existingMatchId = docSnapshot.id;
+        break;
+      }
+    }
+    
+    if (existingMatchId) {
+      // If a permanent match already exists, just navigate to it
+      console.log(`Found existing permanent chat: ${existingMatchId}`);
+      setChatRoomId(existingMatchId);
+      setCurrentStep('congratulations');
+      return;
+    }
+    
+    // Get the current connection document
+    const connectionRef = doc(firestore, 'speedDatingConnections', chatRoomId);
+    const connectionSnap = await getDoc(connectionRef);
+    
+    if (connectionSnap.exists()) {
+      const connectionData = connectionSnap.data();
+      // Add type guard to handle potentially undefined data
+      if (!connectionData) {
+        throw new Error("Connection data is missing");
       }
       
-      if (existingMatchId) {
-        // If a permanent match already exists, just navigate to it
-        console.log(`Found existing permanent chat: ${existingMatchId}`);
-        setChatRoomId(existingMatchId);
-        setCurrentStep('congratulations');
-        return;
-      }
+      const userProfiles = connectionData.userProfiles || {};
       
-      // Get the current connection document
-      const connectionRef = doc(firestore, 'speedDatingConnections', chatRoomId);
-      const connectionSnap = await getDoc(connectionRef);
-      
-      if (connectionSnap.exists()) {
-        const connectionData = connectionSnap.data();
-        if (!connectionData) {
-          throw new Error("Connection data is missing");
-        }
-        
-        const userProfiles = connectionData.userProfiles || {};
-        
-
       // Find the other user ID - MOVED THIS UP
       const otherUserId = connectionData.users.find((id: string) => id !== user.uid);
       if (!otherUserId) {
         throw new Error("Other user ID not found in connection");
       }
-        
-        // // First, update the user's preference in Firestore directly
-        await updateDoc(connectionRef, { 
-          [`userProfiles.${user.uid}.continuePermanently`]: true,
-          updatedAt: serverTimestamp()
-        });
+      
+      // First, update the user's preference in Firestore directly
+      await updateDoc(connectionRef, { 
+        [`userProfiles.${user.uid}.continuePermanently`]: true,
+        updatedAt: serverTimestamp()
+      });
 
-        // TESTING ONLY: Set both users to want to continue permanently
-        // // Remove this in production!
-        // await updateDoc(connectionRef, { 
-        //   [`userProfiles.${user.uid}.continuePermanently`]: true,
-        //   [`userProfiles.${otherUserId}.continuePermanently`]: true,
-        //   updatedAt: serverTimestamp()
-        // });
-        
-        // Get the fresh data after the update
-        const updatedConnectionSnap = await getDoc(connectionRef);
-        if (!updatedConnectionSnap.exists()) {
-          throw new Error("Connection document no longer exists");
-        }
-        
-        const updatedData = updatedConnectionSnap.data();
-        if (!updatedData) {
-          throw new Error("Updated connection data is missing");
-        }
-        
-        const updatedProfiles = updatedData.userProfiles || {};
-        
-        // // Find the other user ID
-        // const otherUserId = updatedData.users.find((id: string) => id !== user.uid);
-        // if (!otherUserId) {
-        //   throw new Error("Other user ID not found in connection");
-        // }
-        
-        // Check if both users want to continue
-        const bothWantToContinue = 
-          updatedProfiles[user.uid]?.continuePermanently === true && 
-          updatedProfiles[otherUserId]?.continuePermanently === true;
-        
-        if (bothWantToContinue) {
-          // Create a permanent match
-          const matchRef = await addDoc(collection(firestore, 'matches'), {
-            users: updatedData.users,
-            userProfiles: updatedProfiles,
-            createdAt: serverTimestamp(),
-            lastMessageTime: serverTimestamp(),
-            status: 'permanent',
-            matchType: 'speed-dating-match'
-          });
-          
-          // Copy messages from temporary connection to permanent match
-          const tempMessagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
-          const tempMessagesSnap = await getDocs(tempMessagesRef);
-          
-          // Batch write messages to new match
-          const batch = writeBatch(firestore);
-          tempMessagesSnap.docs.forEach(tempMessageDoc => {
-            const newMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
-            batch.set(newMessageRef, tempMessageDoc.data());
-          });
-          
-          // Add a match success message
-          const successMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
-          batch.set(successMessageRef, {
-            text: "Congratulations! You've been matched from Speed Dating. Your chat is now permanent.",
-            senderId: "system",
-            createdAt: serverTimestamp()
-          });
-          
-          await batch.commit();
-          
-          // Delete the temporary connection
-          await deleteDoc(connectionRef);
-          
-          // Update chat room ID to new permanent match
-          setChatRoomId(matchRef.id);
-          
-          // Navigate to congratulations screen
-          setCurrentStep('congratulations');
-        } else {
-          // Display notification to wait for match
-          Alert.alert(
-            'Wait for Match',
-            'Your match needs to also press Continue to make this permanent.'
-          );
-        }
+      // Get the fresh data after the update
+      const updatedConnectionSnap = await getDoc(connectionRef);
+      if (!updatedConnectionSnap.exists()) {
+        throw new Error("Connection document no longer exists");
       }
-    } catch (error) {
-      console.error('Error creating permanent chat:', error);
-      Alert.alert('Error', 'Failed to create permanent chat. Please try again.');
-    } finally {
-      setLoading(false);
+      
+      const updatedData = updatedConnectionSnap.data();
+      // Add type guard
+      if (!updatedData) {
+        throw new Error("Updated connection data is missing");
+      }
+      
+      const updatedProfiles = updatedData.userProfiles || {};
+      
+      // Check if both users want to continue
+      const userWantsToContinue = updatedProfiles[user.uid]?.continuePermanently === true;
+      const otherUserWantsToContinue = updatedProfiles[otherUserId]?.continuePermanently === true;
+      const bothWantToContinue = userWantsToContinue && otherUserWantsToContinue;
+      
+      if (bothWantToContinue) {
+        // Create a permanent match
+        const matchRef = await addDoc(collection(firestore, 'matches'), {
+          users: updatedData.users,
+          userProfiles: updatedProfiles,
+          createdAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+          status: 'permanent',
+          matchType: 'speed-dating-match'
+        });
+        
+        // Copy messages from temporary connection to permanent match
+        const tempMessagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
+        const tempMessagesSnap = await getDocs(tempMessagesRef);
+        
+        // Batch write messages to new match
+        const batch = writeBatch(firestore);
+        tempMessagesSnap.docs.forEach(tempMessageDoc => {
+          const newMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
+          batch.set(newMessageRef, tempMessageDoc.data());
+        });
+        
+        // Add a match success message
+        const successMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
+        batch.set(successMessageRef, {
+          text: "Congratulations! You've been matched from Speed Dating. Your chat is now permanent.",
+          senderId: "system",
+          createdAt: serverTimestamp()
+        });
+        
+        await batch.commit();
+        
+        // Delete the temporary connection
+        await deleteDoc(connectionRef);
+        
+        // Update chat room ID to new permanent match
+        setChatRoomId(matchRef.id);
+        
+        // Navigate to congratulations screen
+        setCurrentStep('congratulations');
+      } else {
+        // Display notification to wait for match
+        Alert.alert(
+          'Wait for Match',
+          'Your match needs to also press Continue to make this permanent.'
+        );
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error creating permanent chat:', error);
+    Alert.alert('Error', 'Failed to create permanent chat. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Navigate to permanent chat screen
   const handleGoToPermanentChat = () => {

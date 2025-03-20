@@ -49,7 +49,7 @@ export default function NoUsersAvailableOverlay({
         clearInterval(countdownInterval);
       };
     }
-  }, [visible, onDismiss, autoDismissTime]);
+  }, [visible]); // REMOVE onDismiss and autoDismissTime
   
   if (!visible) return null;
   
