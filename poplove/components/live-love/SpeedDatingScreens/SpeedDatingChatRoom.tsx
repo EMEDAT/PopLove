@@ -122,6 +122,16 @@ export default function SpeedDatingChatRoom({
   const matchUserId = match.id;
 
   console.log(`Launching ChatScreen with matchId=${matchId} for user=${match.id}`);
+
+  console.log('DEBUG CHAT MAPPING', {
+    matchId,
+    currentUserId: auth.currentUser?.uid,
+    matchUserId: match.id,
+    otherUserDetails: {
+      id: matchUserId,
+      displayName: match.displayName
+    }
+  });
   
   return (
     <View style={styles.container}>
@@ -131,7 +141,7 @@ export default function SpeedDatingChatRoom({
         <ChatScreen 
           matchId={matchId}
           otherUser={{
-            id: matchUserId,  // This is being set to match.id (incorrect)
+            id: match.id,  // Recipient's ID
             displayName: match.displayName,
             photoURL: match.photoURL,
             status: 'Online'

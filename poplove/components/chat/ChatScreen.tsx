@@ -127,9 +127,11 @@ export function ChatScreen({
 
   // Subscribe to messages
   useEffect(() => {
+    // Guard against missing user
+    if (!user) return;
 
     // Add logging for debug at beginning of useEffect:
-    console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
+    console.log(`Setting up chat for ${user.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
 
     if (!matchId) return;
     setLoading(true);
@@ -165,7 +167,19 @@ export function ChatScreen({
       
       // Now setup message listener with the determined path
       const messagesRef = collection(firestore, actualCollectionPath || 'matches', matchId, 'messages');
-      const q = query(messagesRef, orderBy('createdAt', 'asc'));
+      const q = query(
+        messagesRef, 
+        where('senderId', 'in', [user.uid, otherUser.id]),
+        orderBy('createdAt', 'asc')
+      );
+
+      // Add explicit logging in listener
+      console.log('MESSAGE LISTENER DEBUG', {
+        userId: user.uid,
+        otherUserId: otherUser.id,
+        matchId,
+        collectionPath
+      });
       
       return onSnapshot(q, (snapshot) => {
         const newMessages = snapshot.docs.map(doc => ({
@@ -326,20 +340,24 @@ export function ChatScreen({
 
   // Send message
   const sendMessage = async () => {
+    debugger;
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
-  
+    
+    console.log('SPEED DATING MESSAGE SEND DEBUG', {
+      matchId,
+      userId: user!.uid,
+      otherUserId: otherUser.id,
+      collectionPath: forcedCollectionPath || collectionPath,
+      messageText: inputMessage.trim()
+    });
+   
     try {
-      // Use only user.uid consistently
-      const currentUserId = user.uid;
-      
-      // Clear input immediately to prevent duplicate sends
+      const currentUserId = user!.uid;
       const messageText = inputMessage.trim();
       setInputMessage('');
       
-      // Use the determined collection path
       const actualCollectionPath = collectionPath;
       
-      // Handle message editing
       if (editingMessageId) {
         await updateDoc(doc(firestore, actualCollectionPath, matchId, 'messages', editingMessageId), {
           text: messageText,
@@ -347,7 +365,6 @@ export function ChatScreen({
           editedAt: serverTimestamp()
         });
         
-        // Only update match doc for permanent chats
         if (actualCollectionPath === 'matches') {
           const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
           const lastMessageQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
@@ -363,25 +380,33 @@ export function ChatScreen({
         
         setEditingMessageId(null);
       } else {
-        // Create new message
         const messageData = {
           text: messageText,
-          senderId: currentUserId,
+          senderId: user!.uid,
+          recipientId: otherUser.id,
           createdAt: serverTimestamp(),
           status: MessageStatus.SENDING,
-          _source: actualCollectionPath
+          _source: actualCollectionPath,
+          debugInfo: {
+            matchId,
+            currentUserId: user!.uid,
+            otherUserId: otherUser.id,
+            collection: actualCollectionPath
+          }
         };
         
-        // Add message to Firestore
+        console.log('DETAILED MESSAGE CREATION', {
+          messageData,
+          matchPath: `${actualCollectionPath}/${matchId}/messages`
+        });
+        
         const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
         const messageDoc = await addDoc(messagesRef, messageData);
         
-        // Update message status to SENT after adding
         await updateDoc(doc(firestore, actualCollectionPath, matchId, 'messages', messageDoc.id), {
           status: MessageStatus.SENT
         });
         
-        // Update match doc only for permanent chats
         if (actualCollectionPath === 'matches') {
           const otherUserId = otherUser.id;
           await updateDoc(doc(firestore, 'matches', matchId), {
@@ -395,7 +420,6 @@ export function ChatScreen({
         }
       }
       
-      // Force status check
       setTimeout(() => {
         if (appActive) {
           checkDeliveryStatus();
@@ -404,7 +428,7 @@ export function ChatScreen({
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
+   };
 
   const deleteMessage = async (messageId) => {
     if (!matchId || !user) return;
