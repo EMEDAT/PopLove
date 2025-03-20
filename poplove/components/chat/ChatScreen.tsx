@@ -127,11 +127,9 @@ export function ChatScreen({
 
   // Subscribe to messages
   useEffect(() => {
-    // Guard against missing user
-    if (!user) return;
 
     // Add logging for debug at beginning of useEffect:
-    console.log(`Setting up chat for ${user.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
+    console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
 
     if (!matchId) return;
     setLoading(true);
