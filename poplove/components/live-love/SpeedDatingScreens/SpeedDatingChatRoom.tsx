@@ -135,7 +135,7 @@ export default function SpeedDatingChatRoom({
               photoURL: match.photoURL,
               status: 'Online'
             }}
-            chatCollection="speedDatingConnections" // Add this explicit parameter
+            speedDatingMode={true}  // Add this flag
             onGoBack={onBack}
           />
         </View>
