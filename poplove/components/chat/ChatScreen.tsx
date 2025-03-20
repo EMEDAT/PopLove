@@ -183,6 +183,9 @@ useEffect(() => {
         status: doc.data().status || MessageStatus.SENT
       })) as Message[];
       
+      // Add this debug line
+      console.log("MESSAGE OBJECTS:", newMessages.map(m => ({id: m.id, senderId: m.senderId, text: m.text})));
+      
       console.log(`Received ${newMessages.length} messages from ${actualCollectionPath}`);
       setMessages(newMessages);
       setLoading(false);
@@ -669,6 +672,7 @@ useEffect(() => {
         data={flattenedMessages}
         keyExtractor={(item) => ('id' in item) ? item.id : Math.random().toString()}
         renderItem={({ item }) => {
+          debugger;
             if ('type' in item && item.type === 'date') {
               return (
                 <View style={styles.dateHeader}>
