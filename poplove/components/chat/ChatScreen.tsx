@@ -325,6 +325,8 @@ const checkDeliveryStatus = async () => {
   }
 };
 
+console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", user?.uid);
+
   // Send message
   const sendMessage = async () => {
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
@@ -384,7 +386,7 @@ const checkDeliveryStatus = async () => {
         // Create a new message with initial status
         const messageData = {
           text: messageText,
-          senderId: user.uid,
+          senderId: auth.currentUser?.uid || user?.uid,
           createdAt: serverTimestamp(),
           status: MessageStatus.SENDING,
           // Add metadata to track message source

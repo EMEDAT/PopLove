@@ -131,7 +131,7 @@ export default function SpeedDatingChatRoom({
           matchId={matchId}
           otherUser={{
             // Fix: Don't use match.id directly
-            id: authUserId === match.id ? "1QwgORMiViXRTOIuz1Q9hiyTmlj1" : match.id,
+            id: match.id, // Don't try to compare or swap IDs
             displayName: match.displayName,
             photoURL: match.photoURL,
             status: 'Online'
