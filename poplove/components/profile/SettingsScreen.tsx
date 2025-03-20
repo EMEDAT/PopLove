@@ -178,7 +178,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
         </View>
         
         {/* App Settings Section */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Settings</Text>
           
           <View style={styles.settingItem}>
@@ -294,10 +294,10 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
               <Ionicons name="chevron-forward" size={16} color={theme.colors.gray[500]} />
             </TouchableOpacity>
           </View>
-        </View>
+        </View> */}
         
         {/* Privacy Settings Section */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>Privacy</Text>
           
           <View style={styles.settingItem}>
@@ -365,10 +365,10 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
               ios_backgroundColor="#D1D1D6"
             />
           </View>
-        </View>
+        </View> */}
         
         {/* Support, Legal, Account Sections */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support & Legal</Text>
           
           <TouchableOpacity style={styles.menuItem}>
@@ -389,7 +389,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             <Text style={styles.menuItemText}>Terms of Service</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.colors.gray[500]} />
           </TouchableOpacity>
-        </View>
+        </View> */}
         
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
@@ -402,7 +402,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             <Ionicons name="log-out-outline" size={18} color={theme.colors.error} />
           </TouchableOpacity>
           
-          <View style={styles.divider} />
+          {/* <View style={styles.divider} />
           
           <TouchableOpacity 
             style={styles.menuItem}
@@ -410,7 +410,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
           >
             <Text style={[styles.menuItemText, styles.deleteText]}>Delete Account</Text>
             <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
         
         {/* Save button */}
