@@ -92,6 +92,13 @@ export function ChatScreen({
   const [subscribedCollection, setSubscribedCollection] = useState<string | null>(null);
   const [collectionPath, setCollectionPath] = useState<string>(forcedCollectionPath || 'matches');
 
+  // After the state declarations, right before the useEffect blocks
+  console.log("BREAKPOINT 2: MESSAGES TO RENDER:", messages.map(m => ({
+    id: m.id,
+    senderId: m.senderId,
+    text: m.text
+  })));
+
   // Add inside component body, after state declarations
   useEffect(() => {
     console.log("ACTUAL AUTH USER:", auth.currentUser?.uid);
@@ -136,6 +143,7 @@ useEffect(() => {
   let actualCollectionPath = forcedCollectionPath;
   
   const setupMessageListener = async () => {
+    console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
     // Only detect collection if it wasn't forced
     if (!forcedCollectionPath) {
       // Try matches collection first
@@ -338,7 +346,13 @@ useEffect(() => {
 
   // Send message
   const sendMessage = async () => {
-    debugger;
+    console.log("BREAKPOINT 3: SENDING MESSAGE DATA:", {
+      currentUserId: user?.uid,
+      otherUserId: otherUser.id,
+      collectionPath,
+      messageText: inputMessage.trim()
+    });
+    
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
     
     console.log('SPEED DATING MESSAGE SEND DEBUG', {

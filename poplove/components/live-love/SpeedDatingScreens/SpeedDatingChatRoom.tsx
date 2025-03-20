@@ -42,7 +42,14 @@ export default function SpeedDatingChatRoom({
   const overlayPosition = React.useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const overlayScale = React.useRef(new Animated.Value(1)).current;
   const currentUserId = auth.currentUser?.uid;
-  const isCurrentUserSender = currentUserId === match.id;
+  const isCurrentUserSender = true;
+
+  console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
+    matchId,
+    isCurrentUserSender,
+    currentUserId,
+    matchUserId: match.id
+  });
 
   // Debug in ChatScreen.tsx 
   console.log(`DEBUG CHATSCREEN: matchId=${matchId}, collection path determined later`);
