@@ -125,94 +125,91 @@ export function ChatScreen({
     }
   }, [appActive, isFocused]);
 
-  // Subscribe to messages
-  useEffect(() => {
+// Subscribe to messages
+useEffect(() => {
+  console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
 
-    // Add logging for debug at beginning of useEffect:
-    console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
-
-    if (!matchId) return;
-    setLoading(true);
-    
-    // If collection path is forced, use it; otherwise detect
-    let actualCollectionPath = forcedCollectionPath;
-    
-    const setupMessageListener = async () => {
-      // Only detect collection if it wasn't forced
-      if (!forcedCollectionPath) {
-        // Try matches collection first
-        let matchRef = doc(firestore, 'matches', matchId);
-        let matchExists = (await getDoc(matchRef)).exists();
-        actualCollectionPath = 'matches';
+  if (!matchId) return;
+  setLoading(true);
+  
+  // If collection path is forced, use it; otherwise detect
+  let actualCollectionPath = forcedCollectionPath;
+  
+  const setupMessageListener = async () => {
+    // Only detect collection if it wasn't forced
+    if (!forcedCollectionPath) {
+      // Try matches collection first
+      let matchRef = doc(firestore, 'matches', matchId);
+      let matchExists = (await getDoc(matchRef)).exists();
+      actualCollectionPath = 'matches';
+      
+      // If not found, try speedDatingConnections
+      if (!matchExists) {
+        actualCollectionPath = 'speedDatingConnections';
+        matchRef = doc(firestore, 'speedDatingConnections', matchId);
+        matchExists = (await getDoc(matchRef)).exists();
         
-        // If not found, try speedDatingConnections
         if (!matchExists) {
-          actualCollectionPath = 'speedDatingConnections';
-          matchRef = doc(firestore, 'speedDatingConnections', matchId);
-          matchExists = (await getDoc(matchRef)).exists();
-          
-          if (!matchExists) {
-            console.error(`Chat not found: ${matchId}`);
-            setLoading(false);
-            return () => {};
-          }
+          console.error(`Chat not found: ${matchId}`);
+          setLoading(false);
+          return () => {};
         }
       }
-      
-      // Save the collection path for other functions to use
-      setCollectionPath(actualCollectionPath || 'matches');
-      console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
-      
-      // Now setup message listener with the determined path
-      const messagesRef = collection(firestore, actualCollectionPath || 'matches', matchId, 'messages');
-      const q = query(
-        messagesRef, 
-        where('senderId', 'in', [user.uid, otherUser.id]),
-        orderBy('createdAt', 'asc')
-      );
-
-      // Add explicit logging in listener
-      console.log('MESSAGE LISTENER DEBUG', {
-        userId: user.uid,
-        otherUserId: otherUser.id,
-        matchId,
-        collectionPath
-      });
-      
-      return onSnapshot(q, (snapshot) => {
-        const newMessages = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          status: doc.data().status || MessageStatus.SENT
-        })) as Message[];
-        
-        console.log(`Received ${newMessages.length} messages from ${actualCollectionPath}`);
-        setMessages(newMessages);
-        setLoading(false);
-        
-        // Scroll to bottom on new messages
-        if (newMessages.length > 0) {
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 200);
-        }
-        
-        // Mark messages as read
-        if (appActive && !hasMarkedMessagesAsRead.current) {
-          markMessagesAsRead();
-        }
-      }, (error) => {
-        console.error(`Error listening to messages: ${error}`);
-      });
-    };
+    }
     
-    let unsubscribe = () => {};
-    setupMessageListener().then(unsub => {
-      if (unsub) unsubscribe = unsub;
-    });
+    // Save the collection path for other functions to use
+    setCollectionPath(actualCollectionPath || 'matches');
+    console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
+    
+    // Now setup message listener with the determined path
+    const messagesRef = collection(firestore, actualCollectionPath || 'matches', matchId, 'messages');
+    const q = query(
+      messagesRef, 
+      orderBy('createdAt', 'asc')
+    );
 
-    return () => unsubscribe();
-  }, [matchId, forcedCollectionPath]);
+    // Add explicit logging in listener
+    console.log('MESSAGE LISTENER DEBUG', {
+      userId: user?.uid,
+      otherUserId: otherUser.id,
+      matchId,
+      collectionPath
+    });
+    
+    return onSnapshot(q, (snapshot) => {
+      const newMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        status: doc.data().status || MessageStatus.SENT
+      })) as Message[];
+      
+      console.log(`Received ${newMessages.length} messages from ${actualCollectionPath}`);
+      setMessages(newMessages);
+      setLoading(false);
+      
+      // Scroll to bottom on new messages
+      if (newMessages.length > 0) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 200);
+      }
+      
+      // Mark messages as read
+      if (appActive && !hasMarkedMessagesAsRead.current) {
+        markMessagesAsRead();
+      }
+    }, (error) => {
+      console.error(`Error listening to messages: ${error}`);
+    });
+  };
+  
+  let unsubscribe = () => {};
+  setupMessageListener().then(unsub => {
+    if (unsub) unsubscribe = unsub;
+  });
+
+  return () => unsubscribe();
+}, [matchId, forcedCollectionPath]);
 
 
   // Mark messages as read when chat is opened - FIXED VERSION
@@ -350,7 +347,7 @@ export function ChatScreen({
     });
    
     try {
-      const currentUserId = user!.uid;
+      const currentUserId = user?.uid;
       const messageText = inputMessage.trim();
       setInputMessage('');
       
@@ -681,7 +678,7 @@ export function ChatScreen({
             }
             
             const message = item as Message;
-            const isCurrentUser = message.senderId === user?.uid;
+            const isCurrentUser = !!user && message.senderId === user.uid;
             
             // Check if this is an animated emoji message
             if (message.messageType === 'animated-emoji') {
