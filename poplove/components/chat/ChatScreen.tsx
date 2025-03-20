@@ -71,7 +71,7 @@ interface ChatScreenProps {
   onGoBack?: () => void;
 }
 
-export function ChatScreen({ matchId, otherUser, onGoBack }: ChatScreenProps) {
+export function ChatScreen({ matchId, otherUser, speedDatingMode = false, onGoBack }: ChatScreenProps) {
   const { user } = useAuthContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -333,60 +333,44 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
     if (!inputMessage.trim() || !user?.uid || !matchId) return;
   
     try {
-      // Use ONLY user.uid consistently throughout the function
+      // Use only user.uid consistently
       const currentUserId = user.uid;
       
-      // Prevent sending duplicate messages by clearing input immediately
+      // Clear input immediately to prevent duplicate sends
       const messageText = inputMessage.trim();
       setInputMessage('');
       
-      // Determine correct collection
-      let collectionPath = 'matches';
-      let matchRef = doc(firestore, 'matches', matchId);
-      let matchExists = (await getDoc(matchRef)).exists();
+      // Determine collection path based on mode
+      const collectionPath = speedDatingMode ? 'speedDatingConnections' : 'matches';
       
-      if (!matchExists) {
-        collectionPath = 'speedDatingConnections';
-        matchRef = doc(firestore, 'speedDatingConnections', matchId);
-        matchExists = (await getDoc(matchRef)).exists();
-        
-        if (!matchExists) {
-          console.error("Chat doesn't exist in either collection:", matchId);
-          return;
-        }
-      }
-      
-      // Check if we're editing a message
+      // Handle message editing
       if (editingMessageId) {
-        // Update the existing message
         await updateDoc(doc(firestore, collectionPath, matchId, 'messages', editingMessageId), {
           text: messageText,
           isEdited: true,
           editedAt: serverTimestamp()
         });
         
-        // Check if this is the last message in the chat
-        const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
-        const lastMessageQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
-        const lastMessageSnapshot = await getDocs(lastMessageQuery);
-        
-        if (!lastMessageSnapshot.empty && lastMessageSnapshot.docs[0].id === editingMessageId) {
-          // This is the last message, update the match document (only if matches collection)
-          if (collectionPath === 'matches') {
-            await updateDoc(doc(firestore, collectionPath, matchId), {
+        // Only update match doc for permanent chats
+        if (!speedDatingMode) {
+          const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
+          const lastMessageQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(1));
+          const lastMessageSnapshot = await getDocs(lastMessageQuery);
+          
+          if (!lastMessageSnapshot.empty && lastMessageSnapshot.docs[0].id === editingMessageId) {
+            await updateDoc(doc(firestore, 'matches', matchId), {
               lastMessage: messageText,
               lastMessageTime: serverTimestamp()
             });
           }
         }
         
-        // Clear editing state
         setEditingMessageId(null);
       } else {
-        // Create a new message with initial status
+        // Create new message
         const messageData = {
           text: messageText,
-          senderId: currentUserId,  // Use user.uid consistently
+          senderId: currentUserId,
           createdAt: serverTimestamp(),
           status: MessageStatus.SENDING,
           _source: collectionPath
@@ -401,10 +385,10 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
           status: MessageStatus.SENT
         });
         
-        // Update match with last message and increment unread count for recipient - only if matches collection
-        if (collectionPath === 'matches') {
+        // Update match doc only for permanent chats
+        if (!speedDatingMode) {
           const otherUserId = otherUser.id;
-          await updateDoc(doc(firestore, collectionPath, matchId), {
+          await updateDoc(doc(firestore, 'matches', matchId), {
             lastMessageTime: serverTimestamp(),
             lastMessage: messageText,
             [`unreadCount.${otherUserId}`]: messages.filter(m => 
@@ -415,7 +399,7 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
         }
       }
       
-      // Force status check after sending
+      // Force status check
       setTimeout(() => {
         if (appActive) {
           checkDeliveryStatus();
@@ -430,61 +414,42 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
     if (!matchId || !user) return;
     
     try {
-      // Determine correct collection
-      let collectionPath = 'matches';
-      let matchRef = doc(firestore, 'matches', matchId);
-      let matchExists = (await getDoc(matchRef)).exists();
+      // Determine collection path based on mode
+      const collectionPath = speedDatingMode ? 'speedDatingConnections' : 'matches';
       
-      if (!matchExists) {
-        collectionPath = 'speedDatingConnections';
-        matchRef = doc(firestore, 'speedDatingConnections', matchId);
-        matchExists = (await getDoc(matchRef)).exists();
-        
-        if (!matchExists) {
-          console.error("Chat doesn't exist in either collection:", matchId);
-          return;
-        }
-      }
-      
-      // Delete message from the correct collection
+      // Delete the message
       await deleteDoc(doc(firestore, collectionPath, matchId, 'messages', messageId));
       
-      // Check if this was the last message in the chat
+      // For speed dating mode, never navigate away
+      if (speedDatingMode) {
+        return;
+      }
+      
+      // For permanent chats, handle empty chats
       const messagesRef = collection(firestore, collectionPath, matchId, 'messages');
       const remainingMessages = await getDocs(query(messagesRef, orderBy('createdAt', 'desc'), limit(1)));
       
       if (remainingMessages.empty) {
-        // No messages left, but DON'T delete temp chats - only permanent matches
-        if (collectionPath === 'matches') {
-          try {
-            await deleteDoc(doc(firestore, 'matches', matchId));
-            router.replace('/(tabs)/matches');
-          } catch (err) {
-            console.error('Error deleting empty chat:', err);
-          }
+        try {
+          await deleteDoc(doc(firestore, 'matches', matchId));
+          router.replace('/(tabs)/matches');
+        } catch (err) {
+          console.error('Error deleting empty chat:', err);
         }
       } else {
-        // Update with the content of the new last message (only for permanent matches)
-        if (collectionPath === 'matches') {
-          const newLastMessage = remainingMessages.docs[0].data();
-          await updateDoc(doc(firestore, 'matches', matchId), {
-            lastMessage: newLastMessage.text,
-            lastMessageTime: newLastMessage.createdAt
-          });
-        }
+        // Update last message if not empty
+        const newLastMessage = remainingMessages.docs[0].data();
+        await updateDoc(doc(firestore, 'matches', matchId), {
+          lastMessage: newLastMessage.text,
+          lastMessageTime: newLastMessage.createdAt
+        });
       }
-      
-      // Only navigate if we're deleting from matches, not from speed dating connections
-      if (collectionPath === 'matches' && remainingMessages.empty) {
-        router.replace('/(tabs)/matches');
-      }
-      
     } catch (error) {
       console.error('Error deleting message:', error);
       Alert.alert('Error', 'Failed to delete message');
     }
   };
-  
+
   const editMessage = async (messageId, newText) => {
     if (!matchId || !user) return;
     
