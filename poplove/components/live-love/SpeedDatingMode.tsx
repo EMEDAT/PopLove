@@ -622,7 +622,10 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
     try {
       setLoading(true);
       
-      // Create a temporary speed dating connection instead of a match
+      // Add server timestamp for expiry
+      const expiration = serverTimestamp();
+      
+      // Create a temporary speed dating connection
       const connectionRef = await addDoc(collection(firestore, 'speedDatingConnections'), {
         users: [user.uid, match.id],
         userProfiles: {
@@ -640,36 +643,62 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
         createdAt: serverTimestamp(),
         status: 'temporary',
         sessionType: 'speed-dating',
-        expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+        expiresAt: expiration, // Use server timestamp
+        startedAt: serverTimestamp() // Also use server timestamp
       });
       
       // Store the temporary connection ID
       setChatRoomId(connectionRef.id);
       
-      // Add initial system message to the temporary connection's messages
+      // Immediately fetch connection data for timer sync
+      const connectionSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', connectionRef.id));
+      const connectionData = connectionSnapshot.data();
+      
+      if (connectionData && connectionData.startedAt) {
+        // Sync timer with server timestamp
+        const serverStartTime = connectionData.startedAt.toDate().getTime();
+        const initialElapsed = (Date.now() - serverStartTime) / 1000;
+        const initialRemaining = Math.max(0, 4 * 60 * 60 - initialElapsed);
+        
+        setChatTimeLeft(initialRemaining);
+        
+        // Update timer interval to use server time reference
+        chatTimerRef.current = setInterval(() => {
+          const currentElapsed = (Date.now() - serverStartTime) / 1000;
+          const remaining = Math.max(0, 4 * 60 * 60 - currentElapsed);
+          
+          setChatTimeLeft(remaining);
+          
+          if (remaining <= 1) {
+            if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+            handleEndChatSession();
+          }
+        }, 1000);
+      } else {
+        // Fallback to client-side timer if server timestamp isn't available
+        setChatTimeLeft(4 * 60 * 60);
+        chatTimerRef.current = setInterval(() => {
+          setChatTimeLeft(prev => {
+            if (prev <= 1) {
+              if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+              handleEndChatSession();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+      
+      // Add initial system message
       await addDoc(collection(firestore, 'speedDatingConnections', connectionRef.id, 'messages'), {
         text: "You are now connected through Speed Dating! You have 4 hours to chat.",
         senderId: "system",
         createdAt: serverTimestamp()
       });
       
-      // Set up 4-hour timer for chat expiration
-      setChatTimeLeft(4 * 60 * 60);
-      chatTimerRef.current = setInterval(() => {
-        setChatTimeLeft(prev => {
-          if (prev <= 1) {
-            if (chatTimerRef.current) clearInterval(chatTimerRef.current);
-            handleEndChatSession();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      // Set up first reminder timer (1 hour)
+      // Set up reminder timer (1 hour)
       reminderTimerRef.current = setTimeout(() => {
         setMiniOverlayVisible(true);
-        // Hide after 10 seconds
         setTimeout(() => setMiniOverlayVisible(false), 10000);
       }, 60 * 60 * 1000);
       

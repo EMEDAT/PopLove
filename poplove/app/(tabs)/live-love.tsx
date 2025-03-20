@@ -73,7 +73,7 @@ export default function LiveLoveScreen() {
         setSelectedDatingMode('line-up');
         setSelectedMode('line-up');
         
-        // ADD THIS CODE - Set up LineUpContext reference with session info
+        // Set up LineUpContext reference with session info
         if (typeof window !== 'undefined' && window.lineupContextRef?.current) {
           window.lineupContextRef.current.setSessionId(searchParams.sessionId);
           window.lineupContextRef.current.setIsCurrentUser(true);
@@ -85,6 +85,13 @@ export default function LiveLoveScreen() {
             }
           }, 500);
         }
+        
+        // Safety timeout to release locks
+        setTimeout(() => {
+          preventStateReset.current = false;
+          lockModeChange.current = false;
+          logLiveLove('Released navigation locks after timeout');
+        }, 10000);
       }
     }
   }, [searchParams]);
@@ -243,7 +250,7 @@ export default function LiveLoveScreen() {
         });
         
         setSelectedDatingMode('speed-dating');
-        setSelectedMode('selection'); // Reset to selection to prevent auto-start
+        setSelectedMode('speed-dating'); // Auto-resume speed dating session
       } else if (isInitialLoad) {
         // Only reset if it's the initial load, not when the user just selected a mode
         logLiveLove('No active sessions found - resetting to selection (initial load only)');

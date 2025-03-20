@@ -386,7 +386,7 @@ console.log("SENDING MESSAGE AS:", auth.currentUser?.uid, "User object UID:", us
         // Create a new message with initial status
         const messageData = {
           text: messageText,
-          senderId: auth.currentUser?.uid || user?.uid,
+          senderId: user.uid,
           createdAt: serverTimestamp(),
           status: MessageStatus.SENDING,
           // Add metadata to track message source

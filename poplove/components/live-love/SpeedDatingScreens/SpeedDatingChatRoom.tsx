@@ -128,16 +128,16 @@ export default function SpeedDatingChatRoom({
       <TouchableWithoutFeedback onPress={handleBackgroundPress}>
         <View style={styles.chatContainer}>
         <ChatScreen 
-          matchId={matchId}
-          otherUser={{
-            // Fix: Don't use match.id directly
-            id: match.id, // Don't try to compare or swap IDs
-            displayName: match.displayName,
-            photoURL: match.photoURL,
-            status: 'Online'
-          }}
-          onGoBack={onBack}
-        />
+            matchId={matchId}
+            otherUser={{
+              // This must be the OTHER user's ID, not yours
+              id: match.id, 
+              displayName: match.displayName,
+              photoURL: match.photoURL,
+              status: 'Online'
+            }}
+            onGoBack={onBack}
+          />
         </View>
       </TouchableWithoutFeedback>
       
