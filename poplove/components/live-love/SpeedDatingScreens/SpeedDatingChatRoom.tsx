@@ -119,6 +119,7 @@ export default function SpeedDatingChatRoom({
   );
 
   const authUserId = auth.currentUser?.uid || '';
+  const matchUserId = match.id;
 
   console.log(`Launching ChatScreen with matchId=${matchId} for user=${match.id}`);
   
@@ -130,12 +131,12 @@ export default function SpeedDatingChatRoom({
         <ChatScreen 
             matchId={matchId}
             otherUser={{
-              id: match.id,
+              id: matchUserId,  // Correct user ID (not current user)
               displayName: match.displayName,
               photoURL: match.photoURL,
               status: 'Online'
             }}
-            forcedCollectionPath="speedDatingConnections"  // Add this explicit parameter
+            forcedCollectionPath="speedDatingConnections"
             onGoBack={onBack}
           />
         </View>

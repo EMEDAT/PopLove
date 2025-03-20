@@ -93,9 +93,9 @@ export function ChatScreen({
   const [collectionPath, setCollectionPath] = useState<string>(forcedCollectionPath || 'matches');
 
   // Add inside component body, after state declarations
-useEffect(() => {
-  console.log("ACTUAL AUTH USER:", auth.currentUser?.uid);
-}, []);
+  useEffect(() => {
+    console.log("ACTUAL AUTH USER:", auth.currentUser?.uid);
+  }, []);
   
   // Add a ref to track whether we've marked messages as read
   const hasMarkedMessagesAsRead = useRef(false);
@@ -127,6 +127,10 @@ useEffect(() => {
 
   // Subscribe to messages
   useEffect(() => {
+
+    // Add logging for debug at beginning of useEffect:
+    console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
+
     if (!matchId) return;
     setLoading(true);
     
