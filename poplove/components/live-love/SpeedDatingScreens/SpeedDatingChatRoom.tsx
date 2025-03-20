@@ -130,12 +130,12 @@ export default function SpeedDatingChatRoom({
         <ChatScreen 
             matchId={matchId}
             otherUser={{
-              // This must be the OTHER user's ID, not yours
-              id: match.id, 
+              id: match.id,
               displayName: match.displayName,
               photoURL: match.photoURL,
               status: 'Online'
             }}
+            chatCollection="speedDatingConnections" // Add this explicit parameter
             onGoBack={onBack}
           />
         </View>

@@ -67,6 +67,7 @@ interface ChatScreenProps {
     photoURL: string;
     status?: string;
   };
+  chatCollection?: 'matches' | 'speedDatingConnections'; // Add this
   onGoBack?: () => void;
 }
 
