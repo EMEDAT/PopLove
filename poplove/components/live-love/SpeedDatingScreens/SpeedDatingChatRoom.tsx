@@ -51,7 +51,8 @@ export default function SpeedDatingChatRoom({
   const formatTimeLeft = () => {
     const hours = Math.floor(timeLeft / 3600);
     const minutes = Math.floor((timeLeft % 3600) / 60);
-    const seconds = timeLeft % 60;
+    // Add Math.floor here to fix the decimals:
+    const seconds = Math.floor(timeLeft % 60);
     
     if (hours > 0) {
       return `${hours}h : ${minutes}m : ${seconds}s`;
@@ -118,7 +119,6 @@ export default function SpeedDatingChatRoom({
     </TouchableOpacity>
   );
 
-  const authUserId = auth.currentUser?.uid || '';
   const matchUserId = match.id;
 
   console.log(`Launching ChatScreen with matchId=${matchId} for user=${match.id}`);
@@ -129,16 +129,16 @@ export default function SpeedDatingChatRoom({
       <TouchableWithoutFeedback onPress={handleBackgroundPress}>
         <View style={styles.chatContainer}>
         <ChatScreen 
-            matchId={matchId}
-            otherUser={{
-              id: matchUserId,  // Correct user ID (not current user)
-              displayName: match.displayName,
-              photoURL: match.photoURL,
-              status: 'Online'
-            }}
-            forcedCollectionPath="speedDatingConnections"
-            onGoBack={onBack}
-          />
+          matchId={matchId}
+          otherUser={{
+            id: matchUserId,  // This is being set to match.id (incorrect)
+            displayName: match.displayName,
+            photoURL: match.photoURL,
+            status: 'Online'
+          }}
+          forcedCollectionPath="speedDatingConnections"
+          onGoBack={onBack}
+        />
         </View>
       </TouchableWithoutFeedback>
       

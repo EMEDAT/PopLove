@@ -738,7 +738,7 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
 // Continue to permanent chat
 const handleContinueToPermanentChat = async () => {
   if (!user || !selectedMatch || !chatRoomId) return;
-  
+
   try {
     setLoading(true);
 
@@ -747,10 +747,10 @@ const handleContinueToPermanentChat = async () => {
       matchesRef, 
       where('users', 'array-contains', user.uid)
     );
-    
+
     const matchesSnapshot = await getDocs(q);
     let existingMatchId: string | null = null;
-    
+
     // Check each document to see if the selectedMatch.id is in the users array
     for (const docSnapshot of matchesSnapshot.docs) {
       const matchData = docSnapshot.data();
@@ -759,7 +759,7 @@ const handleContinueToPermanentChat = async () => {
         break;
       }
     }
-    
+
     if (existingMatchId) {
       // If a permanent match already exists, just navigate to it
       console.log(`Found existing permanent chat: ${existingMatchId}`);
@@ -767,51 +767,51 @@ const handleContinueToPermanentChat = async () => {
       setCurrentStep('congratulations');
       return;
     }
-    
+
     // Get the current connection document
     const connectionRef = doc(firestore, 'speedDatingConnections', chatRoomId);
     const connectionSnap = await getDoc(connectionRef);
-    
+
     if (connectionSnap.exists()) {
       const connectionData = connectionSnap.data();
       // Add type guard to handle potentially undefined data
       if (!connectionData) {
         throw new Error("Connection data is missing");
       }
-      
+
       const userProfiles = connectionData.userProfiles || {};
-      
-      // Find the other user ID - MOVED THIS UP
+
+      // Find the other user ID
       const otherUserId = connectionData.users.find((id: string) => id !== user.uid);
       if (!otherUserId) {
         throw new Error("Other user ID not found in connection");
       }
-      
+
       // First, update the user's preference in Firestore directly
       await updateDoc(connectionRef, { 
         [`userProfiles.${user.uid}.continuePermanently`]: true,
         updatedAt: serverTimestamp()
       });
 
+      // Wait a moment to ensure Firestore updates are propagated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Get the fresh data after the update
       const updatedConnectionSnap = await getDoc(connectionRef);
-      if (!updatedConnectionSnap.exists()) {
-        throw new Error("Connection document no longer exists");
-      }
-      
       const updatedData = updatedConnectionSnap.data();
-      // Add type guard
-      if (!updatedData) {
-        throw new Error("Updated connection data is missing");
-      }
-      
+      if (!updatedData) throw new Error("Updated connection data is missing");
+
       const updatedProfiles = updatedData.userProfiles || {};
-      
-      // Check if both users want to continue
+
+      // Check if both users want to continue permanently
       const userWantsToContinue = updatedProfiles[user.uid]?.continuePermanently === true;
       const otherUserWantsToContinue = updatedProfiles[otherUserId]?.continuePermanently === true;
       const bothWantToContinue = userWantsToContinue && otherUserWantsToContinue;
-      
+
+      console.log(`User wants to continue: ${userWantsToContinue}`);
+      console.log(`Other user wants to continue: ${otherUserWantsToContinue}`);
+      console.log(`Both want to continue: ${bothWantToContinue}`);
+
       if (bothWantToContinue) {
         // Create a permanent match
         const matchRef = await addDoc(collection(firestore, 'matches'), {
@@ -822,18 +822,18 @@ const handleContinueToPermanentChat = async () => {
           status: 'permanent',
           matchType: 'speed-dating-match'
         });
-        
+
         // Copy messages from temporary connection to permanent match
         const tempMessagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
         const tempMessagesSnap = await getDocs(tempMessagesRef);
-        
+
         // Batch write messages to new match
         const batch = writeBatch(firestore);
         tempMessagesSnap.docs.forEach(tempMessageDoc => {
           const newMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
           batch.set(newMessageRef, tempMessageDoc.data());
         });
-        
+
         // Add a match success message
         const successMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
         batch.set(successMessageRef, {
@@ -841,15 +841,15 @@ const handleContinueToPermanentChat = async () => {
           senderId: "system",
           createdAt: serverTimestamp()
         });
-        
+
         await batch.commit();
-        
+
         // Delete the temporary connection
         await deleteDoc(connectionRef);
-        
+
         // Update chat room ID to new permanent match
         setChatRoomId(matchRef.id);
-        
+
         // Navigate to congratulations screen
         setCurrentStep('congratulations');
       } else {
