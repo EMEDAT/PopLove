@@ -11,6 +11,7 @@ import {
   serverTimestamp, 
   doc, 
   limit,
+  setDoc,
   getDoc, 
   updateDoc,
   deleteDoc,
@@ -615,155 +616,155 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
   }
 };
   
-// Connect with a match
-const handleConnectWithMatch = async (match: Match) => {
-  if (!user || !match) return;
-  
-  try {
-    setLoading(true);
+  // Connect with a match
+  const handleConnectWithMatch = async (match: Match) => {
+    if (!user || !match) return;
     
-    // Check if there's already a connection between these users
-    const connectionsRef = collection(firestore, 'speedDatingConnections');
-    
-    // First query connections where current user is in the users array
-    const userConnectionsQuery = query(
-      connectionsRef,
-      where('users', 'array-contains', user.uid)
-    );
-    
-    const userConnections = await getDocs(userConnectionsQuery);
-    let existingConnectionId: string | null = null;
-    
-    // Check each connection to see if it includes the match user
-    for (const connectionDoc of userConnections.docs) {
-      const connectionData = connectionDoc.data();
-      if (connectionData.users && connectionData.users.includes(match.id)) {
-        existingConnectionId = connectionDoc.id;
-        console.log(`Found existing connection: ${existingConnectionId}`);
-        break;
-      }
-    }
-    
-    // Also check connections where match user initiated (in case we missed it)
-    if (!existingConnectionId) {
-      const matchConnectionsQuery = query(
+    try {
+      setLoading(true);
+      
+      // Check if there's already a connection between these users
+      const connectionsRef = collection(firestore, 'speedDatingConnections');
+      
+      // First query connections where current user is in the users array
+      const userConnectionsQuery = query(
         connectionsRef,
-        where('users', 'array-contains', match.id)
+        where('users', 'array-contains', user.uid)
       );
       
-      const matchConnections = await getDocs(matchConnectionsQuery);
+      const userConnections = await getDocs(userConnectionsQuery);
+      let existingConnectionId = null;
       
-      for (const connectionDoc of matchConnections.docs) {
+      // Check each connection to see if it includes the match user
+      for (const connectionDoc of userConnections.docs) {
         const connectionData = connectionDoc.data();
-        if (connectionData.users && connectionData.users.includes(user.uid)) {
+        if (connectionData.users && connectionData.users.includes(match.id)) {
           existingConnectionId = connectionDoc.id;
-          console.log(`Found existing connection initiated by match: ${existingConnectionId}`);
+          console.log(`Found existing connection: ${existingConnectionId}`);
           break;
         }
       }
-    }
-    
-    let connectionId;
-    
-    if (existingConnectionId) {
-      // Use existing connection
-      connectionId = existingConnectionId;
-      console.log(`Using existing connection: ${connectionId}`);
-    } else {
-      // Create a new connection if none exists
-      console.log('Creating new speed dating connection');
       
-      const newConnectionRef = await addDoc(collection(firestore, 'speedDatingConnections'), {
-        users: [user.uid, match.id],
-        userProfiles: {
-          [user.uid]: {
-            displayName: user.displayName || 'You',
-            photoURL: user.photoURL || '',
-            continuePermanently: false
-          },
-          [match.id]: {
-            displayName: match.displayName,
-            photoURL: match.photoURL,
-            continuePermanently: false
+      // Also check connections where match user initiated (in case we missed it)
+      if (!existingConnectionId) {
+        const matchConnectionsQuery = query(
+          connectionsRef,
+          where('users', 'array-contains', match.id)
+        );
+        
+        const matchConnections = await getDocs(matchConnectionsQuery);
+        
+        for (const connectionDoc of matchConnections.docs) {
+          const connectionData = connectionDoc.data();
+          if (connectionData.users && connectionData.users.includes(user.uid)) {
+            existingConnectionId = connectionDoc.id;
+            console.log(`Found existing connection initiated by match: ${existingConnectionId}`);
+            break;
           }
-        },
-        // Explicit sender-recipient mapping
-        senderUserId: user.uid,
-        recipientUserId: match.id,
-        createdAt: serverTimestamp(),
-        status: 'temporary',
-        sessionType: 'speed-dating',
-        startedAt: serverTimestamp()
-      });
-      
-      connectionId = newConnectionRef.id;
-      
-      // Add initial system message only for new connections
-      await addDoc(collection(firestore, 'speedDatingConnections', connectionId, 'messages'), {
-        text: "You are now connected through Speed Dating! You have 4 hours to chat.",
-        senderId: "system",
-        createdAt: serverTimestamp()
-      });
-    }
-    
-    // Store the connection ID
-    setChatRoomId(connectionId as string);
-    
-    // Immediately fetch connection data for timer sync
-    const connectionSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', connectionId));
-    const connectionData = connectionSnapshot.data();
-    
-    if (connectionData && connectionData.startedAt) {
-      // Sync timer with server timestamp
-      const serverStartTime = connectionData.startedAt.toDate().getTime();
-      const initialElapsed = (Date.now() - serverStartTime) / 1000;
-      const initialRemaining = Math.max(0, 4 * 60 * 60 - initialElapsed);
-      
-      setChatTimeLeft(initialRemaining);
-      
-      // Update timer interval to use server time reference
-      chatTimerRef.current = setInterval(() => {
-        const currentElapsed = (Date.now() - serverStartTime) / 1000;
-        const remaining = Math.max(0, 4 * 60 * 60 - currentElapsed);
-        
-        setChatTimeLeft(remaining);
-        
-        if (remaining <= 1) {
-          if (chatTimerRef.current) clearInterval(chatTimerRef.current);
-          handleEndChatSession();
         }
-      }, 1000);
-    } else {
-      // Fallback to client-side timer if server timestamp isn't available
-      setChatTimeLeft(4 * 60 * 60);
-      chatTimerRef.current = setInterval(() => {
-        setChatTimeLeft(prev => {
-          if (prev <= 1) {
+      }
+      
+      let connectionId;
+      
+      if (existingConnectionId) {
+        // Use existing connection
+        connectionId = existingConnectionId;
+        console.log(`Using existing connection: ${connectionId}`);
+      } else {
+        // Create a new connection if none exists
+        console.log('Creating new speed dating connection');
+        
+        const newConnectionRef = await addDoc(collection(firestore, 'speedDatingConnections'), {
+          users: [user.uid, match.id],
+          userProfiles: {
+            [user.uid]: {
+              displayName: user.displayName || 'You',
+              photoURL: user.photoURL || '',
+              continuePermanently: false
+            },
+            [match.id]: {
+              displayName: match.displayName,
+              photoURL: match.photoURL,
+              continuePermanently: false
+            }
+          },
+          // Explicit sender-recipient mapping
+          senderUserId: user.uid,
+          recipientUserId: match.id,
+          createdAt: serverTimestamp(),
+          status: 'temporary',
+          sessionType: 'speed-dating',
+          startedAt: serverTimestamp()
+        });
+        
+        connectionId = newConnectionRef.id;
+        
+        // Add initial system message only for new connections
+        await addDoc(collection(firestore, 'speedDatingConnections', connectionId, 'messages'), {
+          text: "You are now connected through Speed Dating! You have 4 hours to chat.",
+          senderId: "system",
+          createdAt: serverTimestamp()
+        });
+      }
+      
+      // Store the connection ID
+      setChatRoomId(connectionId);
+      
+      // Immediately fetch connection data for timer sync
+      const connectionSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', connectionId));
+      const connectionData = connectionSnapshot.data();
+      
+      if (connectionData && connectionData.startedAt) {
+        // Sync timer with server timestamp
+        const serverStartTime = connectionData.startedAt.toDate().getTime();
+        const initialElapsed = (Date.now() - serverStartTime) / 1000;
+        const initialRemaining = Math.max(0, 4 * 60 * 60 - initialElapsed);
+        
+        setChatTimeLeft(initialRemaining);
+        
+        // Update timer interval to use server time reference
+        chatTimerRef.current = setInterval(() => {
+          const currentElapsed = (Date.now() - serverStartTime) / 1000;
+          const remaining = Math.max(0, 4 * 60 * 60 - currentElapsed);
+          
+          setChatTimeLeft(remaining);
+          
+          if (remaining <= 1) {
             if (chatTimerRef.current) clearInterval(chatTimerRef.current);
             handleEndChatSession();
-            return 0;
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }, 1000);
+      } else {
+        // Fallback to client-side timer if server timestamp isn't available
+        setChatTimeLeft(4 * 60 * 60);
+        chatTimerRef.current = setInterval(() => {
+          setChatTimeLeft(prev => {
+            if (prev <= 1) {
+              if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+              handleEndChatSession();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+      
+      // Set up reminder timer (1 hour)
+      reminderTimerRef.current = setTimeout(() => {
+        setMiniOverlayVisible(true);
+        setTimeout(() => setMiniOverlayVisible(false), 10000);
+      }, 60 * 60 * 1000);
+      
+      // Move to chat screen
+      setCurrentStep('chat');
+      
+    } catch (error) {
+      console.error('Error connecting with match:', error);
+      Alert.alert('Error', 'Failed to connect with match. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    // Set up reminder timer (1 hour)
-    reminderTimerRef.current = setTimeout(() => {
-      setMiniOverlayVisible(true);
-      setTimeout(() => setMiniOverlayVisible(false), 10000);
-    }, 60 * 60 * 1000);
-    
-    // Move to chat screen
-    setCurrentStep('chat');
-    
-  } catch (error) {
-    console.error('Error connecting with match:', error);
-    Alert.alert('Error', 'Failed to connect with match. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   
   
   // End the current chat session
