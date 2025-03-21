@@ -25,6 +25,9 @@ import * as NotificationService from '../services/notificationService';
 import { addLineupTurnNotification } from '../services/notificationService';
 
 
+// Simple mutex implementation
+const rotationLocks = new Map<string, boolean>();
+
 // TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
 const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 1 hour for testing (should be 48 * 60 * 60)
@@ -96,6 +99,15 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
     try {
       debugLog('Join', `Attempt ${attempt+1} to join session`);
       
+      // Get user's gender for proper session assignment
+      debugLog('Join', `Getting gender for user ${userId}`);
+      const userDoc = await getDoc(doc(firestore, 'users', userId));
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+      const userGender = userDoc.data().gender || 'unknown';
+      debugLog('Join', `User gender: ${userGender}`);
+      
       // First check if there's an active session for this category
       const sessionsRef = collection(firestore, 'lineupSessions');
       const q = query(
@@ -107,125 +119,66 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
       const snapshot = await getDocs(q);
       debugLog('Join', `Found ${snapshot.size} active sessions for category ${categoryId}`);
       
-      // Get user's gender for proper session assignment
-      debugLog('Join', `Getting gender for user ${userId}`);
-      const userDoc = await getDoc(doc(firestore, 'users', userId));
-      if (!userDoc.exists()) {
-        throw new Error('User not found');
-      }
-      const userGender = userDoc.data().gender || 'unknown';
-      debugLog('Join', `User gender: ${userGender}`);
-      
       if (!snapshot.empty) {
-        // Join existing session
+        // Join existing session using transaction to avoid race conditions
         const sessionDoc = snapshot.docs[0];
-        const sessionData = sessionDoc.data();
+        const sessionId = sessionDoc.id;
         
-        // Make sure spotlights is defined and is an array
-        const spotlights = sessionData.spotlights || [];
-        
-        // Get gender-specific field names
-        const userGenderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
-        const rotationTimeField = `${userGender}LastRotationTime`;
-
-        // Check if user already had a completed turn in this session
-        const userJoinTimeRef = doc(firestore, 'lineupSessions', sessionDoc.id, 'spotlightJoinTimes', userId);
-        const userJoinTimeDoc = await getDoc(userJoinTimeRef);
-        
-        // If user already had a turn, record show as new join with fresh timestamp
-        if (userJoinTimeDoc.exists() && userJoinTimeDoc.data().completed) {
-          debugLog('Join', `User ${userId} previously completed their turn, rejoining with new timestamp`);
-          
-          // Add user to spotlights if not already there
-          if (!spotlights.includes(userId)) {
-            await updateDoc(doc(firestore, 'lineupSessions', sessionDoc.id), {
-              spotlights: [...spotlights, userId]
-            });
+        return await runTransaction(firestore, async (transaction) => {
+          const freshSessionDoc = await transaction.get(doc(firestore, 'lineupSessions', sessionId));
+          if (!freshSessionDoc.exists()) {
+            throw new Error('Session disappeared during join');
           }
           
-          // Update join time record with new timestamp and reset completed flag
-          await setDoc(userJoinTimeRef, {
-            joinedAt: serverTimestamp(),
-            gender: userGender,
-            categoryId: categoryId,
-            completed: false
-          });
+          const sessionData = freshSessionDoc.data();
+          const spotlights = sessionData.spotlights || [];
+          const userGenderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}ContestantId`;
           
-          // Wait for Firebase to process the update
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        // Normal first-time join
-        else if (!userJoinTimeDoc.exists()) {
+          // CRITICAL: Check if there's already someone of this gender in the spotlight
+          const currentGenderContestant = sessionData[userGenderField];
+          
+          // If user is already in the session, just return the data
+          if (spotlights.includes(userId)) {
+            return { 
+              ...sessionData, 
+              id: sessionId,
+              contestants: sessionData.spotlights || [],
+              category: sessionData.category || [categoryId],
+              currentSpotlightId: sessionData.currentSpotlightId || null,
+              startTime: sessionData.startTime || serverTimestamp(),
+              endTime: sessionData.endTime || null,
+              status: sessionData.status || 'active'
+            } as LineUpSessionData;
+          }
+          
           // Add user to spotlights if not already there
           if (!spotlights.includes(userId)) {
-            debugLog('Join', `Adding user ${userId} to spotlights list`, {
-              sessionId: sessionDoc.id,
-              userGender,
-              userGenderField
+            const updatedSpotlights = [...spotlights, userId];
+            transaction.update(doc(firestore, 'lineupSessions', sessionId), {
+              spotlights: updatedSpotlights
             });
             
-            await updateDoc(doc(firestore, 'lineupSessions', sessionDoc.id), {
-              spotlights: [...spotlights, userId]
-            });
-            
-            // Also add user to spotlight timestamps for proper ordering
-            await setDoc(doc(firestore, 'lineupSessions', sessionDoc.id, 'spotlightJoinTimes', userId), {
+            // Add user to spotlight timestamps for proper ordering
+            transaction.set(doc(firestore, 'lineupSessions', sessionId, 'spotlightJoinTimes', userId), {
               joinedAt: serverTimestamp(),
               gender: userGender,
               categoryId: categoryId,
               completed: false
             });
-            
-            // Wait for Firebase to process the update
-            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        }
-        
-        // Check again if the user is now in the spotlights list
-        const updatedSessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionDoc.id));
-        const updatedSessionData = updatedSessionDoc.data() || {};
-        const updatedSpotlights = updatedSessionData.spotlights || [];
-        
-        if (!updatedSpotlights.includes(userId)) {
-          // Retry if user is still not in spotlights list
-          debugLog('Join', `User not in spotlights list after update, retrying... (attempt ${attempt + 1})`);
-          attempt++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          continue;
-        }
-        
-        // CRITICAL CHANGE: If there are no spotlights of this gender, make this user the current spotlight
-        const sameGenderCount = await getSpotlightsOfSameGender(sessionDoc.id, userGender);
-        debugLog('Join', `Found ${sameGenderCount} ${userGender} spotlights including this user`);
-        
-        if (sameGenderCount <= 1) {
-          // First of this gender - make them current spotlight using gender-specific field
-          debugLog('Join', `User is first ${userGender}, setting as current ${userGender} spotlight`);
           
-          const updates: any = {
-            [userGenderField]: userId,
-            [rotationTimeField]: serverTimestamp()
-          };
-          
-          // Update gender-specific field
-          await updateDoc(doc(firestore, 'lineupSessions', sessionDoc.id), updates);
-          
-          // Update session data to reflect this change
-          updatedSessionData[userGenderField] = userId;
-          updatedSessionData[rotationTimeField] = serverTimestamp();
-        }
-        
-        return { 
-          ...updatedSessionData, 
-          id: sessionDoc.id,
-          spotlights: updatedSessionData.spotlights || [],
-          category: updatedSessionData.category || [categoryId],
-          contestants: updatedSessionData.spotlights || [],
-          currentSpotlightId: updatedSessionData.currentSpotlightId || null,
-          startTime: updatedSessionData.startTime || serverTimestamp(),
-          endTime: updatedSessionData.endTime || null, 
-          status: updatedSessionData.status || 'active'
-        } as LineUpSessionData;
+          return { 
+            ...sessionData, 
+            id: sessionId, 
+            spotlights: [...spotlights, userId],
+            contestants: [...(sessionData.contestants || []), userId],
+            category: sessionData.category || [categoryId],
+            currentSpotlightId: sessionData.currentSpotlightId || null,
+            startTime: sessionData.startTime || serverTimestamp(),
+            endTime: sessionData.endTime || null,
+            status: sessionData.status || 'active'
+          } as LineUpSessionData;
+        });
       } else {
         // Create new session
         debugLog('Join', `No existing session found, creating new session`);
@@ -988,102 +941,110 @@ export const rotateNextSpotlight = async (sessionId: string, gender?: string): P
   const spotlightGender = await determineGender(sessionId, gender);
   if (!spotlightGender) return;
   
-  // Use proper field names consistently
-  const genderField = `current${spotlightGender.charAt(0).toUpperCase()}${spotlightGender.slice(1)}SpotlightId`;
-  const rotationTimeField = `${spotlightGender}LastRotationTime`;
+  // Lock key combines session and gender
+  const lockKey = `${sessionId}_${spotlightGender}`;
   
-  debugLog('Rotation', `Starting rotation for ${spotlightGender} spotlight in session ${sessionId}`);
+  // Check if already locked
+  if (rotationLocks.get(lockKey)) {
+    debugLog('Rotation', `Rotation already in progress for ${spotlightGender} in session ${sessionId}`);
+    return;
+  }
+  
+  // Set lock
+  rotationLocks.set(lockKey, true);
+  
+  // Store ID outside transaction scope
+  let currentContestId;
   
   try {
-    // Get ordered spotlight list by join time (FIFO)
-    const orderedSpotlights = await getOrderedSpotlightsByGender(sessionId, spotlightGender);
-    if (orderedSpotlights.length === 0) {
-      debugLog('Rotation', `No ${spotlightGender} spotlights available for rotation`);
-      return;
-    }
+    // Use proper field names consistently
+    const genderField = `current${spotlightGender.charAt(0).toUpperCase()}${spotlightGender.slice(1)}ContestantId`;
+    const rotationTimeField = `${spotlightGender}LastRotationTime`;
     
-    // Get session data to determine current spotlight
-    const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-    if (!sessionDoc.exists()) {
-      debugLog('Rotation', `Session ${sessionId} not found`);
-      return;
-    }
-    
-    const sessionData = sessionDoc.data();
-    const currentSpotlightId = sessionData[genderField];
-    
-    // Find next spotlight index based on join time order
-    const currentIndex = orderedSpotlights.indexOf(currentSpotlightId);
-    
-    // CRITICAL FIX: Handle the case where we need to wrap around to first spotlight
-    // This ensures we follow the FIFO order strictly
-    let nextIndex = 0;
-    if (currentIndex !== -1 && currentIndex < orderedSpotlights.length - 1) {
-      nextIndex = currentIndex + 1;
-    }
-    
-    const nextSpotlightId = orderedSpotlights[nextIndex];
-    
-    // Verify we're not rotating to the same person
-    if (nextSpotlightId === currentSpotlightId) {
-      debugLog('Rotation', `No other ${spotlightGender} spotlights available to rotate to`);
-      return;
-    }
-    
-    // FIX #1: Add a transaction for atomic updates
+    // Use transaction for atomic update
     await runTransaction(firestore, async (transaction) => {
-      // Update ONLY the gender-specific fields
+      // Get latest session data
       const sessionRef = doc(firestore, 'lineupSessions', sessionId);
+      const sessionSnapshot = await transaction.get(sessionRef);
       
-      const updateData: Record<string, any> = {
-        [genderField]: nextSpotlightId,
+      if (!sessionSnapshot.exists()) {
+        throw new Error('Session not found during rotation');
+      }
+      
+      const sessionData = sessionSnapshot.data();
+      const currentContestantId = sessionData[genderField];
+      
+      // Save to outer scope
+      currentContestId = currentContestantId;
+      
+      // Get ordered spotlight list by join time (FIFO)
+      const orderedSpotlights = await getOrderedSpotlightsByGender(sessionId, spotlightGender);
+      if (orderedSpotlights.length === 0) {
+        debugLog('Rotation', `No ${spotlightGender} spotlights available for rotation`);
+        return;
+      }
+      
+      // Find next spotlight index
+      const currentIndex = orderedSpotlights.indexOf(currentContestantId);
+      let nextIndex = 0;
+      if (currentIndex !== -1 && currentIndex < orderedSpotlights.length - 1) {
+        nextIndex = currentIndex + 1;
+      }
+      
+      const nextContestantId = orderedSpotlights[nextIndex];
+      
+      // Verify we're not rotating to the same person
+      if (nextContestantId === currentContestantId) {
+        debugLog('Rotation', `No other ${spotlightGender} spotlights available to rotate to`);
+        return;
+      }
+      
+      // Update the session
+      const updates: Record<string, any> = {
+        [genderField]: nextContestantId,
         [rotationTimeField]: serverTimestamp()
       };
       
-      // Check if we need to update general field, only if we're handling the primary gender
+      // Update general fields if needed
       const isPrimaryGender = isPrimaryGenderForSession(sessionData, spotlightGender);
-      
-      // If this is the primary gender OR the current spotlight is the general one, update it
-      if (isPrimaryGender || sessionData.currentSpotlightId === currentSpotlightId) {
-        updateData.currentSpotlightId = nextSpotlightId;
-        updateData.lastRotationTime = serverTimestamp();
+      if (isPrimaryGender || sessionData.currentContestantId === currentContestantId) {
+        updates.currentContestantId = nextContestantId;
+        updates.lastRotationTime = serverTimestamp();
       }
       
-      // Execute updates in transaction
-      transaction.update(sessionRef, updateData);
+      transaction.update(sessionRef, updates);
       
-      // Add rotation event to notify all clients
-      const rotationRef = doc(firestore, 'lineupSessions', sessionId, 'rotationEvents', 'latest');
-      transaction.set(rotationRef, {
-        timestamp: serverTimestamp(),
-        rotationId: Date.now().toString(),
-        previousSpotlightId: currentSpotlightId,
-        newSpotlightId: nextSpotlightId,
-        gender: spotlightGender
-      });
-      
-      // FIX #2: Only send notification to the specific next spotlight
-      if (nextSpotlightId) {
-        const notificationRef = doc(firestore, 'notifications', `turn_${nextSpotlightId}_${Date.now()}`);
-        transaction.set(notificationRef, {
-          userId: nextSpotlightId,
+      // Add notification and rotation event
+      if (nextContestantId) {
+        transaction.set(doc(firestore, 'notifications', `turn_${nextContestantId}_${Date.now()}`), {
+          userId: nextContestantId,
           type: 'lineup_turn',
           message: "It's your turn in the Line-Up! You're now in the spotlight.",
           data: { sessionId },
           createdAt: serverTimestamp(),
           isRead: false
         });
+        
+        transaction.set(doc(firestore, 'lineupSessions', sessionId, 'rotationEvents', 'latest'), {
+          timestamp: serverTimestamp(),
+          rotationId: Date.now().toString(),
+          previousContestantId: currentContestantId,
+          newContestantId: nextContestantId,
+          gender: spotlightGender
+        });
       }
     });
     
-    // Mark previous spotlight as completed (outside transaction as this can be done asynchronously)
-    await markSpotlightAsCompleted(sessionId, currentSpotlightId);
+    // Mark previous spotlight as completed (outside transaction)
+    if (currentContestId) {
+      await markSpotlightAsCompleted(sessionId, currentContestId);
+    }
     
-    debugLog('Rotation', `Successfully rotated ${spotlightGender} spotlight from ${currentSpotlightId} to ${nextSpotlightId}`);
-    return;
   } catch (error) {
     debugLog('Rotation', `Error rotating ${spotlightGender} spotlight:`, error);
-    return;
+  } finally {
+    // Release lock
+    rotationLocks.set(lockKey, false);
   }
 };
 

@@ -1348,87 +1348,55 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return contestants;
   };
 
+  // Add this function to verify current contestant status
+  const verifyCurrentContestantStatus = async (sessionId: string, userId: string, userGender: string): Promise<boolean> => {
+    try {
+      const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+      if (!sessionDoc.exists()) return false;
+      
+      const sessionData = sessionDoc.data();
+      const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
+      return sessionData[genderField] === userId;
+    } catch (error) {
+      console.error('Error verifying contestant status:', error);
+      return false;
+    }
+  };
+
   // Listen for user turn changes 
   useEffect(() => {
     if (!sessionId || !user) return;
     
-    const unsubscribe = LineupService.subscribeToUserTurn(sessionId, user.uid, (isUserTurn) => {
-      // CRITICAL FIX: Don't do anything if already transitioning
+    const unsubscribe = LineupService.subscribeToUserTurn(sessionId, user.uid, async (isUserTurn) => {
       if (transitioning) return;
       
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Turn subscription update: isUserTurn=${isUserTurn}`);
-      
-      // CRITICAL FIX: Only ONE male and ONE female should be in private screen at a time
-      // Only proceed if this user is supposed to be the current contestant
-      if (isUserTurn && !isCurrentUserRef.current && step !== 'no-matches' && step !== 'selection') {
+      if (isUserTurn && !isCurrentUserRef.current) {
         setTransitioning(true);
         
-        // CRITICAL CHECK: Double check with server to confirm this user is actually the current contestant
-        const verifyCurrentContestant = async () => {
-          try {
-            if (!sessionId || !user) {
-              setTransitioning(false);
-              return;
-            }
-            
-            // Get the user's gender
-            const userGender = userGenderRef.current;
-            if (!userGender) {
-              setTransitioning(false);
-              return;
-            }
-            
-            // Get session with proper gender field
-            const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-            if (!sessionDoc.exists()) {
-              setTransitioning(false);
-              return;
-            }
-            
-            // Check if this user is truly the current contestant for their gender
-            const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
-            const actualCurrentContestant = sessionDoc.data()[genderField];
-            
-            // If not actually the current contestant, do nothing
-            if (actualCurrentContestant !== user.uid) {
-              console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ User is not actually the current contestant`);
-              console.log(`[${new Date().toISOString()}] [LineUpProvider] Expected: ${user.uid}, Actual: ${actualCurrentContestant}`);
-              setTransitioning(false);
-              return;
-            }
-            
-            // User is confirmed as current contestant - proceed with transition
-            console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ User confirmed as current contestant`);
-            setIsCurrentUser(true);
-            isCurrentUserRef.current = true;
-            
-            // Add notification
-            NotificationService.addLineupTurnNotification(user.uid, sessionId);
-            
-            setSpotlightTimeLeft(SPOTLIGHT_TIMER_SECONDS);
-            startSpotlightTimer();
-            
-            setTimeout(() => {
-              setStep('private');
-              setTransitioning(false);
-            }, 300);
-          } catch (error) {
-            console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error verifying current contestant:`, error);
-            setTransitioning(false);
-          }
-        };
+        // Critical verification step - double check with server
+        const userGender = userGenderRef.current;
+        if (!userGender) {
+          setTransitioning(false);
+          return;
+        }
         
-        verifyCurrentContestant();
-      } else if (!isUserTurn && isCurrentUserRef.current) {
-        // User's turn just ended
-        setTransitioning(true);
-        setIsCurrentUser(false);
-        isCurrentUserRef.current = false;
+        const isReallyCurrentContestant = await verifyCurrentContestantStatus(sessionId, user.uid, userGender);
+        
+        if (!isReallyCurrentContestant) {
+          console.log(`User is not actually the current ${userGender} contestant - verification failed`);
+          setTransitioning(false);
+          return;
+        }
+        
+        setIsCurrentUser(true);
+        isCurrentUserRef.current = true;
+        startSpotlightTimer();
         
         setTimeout(() => {
+          setStep('private');
           setTransitioning(false);
-        }, 500);
-      }
+        }, 300);
+      } 
     });
     
     return () => unsubscribe();

@@ -86,6 +86,35 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Verify user is really the current contestant
+  useEffect(() => {
+    const verifyCurrentContestantStatus = async () => {
+      if (!sessionId || !user) return;
+      
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (!userDoc.exists()) return;
+        
+        const userGender = userDoc.data().gender || '';
+        const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
+        
+        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+        if (!sessionDoc.exists()) return;
+        
+        const currentContestantId = sessionDoc.data()[genderField];
+        
+        if (currentContestantId !== user.uid) {
+          logPrivate('User is not the actual current contestant, redirecting to lineup screen');
+          goBack(); // Return to lineup screen instead of showing private screen incorrectly
+        }
+      } catch (error) {
+        logPrivate('Error verifying contestant status:', error);
+      }
+    };
+    
+    verifyCurrentContestantStatus();
+  }, [sessionId, user]);
+
   // Add this useEffect to track and log completion:
     useEffect(() => {
       if (spotlightTimeLeft <= 0 && !hasLoggedCompletionRef.current) {
