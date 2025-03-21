@@ -148,11 +148,12 @@ export default function SpeedDatingChatRoom({
         <ChatScreen 
             matchId={matchId}
             otherUser={{
-              id: match.id,  // This should be the recipient's ID
+              id: match.id,
               displayName: match.displayName,
               photoURL: match.photoURL,
               status: 'Online'
             }}
+            speedDatingMode={true}
             forcedCollectionPath="speedDatingConnections"
             onGoBack={onBack}
           />
