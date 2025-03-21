@@ -978,7 +978,8 @@ const handleContinueToPermanentChat = async () => {
         await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'matchEvents', 'permanent'), {
           status: 'permanent_match_created',
           matchId: matchRef.id,
-          timestamp: serverTimestamp()
+          timestamp: serverTimestamp(),
+          shouldPreventAutoExit: true  
         });
 
         // Delete the temporary connection

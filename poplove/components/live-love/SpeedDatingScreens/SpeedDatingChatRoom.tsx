@@ -23,7 +23,9 @@ import {
   deleteDoc,
   collection, 
   getDocs, 
-  writeBatch, 
+  writeBatch,
+  query,  // Add this
+  where   // Add this
 } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 
@@ -60,25 +62,35 @@ export default function SpeedDatingChatRoom({
   useEffect(() => {
     if (!matchId || !user) return;
     
-    // When we detect ANY change to the room document or if it's deleted, exit immediately
     const unsubscribe = onSnapshot(
       doc(firestore, 'speedDatingConnections', matchId),
       { includeMetadataChanges: true },
-      (snapshot) => {
+      async (snapshot) => {
         if (!snapshot.exists()) {
-          console.log("Room document deleted, exiting immediately");
-          onBack();
+          // Check for match creation event before exiting
+          const matchEventsRef = collection(firestore, 'speedDatingConnections', matchId, 'matchEvents');
+          const matchEventsQuery = query(matchEventsRef, where('status', '==', 'permanent_match_created'));
+          const matchEventsSnapshot = await getDocs(matchEventsQuery);
+          
+          // If there's a match creation event with the prevent exit flag, don't exit
+          const shouldPreventExit = matchEventsSnapshot.docs.some(
+            doc => doc.data().shouldPreventAutoExit === true
+          );
+          
+          if (!shouldPreventExit) {
+            console.log("Room document deleted, exiting immediately");
+            onBack();
+          }
           return;
         }
         
-        // Any change to status/rejection fields means we should exit
+        // Existing rejection detection logic remains the same
         const data = snapshot.data();
         if (data?.status === 'rejected' || data?.rejectedBy) {
           console.log("Room rejection detected, exiting immediately");
           onBack();
         }
       },
-      // Even if an error occurs (like document deleted), still exit
       (error) => {
         console.error("Error in room listener:", error);
         onBack();
