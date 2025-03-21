@@ -213,6 +213,14 @@ export function ChatScreen({
           "otherMessages:", newMessages.filter(m => m.senderId === otherUser.id).length,
           "systemMessages:", newMessages.filter(m => m.senderId === "system").length
         );
+
+        // Add this right after the RECEIVED RAW MESSAGES log
+        console.log(`QUERY DEBUG: collection=${actualCollectionPath}/${matchId}/messages, user=${user?.uid}, otherUser=${otherUser.id}`);
+        snapshot.docs.forEach(doc => {
+          console.log(`DOC DEBUG: id=${doc.id}, senderId=${doc.data().senderId}, text="${doc.data().text.substring(0, 20)}..."`);
+        });
+
+
         
         // Do NOT filter messages by sender - show ALL messages
         setMessages(newMessages);
@@ -418,6 +426,10 @@ export function ChatScreen({
         });
         
         const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
+
+        // Add this before the addDoc call
+        console.log(`MESSAGE CREATE DEBUG: Adding message to ${actualCollectionPath}/${matchId}/messages with senderId=${user!.uid}, recipientId=${otherUser.id}`);
+
         const messageDoc = await addDoc(messagesRef, messageData);
         
         await updateDoc(doc(firestore, actualCollectionPath, matchId, 'messages', messageDoc.id), {
