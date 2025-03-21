@@ -53,149 +53,52 @@ export default function SpeedDatingChatRoom({
   useEffect(() => {
     if (!matchId || !user) return;
     
-    console.log(`[CRITICAL] Setting up comprehensive rejection detection for room ${matchId}`);
+    console.log(`[CRITICAL] Setting up bulletproof rejection detection for room ${matchId}`);
     
-    // Create set of active intervals for cleanup
-    const intervals = new Set();
-    
-    // 1. Primary listener with metadata changes
-    const mainListener = onSnapshot(
+    // Set up real-time listener on the main document
+    const unsubMain = onSnapshot(
       doc(firestore, 'speedDatingConnections', matchId),
-      { includeMetadataChanges: true }, // Get all updates including server changes
+      { includeMetadataChanges: true },
       (snapshot) => {
-        console.log(`[CRITICAL] Room document updated for ${matchId}, exists: ${snapshot.exists()}`);
-        
-        // Handle document deletion first
         if (!snapshot.exists()) {
-          console.log(`[CRITICAL] Room document was deleted or does not exist`);
-          // Alert and navigate immediately
-          Alert.alert(
-            'Chat Ended',
-            'This chat session has ended.',
-            [{ text: 'OK' }]
-          );
-          // Don't wait for alert - navigate immediately
+          console.log(`[CRITICAL] Room document was deleted - exiting immediately`);
           onBack();
           return;
         }
         
-        // Get room data and check status
-        const roomData = snapshot.data();
-        console.log(`[CRITICAL] Room status: ${roomData?.status}, rejectedBy: ${roomData?.rejectedBy}`);
-        
-        // Check for any rejection indicators
-        if (
-          roomData?.status === 'rejected' || 
-          roomData?.status === 'rejected_final' ||
-          roomData?.rejectionForceUpdate
-        ) {
-          const rejectedBy = roomData?.rejectedBy;
-          
-          // If rejected by other user, navigate back
-          if (rejectedBy && rejectedBy !== user.uid) {
-            console.log(`[CRITICAL] This user was rejected by ${rejectedBy} - navigating back`);
-            setIsBeingRejected(true);
-            
-            // Show alert but don't wait for it
-            Alert.alert(
-              'Chat Ended',
-              'The other user has ended this chat session.',
-              [{ text: 'OK' }],
-              { cancelable: false }
-            );
-            
-            // Navigate immediately
-            onBack();
-          }
+        const data = snapshot.data();
+        if (data?.status === 'rejected' || data?.rejectedBy || data?.rejectionForceUpdate) {
+          console.log(`[CRITICAL] Room ${matchId} marked as rejected - exiting`);
+          onBack();
         }
-      },
-      (error: any) => {
-        console.error(`[CRITICAL] Error in main room listener: ${error.message || "Unknown error"}`);
-        onBack();
       }
     );
     
-    // 2. Additional listener for rejection events subcollection
-    const eventsListener = onSnapshot(
-      doc(firestore, 'speedDatingConnections', matchId, 'rejectionEvents', 'latest'),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const eventData = snapshot.data();
-          console.log(`[CRITICAL] Rejection event detected: ${JSON.stringify(eventData)}`);
-          
-          if (eventData.rejectedBy && eventData.rejectedBy !== user.uid) {
-            console.log(`[CRITICAL] Rejection event confirms this user was rejected`);
-            setIsBeingRejected(true);
-            onBack();
-          }
-        }
-      },
-      (error: any) => {
-        console.error(`[CRITICAL] Error in rejection events listener: ${error.message || "Unknown error"}`);
-      }
-    );
-    
-    // 3. Direct polling as backup mechanism
-    const pollInterval = setInterval(async () => {
+    // Also add a forceful polling check every 2 seconds as backup
+    const interval = setInterval(async () => {
       try {
-        console.log(`[CRITICAL] Polling room status for ${matchId}`);
-        // Directly fetch the document to bypass cache
-        const roomSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', matchId));
-        
-        if (!roomSnapshot.exists()) {
-          console.log(`[CRITICAL] Polling: Room document does not exist`);
-          clearInterval(pollInterval);
-          intervals.delete(pollInterval);
+        const roomDoc = await getDoc(doc(firestore, 'speedDatingConnections', matchId));
+        if (!roomDoc.exists()) {
+          console.log(`[CRITICAL] Polling detected room ${matchId} was deleted`);
+          clearInterval(interval);
           onBack();
           return;
         }
         
-        const roomData = roomSnapshot.data();
-        if (
-          roomData?.status === 'rejected' || 
-          roomData?.status === 'rejected_final' ||
-          roomData?.rejectionForceUpdate
-        ) {
-          const rejectedBy = roomData.rejectedBy;
-          
-          // If rejected by other user, navigate back
-          if (rejectedBy && rejectedBy !== user.uid) {
-            console.log(`[CRITICAL] Polling: Confirmed this user was rejected by ${rejectedBy}`);
-            clearInterval(pollInterval);
-            intervals.delete(pollInterval);
-            setIsBeingRejected(true);
-            onBack();
-          }
+        const data = roomDoc.data();
+        if (data?.status === 'rejected' || data?.rejectedBy) {
+          console.log(`[CRITICAL] Polling detected room ${matchId} was rejected`);
+          clearInterval(interval);
+          onBack();
         }
-        
-        // Also check the rejection events
-        try {
-          const eventSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', matchId, 'rejectionEvents', 'latest'));
-          if (eventSnapshot.exists()) {
-            const eventData = eventSnapshot.data();
-            if (eventData.rejectedBy && eventData.rejectedBy !== user.uid) {
-              console.log(`[CRITICAL] Polling: Found rejection event marking this user as rejected`);
-              clearInterval(pollInterval);
-              intervals.delete(pollInterval);
-              setIsBeingRejected(true);
-              onBack();
-            }
-          }
-        } catch (error: any) {
-          console.error(`[CRITICAL] Error checking rejection events: ${error.message || "Unknown error"}`);
-        }
-      } catch (err: any) {
-        console.error(`[CRITICAL] Error in polling check: ${err.message || "Unknown error"}`);
+      } catch (err) {
+        console.error('[CRITICAL] Error in rejection polling:', err);
       }
-    }, 2000); // Poll every 2 seconds
-    intervals.add(pollInterval);
+    }, 2000);
     
-    // Return cleanup function for all listeners and intervals
     return () => {
-      console.log(`[CRITICAL] Cleaning up all rejection detection for room ${matchId}`);
-      mainListener();
-      eventsListener();
-      intervals.forEach(interval => clearInterval(interval as NodeJS.Timeout));
+      unsubMain();
+      clearInterval(interval);
     };
   }, [matchId, user]);
 
