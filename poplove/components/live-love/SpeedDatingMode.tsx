@@ -980,11 +980,7 @@ const handleContinueToPermanentChat = async () => {
       // Check if both users want to continue permanently
       const userWantsToContinue = updatedProfiles[user.uid]?.continuePermanently === true;
       const otherUserWantsToContinue = updatedProfiles[otherUserId]?.continuePermanently === true;
-      const bothWantToContinue = 
-      userWantsToContinue && 
-      otherUserWantsToContinue && 
-      updatedProfiles[user.uid]?.continueTimestamp && 
-      updatedProfiles[otherUserId]?.continueTimestamp;
+      const bothWantToContinue = userWantsToContinue && otherUserWantsToContinue;
     
     console.log(`Validation checks:
     - User wants to continue: ${userWantsToContinue}
@@ -993,66 +989,63 @@ const handleContinueToPermanentChat = async () => {
     - Other user has timestamp: ${!!updatedProfiles[otherUserId]?.continueTimestamp}
     - Both want to continue: ${bothWantToContinue}`);
 
-      if (bothWantToContinue) {
-        // Create a permanent match
-        const matchRef = await addDoc(collection(firestore, 'matches'), {
-          users: updatedData.users,
-          userProfiles: updatedProfiles,
-          createdAt: serverTimestamp(),
-          lastMessageTime: serverTimestamp(),
-          status: 'permanent',
-          matchType: 'speed-dating-match'
-        });
-
-        // Copy messages from temporary connection to permanent match
-        const tempMessagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
-        const tempMessagesSnap = await getDocs(tempMessagesRef);
-
-        // Batch write messages to new match
-        const batch = writeBatch(firestore);
-        tempMessagesSnap.docs.forEach(tempMessageDoc => {
-          const newMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
-          batch.set(newMessageRef, tempMessageDoc.data());
-        });
-
-        // Add a match success message
-        const successMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
-        batch.set(successMessageRef, {
-          text: "Congratulations! You've been matched from Speed Dating. Your chat is now permanent.",
-          senderId: "system",
-          createdAt: serverTimestamp()
-        });
-
-        await batch.commit();
-
-        // Add this new line to create the event for other user
-        await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'matchEvents', 'permanent'), {
-          status: 'permanent_match_created',
-          matchId: matchRef.id,
-          timestamp: serverTimestamp(),
-          preventAutoExit: true,  // Critical addition
-          users: updatedData.users,  // Include both user IDs
-          shouldTransitionToCongratuations: true 
-        }); 
-
-          // Optional: Soft delete instead of hard delete
-          await updateDoc(connectionRef, { 
-            status: 'converted_to_match',
-            convertedMatchId: matchRef.id
-          });
-
-          // Update chat room ID to new permanent match
-          setChatRoomId(matchRef.id as string);
-
-          // Navigate to congratulations screen
-          setCurrentStep('congratulations');
-        } else {
-        // Display notification to wait for match
-        Alert.alert(
-          'Wait for Match',
-          'Your match needs to also press Continue to make this permanent.'
-        );
-      }
+    if (bothWantToContinue) {
+      // Create permanent match
+      const matchRef = await addDoc(collection(firestore, 'matches'), {
+        users: updatedData.users,
+        userProfiles: updatedProfiles,
+        createdAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
+        status: 'permanent',
+        matchType: 'speed-dating-match'
+      });
+    
+      // Copy messages to permanent match
+      const tempMessagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
+      const tempMessagesSnap = await getDocs(tempMessagesRef);
+      const batch = writeBatch(firestore);
+      tempMessagesSnap.docs.forEach(tempMessageDoc => {
+        const newMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
+        batch.set(newMessageRef, tempMessageDoc.data());
+      });
+    
+      // Add success message
+      const successMessageRef = doc(collection(firestore, 'matches', matchRef.id, 'messages'));
+      batch.set(successMessageRef, {
+        text: "Congratulations! You've been matched from Speed Dating. Your chat is now permanent.",
+        senderId: "system",
+        createdAt: serverTimestamp()
+      });
+      await batch.commit();
+    
+      // Create event for other user
+      await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'matchEvents', 'permanent'), {
+        status: 'permanent_match_created',
+        matchId: matchRef.id,
+        timestamp: serverTimestamp(),
+        preventAutoExit: true,
+        users: updatedData.users,
+        shouldTransitionToCongratuations: true 
+      });
+    
+      // Soft delete temporary connection
+      await updateDoc(connectionRef, { 
+        status: 'converted_to_match',
+        convertedMatchId: matchRef.id
+      });
+    
+      // Update chat room ID
+      setChatRoomId(matchRef.id as string);
+    
+      // Navigate to congratulations screen
+      setCurrentStep('congratulations');
+    } else {
+      // Notify user to wait for match
+      Alert.alert(
+        'Wait for Match',
+        'Your match needs to also press Continue to make this permanent.'
+      );
+    }
     }
   } catch (error) {
     console.error('Error creating permanent chat:', error);
