@@ -161,7 +161,9 @@ export function ChatScreen({
           const exists = (await getDoc(docRef)).exists();
           
           if (exists) {
-            actualCollectionPath = collection;
+              actualCollectionPath = (collection === 'matches' || collection === 'speedDatingConnections') 
+              ? collection 
+              : 'matches';
             foundCollection = true;
             console.log(`Found match in ${collection} collection`);
             break;
@@ -178,7 +180,10 @@ export function ChatScreen({
       }
       
       // Save collection path for future use
-      setCollectionPath(actualCollectionPath);
+      const validPath = (actualCollectionPath === 'matches' || actualCollectionPath === 'speedDatingConnections') 
+      ? actualCollectionPath as 'matches' | 'speedDatingConnections' 
+      : 'matches';
+       setCollectionPath(validPath);
       console.log(`Using collection: ${actualCollectionPath} for match ${matchId}`);
       
       // Now setup message listener with the determined path
