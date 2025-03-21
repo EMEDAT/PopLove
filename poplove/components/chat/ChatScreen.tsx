@@ -139,8 +139,8 @@ useEffect(() => {
   if (!matchId) return;
   setLoading(true);
   
-  // If collection path is forced, use it; otherwise detect
-  let actualCollectionPath = forcedCollectionPath;
+  // Default path to ensure actualCollectionPath is always defined
+  let actualCollectionPath = forcedCollectionPath || 'matches';
   
   const setupMessageListener = async () => {
     console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
@@ -150,7 +150,6 @@ useEffect(() => {
       // Try matches collection first
       let matchRef = doc(firestore, 'matches', matchId);
       let matchExists = (await getDoc(matchRef)).exists();
-      actualCollectionPath = 'matches'; // UPDATE THIS LINE - no 'let'
       
       // If not found, try speedDatingConnections
       if (!matchExists) {
@@ -167,7 +166,7 @@ useEffect(() => {
     }
     
     // Save the collection path for other functions to use
-    setCollectionPath(actualCollectionPath || 'matches');
+    setCollectionPath(actualCollectionPath);
     console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
     
     // Now setup message listener with the determined path
