@@ -119,30 +119,31 @@ export default function LiveLoveScreen() {
   }, [selectedMode, selectedDatingMode, isInitialLoad, initialCheckComplete, loading]);
 
   // App state listener for foreground/background detection
-  useEffect(() => {
-    logLiveLove('Setting up app state listener');
+// App state listener for foreground/background detection
+useEffect(() => {
+  const subscription = AppState.addEventListener('change', nextAppState => {
+    // Update state first to ensure correct sequence
+    appState.current = nextAppState;
     
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      logLiveLove(`App state changed from ${appState.current} to ${nextAppState}`);
-      
-      // Only check session when coming back to foreground
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        logLiveLove('App came to foreground - checking user session');
-        if (!preventStateReset.current) {
-          checkUserSession();
-        } else {
-          logLiveLove('Session check prevented by lock');
-        }
+    // CRITICAL: Protect line-up mode from background/foreground transitions
+    if (nextAppState === 'active' && selectedMode === 'line-up') {
+      preventStateReset.current = true;
+      logLiveLove('Force-protecting line-up mode state');
+      return; // Exit immediately to prevent any session checks
+    }
+    
+    // Only check session when coming back to foreground and not in protected mode
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      if (!preventStateReset.current) {
+        checkUserSession();
+      } else {
+        logLiveLove('Session check prevented by lock');
       }
-      
-      appState.current = nextAppState;
-    });
+    }
+  });
 
-    return () => {
-      logLiveLove('Removing app state listener');
-      subscription.remove();
-    };
-  }, []);
+  return () => subscription.remove();
+}, [selectedMode]); // Add selectedMode to dependencies
 
   // Initial load session check
   useEffect(() => {
@@ -154,14 +155,19 @@ export default function LiveLoveScreen() {
     }
   }, [user, isInitialLoad, initialCheckComplete]);
 
+  useEffect(() => {
+    if (selectedDatingMode) {
+      // Make this stronger - persist through app state changes
+      preventStateReset.current = true;
+    }
+  }, [selectedDatingMode]);
+
   // Session restoration and check logic
   const checkUserSession = async () => {
-    // Complete abort if state resets are blocked or no user
-    if (preventStateReset.current || modeSelectionInProgress.current || !user) {
-      logLiveLove('Session check aborted', {
-        preventStateReset: preventStateReset.current,
-        modeSelectionInProgress: modeSelectionInProgress.current,
-        hasUser: !!user
+    if (preventStateReset.current || selectedDatingMode === 'line-up') {
+      logLiveLove('Session check aborted - user actively in mode', {
+        selectedMode,
+        selectedDatingMode
       });
       return;
     }
@@ -176,7 +182,7 @@ export default function LiveLoveScreen() {
       sessionCheckInProgress.current = true;
       setLoading(true);
       
-      logLiveLove('Checking for active user sessions', { userId: user.uid });
+      logLiveLove('Checking for active user sessions', { userId: user?.uid });
       const now = new Date();
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       
@@ -185,7 +191,7 @@ export default function LiveLoveScreen() {
       const lineupSessionsRef = collection(firestore, 'lineupSessions');
       const lineupQuery = query(
         lineupSessionsRef,
-        where('contestants', 'array-contains', user.uid),
+        where('contestants', 'array-contains', user?.uid || ''),
         where('status', '==', 'active')
       );
       
@@ -199,9 +205,9 @@ export default function LiveLoveScreen() {
           
           // Check both general and gender-specific current contestant fields
           const isCurrentContestant = 
-            sessionData.currentContestantId === user.uid || 
-            sessionData.currentMaleContestantId === user.uid ||
-            sessionData.currentFemaleContestantId === user.uid;
+          sessionData.currentContestantId === user?.uid || 
+          sessionData.currentMaleContestantId === user?.uid ||
+          sessionData.currentFemaleContestantId === user?.uid;
             
           logLiveLove('Checking if user is current contestant', {
             sessionId: sessionDoc.id,
@@ -236,7 +242,7 @@ export default function LiveLoveScreen() {
       const speedSessionsRef = collection(firestore, 'speedDatingSessions');
       const speedQuery = query(
         speedSessionsRef,
-        where('userId', '==', user.uid),
+        where('userId', '==', user?.uid || ''),
         where('status', '==', 'searching'),
         where('createdAt', '>', fiveMinutesAgo) // Only recent sessions
       );

@@ -1594,7 +1594,7 @@ export const notifySpotlightRotation = async (sessionId: string): Promise<void> 
  * Auto-select a spotlight for a gender if none exists
  * This is a critical failsafe to prevent empty lineup screens
  */
-export const autoSelectSpotlightForGender = async (sessionId: string, gender: string): Promise<string | null> => {
+export const autoSelectSpotlightForGender = async (sessionId: string, gender: string, userId?: string): Promise<string | null> => {
   try {
     debugLog('AutoSelect', `Attempting to auto-select a ${gender} spotlight for session ${sessionId}`);
     
@@ -1611,6 +1611,13 @@ export const autoSelectSpotlightForGender = async (sessionId: string, gender: st
     // If there's already a spotlight, don't replace them
     if (currentSpotlight) {
       debugLog('AutoSelect', `There's already a ${gender} spotlight: ${currentSpotlight}`);
+      
+      // CRITICAL FIX: If this user isn't the current spotlight, notify via return value
+      if (userId && userId !== currentSpotlight && typeof window !== 'undefined' && window.lineupContextRef?.current) {
+        window.lineupContextRef.current.setStep('lineup');
+        debugLog('AutoSelect', `User ${userId} not current spotlight, moving to lineup`);
+      }
+      
       return currentSpotlight;
     }
     
