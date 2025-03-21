@@ -144,12 +144,13 @@ useEffect(() => {
   
   const setupMessageListener = async () => {
     console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
+    
     // Only detect collection if it wasn't forced
     if (!forcedCollectionPath) {
       // Try matches collection first
       let matchRef = doc(firestore, 'matches', matchId);
       let matchExists = (await getDoc(matchRef)).exists();
-      actualCollectionPath = 'matches';
+      actualCollectionPath = 'matches'; // UPDATE THIS LINE - no 'let'
       
       // If not found, try speedDatingConnections
       if (!matchExists) {
@@ -170,7 +171,7 @@ useEffect(() => {
     console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
     
     // Now setup message listener with the determined path
-    const messagesRef = collection(firestore, actualCollectionPath || 'matches', matchId, 'messages');
+    const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
     const q = query(
       messagesRef, 
       orderBy('createdAt', 'asc')
@@ -244,7 +245,7 @@ useEffect(() => {
     
     try {
       // Use the determined collection path
-      const actualCollectionPath = collectionPath;
+      const actualCollectionPath = forcedCollectionPath || 'matches';
       
       console.log("Marking messages as read");
       
