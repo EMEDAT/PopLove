@@ -130,16 +130,11 @@ export default function SpeedDatingChatRoom({
 
   const matchUserId = match.id;
 
-  console.log(`Launching ChatScreen with matchId=${matchId} for user=${match.id}`);
-
-  console.log('DEBUG CHAT MAPPING', {
-    matchId,
-    currentUserId: auth.currentUser?.uid,
+  // Add debug output:
+  console.log('SpeedDatingChatRoom: Checking message visibility for:', {
+    currentUserId: user?.uid,
     matchUserId: match.id,
-    otherUserDetails: {
-      id: matchUserId,
-      displayName: match.displayName
-    }
+    matchId
   });
   
   return (
@@ -148,17 +143,17 @@ export default function SpeedDatingChatRoom({
       <TouchableWithoutFeedback onPress={handleBackgroundPress}>
         <View style={styles.chatContainer}>
         <ChatScreen 
-            matchId={matchId}
-            otherUser={{
-              id: match.id,
-              displayName: match.displayName,
-              photoURL: match.photoURL,
-              status: 'Online'
-            }}
-            speedDatingMode={true}
-            forcedCollectionPath="speedDatingConnections"
-            onGoBack={onBack}
-          />
+          matchId={matchId}
+          otherUser={{
+            id: match.id,
+            displayName: match.displayName,
+            photoURL: match.photoURL,
+            status: 'Online'
+          }}
+          speedDatingMode={true}
+          forcedCollectionPath="speedDatingConnections"
+          onGoBack={onBack}
+        />
         </View>
       </TouchableWithoutFeedback>
       

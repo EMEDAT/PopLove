@@ -90,7 +90,9 @@ export function ChatScreen({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [longPressedMessage, setLongPressedMessage] = useState<string | null>(null);
   const [subscribedCollection, setSubscribedCollection] = useState<string | null>(null);
-  const [collectionPath, setCollectionPath] = useState<string>(forcedCollectionPath || 'matches');
+  const [collectionPath, setCollectionPath] = useState<'matches' | 'speedDatingConnections'>(
+    (forcedCollectionPath as 'matches' | 'speedDatingConnections') || 'matches'
+  );
 
   // After the state declarations, right before the useEffect blocks
   console.log("BREAKPOINT 2: MESSAGES TO RENDER:", messages.map(m => ({
@@ -143,34 +145,41 @@ export function ChatScreen({
     let actualCollectionPath = forcedCollectionPath || 'matches';
     
     const setupMessageListener = async () => {
-      console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
+      console.log(`Setting up message listener for match ${matchId}, path: ${forcedCollectionPath || 'auto-detect'}`);
       
-      // Only detect collection if it wasn't forced
+      // Determine collection path
+      let actualCollectionPath: 'matches' | 'speedDatingConnections' = 
+      forcedCollectionPath as 'matches' | 'speedDatingConnections' || 'matches';
+      let foundCollection = false;
+      
       if (!forcedCollectionPath) {
-        // Try matches collection first
-        let matchRef = doc(firestore, 'matches', matchId);
-        let matchExists = (await getDoc(matchRef)).exists();
+        // Try each collection in order
+        const collections = ['matches', 'speedDatingConnections'];
         
-        // If not found, try speedDatingConnections
-        if (!matchExists) {
-          actualCollectionPath = 'speedDatingConnections';
-          matchRef = doc(firestore, 'speedDatingConnections', matchId);
-          matchExists = (await getDoc(matchRef)).exists();
+        for (const collection of collections) {
+          const docRef = doc(firestore, collection, matchId);
+          const exists = (await getDoc(docRef)).exists();
           
-          if (!matchExists) {
-            console.error(`Chat not found: ${matchId}`);
-            setLoading(false);
-            return () => {};
+          if (exists) {
+            actualCollectionPath = collection;
+            foundCollection = true;
+            console.log(`Found match in ${collection} collection`);
+            break;
           }
         }
+        
+        if (!foundCollection) {
+          console.error(`Chat not found in any collection: ${matchId}`);
+          setLoading(false);
+          return () => {};
+        }
       } else {
-        // Force the provided path if specified
-        actualCollectionPath = forcedCollectionPath;
+        foundCollection = true;
       }
       
-      // Save the collection path for other functions to use
+      // Save collection path for future use
       setCollectionPath(actualCollectionPath);
-      console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
+      console.log(`Using collection: ${actualCollectionPath} for match ${matchId}`);
       
       // Now setup message listener with the determined path
       const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
@@ -193,23 +202,14 @@ export function ChatScreen({
           ...doc.data(),
           status: doc.data().status || MessageStatus.SENT
         })) as Message[];
-
-        console.log("MESSAGE FILTERING DEBUG:", {
-          userSentIDs: snapshot.docs
-            .filter(doc => doc.data().senderId === user?.uid)
-            .map(doc => doc.id),
-          otherUserSentIDs: snapshot.docs
-            .filter(doc => doc.data().senderId === otherUser.id)
-            .map(doc => doc.id),
-          systemMsgIDs: snapshot.docs
-            .filter(doc => doc.data().senderId === "system")
-            .map(doc => doc.id),
-          allMessages: newMessages.map(m => ({id: m.id, senderId: m.senderId, text: m.text}))
-        });
+      
+        console.log("RECEIVED RAW MESSAGES:", newMessages.length, 
+          "userMessages:", newMessages.filter(m => m.senderId === user?.uid).length,
+          "otherMessages:", newMessages.filter(m => m.senderId === otherUser.id).length,
+          "systemMessages:", newMessages.filter(m => m.senderId === "system").length
+        );
         
-        console.log(`GOT ${newMessages.length} MESSAGES FOR RENDERING`, newMessages);
-        
-        // Important: Don't filter messages by sender - show ALL messages
+        // Do NOT filter messages by sender - show ALL messages
         setMessages(newMessages);
         setLoading(false);
         
@@ -262,9 +262,10 @@ export function ChatScreen({
     
     try {
       // Use the determined collection path
-      const actualCollectionPath = forcedCollectionPath || 'matches';
+      const actualCollectionPath = collectionPath;
       
-      console.log("Marking messages as read");
+      console.log(`Marking messages as read in ${actualCollectionPath}/${matchId}/messages`);
+      console.log(`Current user: ${user.uid}, Other user: ${otherUser.id}`);
       
       // Find messages that need to be marked as read
       const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
@@ -277,7 +278,7 @@ export function ChatScreen({
       const deliveredMessages = await getDocs(deliveredQuery);
       
       if (!deliveredMessages.empty) {
-        console.log(`Found ${deliveredMessages.size} messages to mark as read`);
+        console.log(`Found ${deliveredMessages.size} messages to mark as read from ${otherUser.id}`);
         
         // Update to READ status in batch
         const batch = writeBatch(firestore);
@@ -289,14 +290,6 @@ export function ChatScreen({
         });
         
         await batch.commit();
-        
-        // Only update match document if using matches collection
-        if (actualCollectionPath === 'matches') {
-          await updateDoc(doc(firestore, 'matches', matchId), {
-            [`unreadCount.${user.uid}`]: 0,
-            lastCheckedAt: serverTimestamp()
-          });
-        }
       }
     } catch (error) {
       console.error('Error updating message status:', error);
@@ -541,6 +534,9 @@ export function ChatScreen({
 
   // Create a separate AnimatedEmojiMessage component outside your main component
   const AnimatedEmojiMessage = ({ message, isCurrentUser, formatMessageTime }) => {
+    console.log("Rendering emoji message:", message.text, "from:", message.senderId, 
+      "isCurrentUser:", isCurrentUser);
+
     const scale = useSharedValue(1);
     const [animating, setAnimating] = useState(true);
     
@@ -693,7 +689,6 @@ export function ChatScreen({
         data={flattenedMessages}
         keyExtractor={(item) => ('id' in item) ? item.id : Math.random().toString()}
         renderItem={({ item }) => {
-          debugger;
             if ('type' in item && item.type === 'date') {
               return (
                 <View style={styles.dateHeader}>

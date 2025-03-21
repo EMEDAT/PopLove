@@ -25,15 +25,21 @@ export default function ChatDetail() {
           setLoading(false);
           return;
         }
-
-        // Fetch match data
-        const matchRef = doc(firestore, 'matches', matchId);
-        const matchSnap = await getDoc(matchRef);
+  
+        // Try to find match in both collections
+        let matchRef = doc(firestore, 'matches', matchId);
+        let matchSnap = await getDoc(matchRef);
         
+        // If not found in matches, try speedDatingConnections
         if (!matchSnap.exists()) {
-          setError('Match not found');
-          setLoading(false);
-          return;
+          matchRef = doc(firestore, 'speedDatingConnections', matchId);
+          matchSnap = await getDoc(matchRef);
+          
+          if (!matchSnap.exists()) {
+            setError('Match not found in any collection');
+            setLoading(false);
+            return;
+          }
         }
         
         const data = matchSnap.data();
