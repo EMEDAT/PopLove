@@ -17,7 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
 import { useAuthContext } from '../../../components/auth/AuthProvider';
-import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  onSnapshot, 
+  deleteDoc,
+  collection, 
+  getDocs, 
+  writeBatch, 
+} from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 
 const { width, height } = Dimensions.get('window');
@@ -159,10 +166,39 @@ export default function SpeedDatingChatRoom({
     onEndChat();
     
     // Delete in background without waiting
-    setTimeout(() => {
-      deleteDoc(doc(firestore, 'speedDatingConnections', roomIdToDelete))
-        .then(() => console.log(`Room ${roomIdToDelete} deleted immediately`))
-        .catch(error => console.error('Room deletion error:', error));
+    setTimeout(async () => {
+      try {
+        // 1. Delete all messages first
+        const messagesRef = collection(firestore, 'speedDatingConnections', roomIdToDelete, 'messages');
+        const messagesSnapshot = await getDocs(messagesRef);
+        
+        if (!messagesSnapshot.empty) {
+          const batch = writeBatch(firestore);
+          messagesSnapshot.docs.forEach(messageDoc => {
+            batch.delete(messageDoc.ref);
+          });
+          await batch.commit();
+          console.log(`Deleted ${messagesSnapshot.size} messages from room ${roomIdToDelete}`);
+        }
+        
+        // 2. Delete any subcollections (like rejectionEvents)
+        const eventsRef = collection(firestore, 'speedDatingConnections', roomIdToDelete, 'rejectionEvents');
+        const eventsSnapshot = await getDocs(eventsRef);
+        
+        if (!eventsSnapshot.empty) {
+          const batch = writeBatch(firestore);
+          eventsSnapshot.docs.forEach(eventDoc => {
+            batch.delete(eventDoc.ref);
+          });
+          await batch.commit();
+        }
+        
+        // 3. Delete the room document itself
+        await deleteDoc(doc(firestore, 'speedDatingConnections', roomIdToDelete));
+        console.log(`Room ${roomIdToDelete} deleted immediately`);
+      } catch (error) {
+        console.error('Room deletion error:', error);
+      }
     }, 100);
   };
   
