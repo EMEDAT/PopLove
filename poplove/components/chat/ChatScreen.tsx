@@ -163,6 +163,9 @@ export function ChatScreen({
             return () => {};
           }
         }
+      } else {
+        // Force the provided path if specified
+        actualCollectionPath = forcedCollectionPath;
       }
       
       // Save the collection path for other functions to use
@@ -181,7 +184,7 @@ export function ChatScreen({
         userId: user?.uid,
         otherUserId: otherUser.id,
         matchId,
-        collectionPath
+        collectionPath: actualCollectionPath
       });
       
       return onSnapshot(q, (snapshot) => {
@@ -190,6 +193,8 @@ export function ChatScreen({
           ...doc.data(),
           status: doc.data().status || MessageStatus.SENT
         })) as Message[];
+        
+        console.log(`GOT ${newMessages.length} MESSAGES FOR RENDERING`, newMessages);
         
         // Important: Don't filter messages by sender - show ALL messages
         setMessages(newMessages);

@@ -43,6 +43,7 @@ export default function SpeedDatingChatRoom({
   const overlayScale = React.useRef(new Animated.Value(1)).current;
   const currentUserId = auth.currentUser?.uid;
   const isCurrentUserSender = true;
+  const chattingUsers = [currentUserId, match.id].sort().join('_');
 
   console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
     matchId,
