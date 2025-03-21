@@ -850,94 +850,36 @@ const handleEndChatSession = async () => {
   try {
     setLoading(true);
     
-    // CRITICAL FIX: Use multiple methods to ensure rejection is detected
-    console.log(`[CRITICAL] Aggressively marking room ${chatRoomId} as rejected by user ${user.uid}`);
+    // First check if room still exists
+    const roomRef = doc(firestore, 'speedDatingConnections', chatRoomId);
+    const roomDoc = await getDoc(roomRef);
     
-    // Method 1: Standard updateDoc with rejection status
-    await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
-      status: 'rejected',
-      rejectedAt: serverTimestamp(),
-      rejectedBy: user.uid,
-      rejectionTimestamp: Date.now(), // Add a client timestamp for immediate detection
-      rejectionData: {
-        rejectorId: user.uid,
-        rejectorName: user.displayName || 'User',
-        rejectedUserId: selectedMatch.id,
-        rejectedUserName: selectedMatch.displayName
-      }
-    });
-    
-    // Method 2: Direct set with merge to ensure all clients get the update
-    await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
-      status: 'rejected',
-      rejectedBy: user.uid,
-      // Add a unique field with current timestamp to force update
-      rejectionForceUpdate: `rejected_${Date.now()}`
-    }, { merge: true });
-    
-    // Method 3: Also write to a subCollection document to trigger additional listeners
-    await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'rejectionEvents', 'latest'), {
-      status: 'rejected',
-      timestamp: serverTimestamp(),
-      clientTimestamp: Date.now(),
-      rejectedBy: user.uid,
-      rejectedUserId: selectedMatch.id
-    });
-    
-    console.log(`[CRITICAL] Multiple rejection markers set for room ${chatRoomId}`);
-    
-    // Wait for rejection to propagate - use a longer delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Clean up messages but keep the document for a while
-    try {
-      // Delete all messages
-      console.log(`[CRITICAL] Cleaning up messages for room ${chatRoomId}`);
-      const messagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
-      const messagesSnapshot = await getDocs(messagesRef);
-      
-      if (!messagesSnapshot.empty) {
-        const batch = writeBatch(firestore);
-        messagesSnapshot.docs.forEach(messageDoc => {
-          batch.delete(messageDoc.ref);
-        });
-        await batch.commit();
-        console.log(`[CRITICAL] Cleared ${messagesSnapshot.size} messages from room ${chatRoomId}`);
-      }
-      
-      // Mark as fully cleared but don't delete yet
-      await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
-        status: 'rejected_final',
-        dataCleared: true,
-        finalCleanupTime: serverTimestamp(),
-        messages: 'deleted',
-        // Important: Add a unique key to ensure the update is seen
-        finalUpdateKey: `final_${Date.now()}`
+    if (roomDoc.exists()) {
+      // Room exists, update it with rejection status
+      await updateDoc(roomRef, {
+        status: 'rejected',
+        rejectedBy: user.uid,
+        rejectionTimestamp: Date.now(),
+        rejectionForceUpdate: `rejected_${Date.now()}`
       });
       
-      console.log(`[CRITICAL] Room ${chatRoomId} marked as rejected_final`);
-      
-      // Schedule room deletion
-      setTimeout(async () => {
-        try {
-          await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
-          console.log(`[CRITICAL] Completely deleted room ${chatRoomId}`);
-        } catch (err) {
-          console.error('[CRITICAL] Error in final room deletion:', err);
-        }
-      }, 30000); // 30 seconds
-    } catch (err) {
-      console.error('[CRITICAL] Error cleaning up chat room:', err);
+      // Create a redundant rejection event
+      await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'rejectionEvents', 'latest'), {
+        status: 'rejected',
+        timestamp: serverTimestamp(),
+        rejectedBy: user.uid
+      }).catch(() => console.log("Couldn't create rejection event - room might be gone"));
     }
     
-    // Go to rejection screen
+    // Always navigate regardless of room existence
     setCurrentStep('rejection');
     
     // Clear timers
     if (chatTimerRef.current) clearInterval(chatTimerRef.current);
     if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
   } catch (error) {
-    console.error('[CRITICAL] Error ending chat session:', error);
+    console.error('Error ending chat:', error);
+    // Still continue to rejection screen even if error occurs
     setCurrentStep('rejection');
   } finally {
     setLoading(false);

@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
 import { useAuthContext } from '../../../components/auth/AuthProvider';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 
 const { width, height } = Dimensions.get('window');
@@ -53,53 +53,32 @@ export default function SpeedDatingChatRoom({
   useEffect(() => {
     if (!matchId || !user) return;
     
-    console.log(`[CRITICAL] Setting up bulletproof rejection detection for room ${matchId}`);
-    
-    // Set up real-time listener on the main document
-    const unsubMain = onSnapshot(
+    // When we detect ANY change to the room document or if it's deleted, exit immediately
+    const unsubscribe = onSnapshot(
       doc(firestore, 'speedDatingConnections', matchId),
       { includeMetadataChanges: true },
       (snapshot) => {
         if (!snapshot.exists()) {
-          console.log(`[CRITICAL] Room document was deleted - exiting immediately`);
+          console.log("Room document deleted, exiting immediately");
           onBack();
           return;
         }
         
+        // Any change to status/rejection fields means we should exit
         const data = snapshot.data();
-        if (data?.status === 'rejected' || data?.rejectedBy || data?.rejectionForceUpdate) {
-          console.log(`[CRITICAL] Room ${matchId} marked as rejected - exiting`);
+        if (data?.status === 'rejected' || data?.rejectedBy) {
+          console.log("Room rejection detected, exiting immediately");
           onBack();
         }
+      },
+      // Even if an error occurs (like document deleted), still exit
+      (error) => {
+        console.error("Error in room listener:", error);
+        onBack();
       }
     );
     
-    // Also add a forceful polling check every 2 seconds as backup
-    const interval = setInterval(async () => {
-      try {
-        const roomDoc = await getDoc(doc(firestore, 'speedDatingConnections', matchId));
-        if (!roomDoc.exists()) {
-          console.log(`[CRITICAL] Polling detected room ${matchId} was deleted`);
-          clearInterval(interval);
-          onBack();
-          return;
-        }
-        
-        const data = roomDoc.data();
-        if (data?.status === 'rejected' || data?.rejectedBy) {
-          console.log(`[CRITICAL] Polling detected room ${matchId} was rejected`);
-          clearInterval(interval);
-          onBack();
-        }
-      } catch (err) {
-        console.error('[CRITICAL] Error in rejection polling:', err);
-      }
-    }, 2000);
-    
-    return () => {
-      unsubMain();
-      clearInterval(interval);
-    };
+    return () => unsubscribe();
   }, [matchId, user]);
 
   console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
@@ -171,6 +150,22 @@ export default function SpeedDatingChatRoom({
       minimizeOverlay();
     }
   };
+
+  const handleImmediateRoomDeletion = async () => {
+    // Store the match ID first for cleanup
+    const roomIdToDelete = matchId;
+    
+    // Call parent's onEndChat to trigger rejection screen navigation
+    onEndChat();
+    
+    // Delete in background without waiting
+    setTimeout(() => {
+      deleteDoc(doc(firestore, 'speedDatingConnections', roomIdToDelete))
+        .then(() => console.log(`Room ${roomIdToDelete} deleted immediately`))
+        .catch(error => console.error('Room deletion error:', error));
+    }, 100);
+  };
+  
   
   // Render the mini reminder overlay
   const renderMiniReminder = () => (
@@ -245,17 +240,16 @@ export default function SpeedDatingChatRoom({
           
           {/* Action buttons at bottom */}
           <View style={styles.chatActionButtons}>
-            <TouchableOpacity 
-              style={styles.endChatButton}
-              onPress={onEndChat}
-            >
-              <Image 
-                source={require('../../../assets/images/main/LoveError.png')} 
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.endChatText}>Pop Balloon</Text>
-            </TouchableOpacity>
+          <TouchableOpacity 
+          style={styles.endChatButton}
+          onPress={handleImmediateRoomDeletion}
+        >
+          <Image source={require('../../../assets/images/main/LoveError.png')} 
+            style={styles.actionIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.endChatText}>Pop Balloon</Text>
+        </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.continueChatButton}
