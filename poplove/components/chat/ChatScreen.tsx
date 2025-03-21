@@ -193,6 +193,19 @@ export function ChatScreen({
           ...doc.data(),
           status: doc.data().status || MessageStatus.SENT
         })) as Message[];
+
+        console.log("MESSAGE FILTERING DEBUG:", {
+          userSentIDs: snapshot.docs
+            .filter(doc => doc.data().senderId === user?.uid)
+            .map(doc => doc.id),
+          otherUserSentIDs: snapshot.docs
+            .filter(doc => doc.data().senderId === otherUser.id)
+            .map(doc => doc.id),
+          systemMsgIDs: snapshot.docs
+            .filter(doc => doc.data().senderId === "system")
+            .map(doc => doc.id),
+          allMessages: newMessages.map(m => ({id: m.id, senderId: m.senderId, text: m.text}))
+        });
         
         console.log(`GOT ${newMessages.length} MESSAGES FOR RENDERING`, newMessages);
         
