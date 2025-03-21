@@ -974,6 +974,13 @@ const handleContinueToPermanentChat = async () => {
 
         await batch.commit();
 
+        // Add this new line to create the event for other user
+        await setDoc(doc(firestore, 'speedDatingConnections', chatRoomId, 'matchEvents', 'permanent'), {
+          status: 'permanent_match_created',
+          matchId: matchRef.id,
+          timestamp: serverTimestamp()
+        });
+
         // Delete the temporary connection
         await deleteDoc(connectionRef);
 

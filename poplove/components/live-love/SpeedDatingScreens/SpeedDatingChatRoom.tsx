@@ -87,6 +87,25 @@ export default function SpeedDatingChatRoom({
     
     return () => unsubscribe();
   }, [matchId, user]);
+  
+
+  useEffect(() => {
+    if (!matchId) return;
+    
+    // Listen for permanent match event
+    const matchEventsRef = doc(firestore, 'speedDatingConnections', matchId, 'matchEvents', 'permanent');
+    const unsubscribe = onSnapshot(matchEventsRef, (snapshot) => {
+      if (snapshot.exists() && snapshot.data()?.status === 'permanent_match_created') {
+        // Get the new match ID and call the continue function
+        const newMatchId = snapshot.data()?.matchId;
+        if (newMatchId) {
+          onContinueChat();
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [matchId]);
 
   console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
     matchId,
