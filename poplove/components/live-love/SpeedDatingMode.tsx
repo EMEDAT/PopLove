@@ -612,7 +612,7 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
     setLoading(true);
     setRejectionReason(reason);
     
-    // Create a structured rejection review document
+    // Submit rejection review regardless of chat room existence
     const rejectionReview = {
       reviewerId: user.uid,
       reviewerName: user.displayName || 'Anonymous User',
@@ -620,67 +620,46 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
       sourceType: 'speedDating',
       createdAt: serverTimestamp(),
       matchPercentage: selectedMatch.matchPercentage || 0,
-      // Add the detailed feedback data
       feedbackData: feedbackData || null,
-      // Session details
       sessionDetails: {
-        chatDuration: chatRoomId ? (4 * 60 * 60 - chatTimeLeft) : 0, // How long they chatted (if they did)
+        chatDuration: chatRoomId ? (4 * 60 * 60 - chatTimeLeft) : 0,
         rejectedAt: serverTimestamp()
       }
     };
     
-    // Store in a new "rejectionReviews" collection for the rejected user
-    const rejectionRef = collection(firestore, 'users', selectedMatch.id, 'rejectionReviews');
-    await addDoc(rejectionRef, rejectionReview);
+    // Store in rejectionReviews collection
+    await addDoc(collection(firestore, 'users', selectedMatch.id, 'rejectionReviews'), rejectionReview);
     
-    // Also store in a global "speedDatingFeedback" collection for analysis
+    // Also store in global collection
     await addDoc(collection(firestore, 'speedDatingFeedback'), {
       ...rejectionReview,
       rejectedUserId: selectedMatch.id
     });
     
-    // If we had a chat room, update its status and clean up the messages
+    // If room still exists, update it - but don't fail if it doesn't
     if (chatRoomId) {
-      // First update the room with final rejection details
-      await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
-        status: 'rejected_final',
-        rejectionReason: reason,
-        rejectionFeedback: feedbackData || null,
-        finalizedAt: serverTimestamp(),
-        // Keep track of who submitted feedback
-        feedbackSubmitter: user.uid
-      });
-      
-      // Add a timer to clean up the room and messages in 5 minutes
-      // We delay this to allow the other user to see what happened
-      setTimeout(async () => {
-        try {
-          // Delete all messages
-          const messagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
-          const messagesSnapshot = await getDocs(messagesRef);
-          
-          if (!messagesSnapshot.empty) {
-            const batch = writeBatch(firestore);
-            messagesSnapshot.docs.forEach(messageDoc => {
-              batch.delete(messageDoc.ref);
-            });
-            await batch.commit();
-          }
-          
-          // Finally delete the room itself
-          await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
-          console.log(`Cleaned up rejected chat room: ${chatRoomId}`);
-        } catch (err) {
-          console.error('Error cleaning up rejected chat room:', err);
+      try {
+        const roomRef = doc(firestore, 'speedDatingConnections', chatRoomId);
+        const roomExists = (await getDoc(roomRef)).exists();
+        
+        if (roomExists) {
+          await updateDoc(roomRef, {
+            status: 'rejected_final',
+            rejectionReason: reason,
+            rejectionFeedback: feedbackData || null,
+            finalizedAt: serverTimestamp(),
+            feedbackSubmitter: user.uid
+          });
         }
-      }, 5 * 60 * 1000); // 5 minutes
+      } catch (err) {
+        console.log('Room already deleted, continuing with rejection flow');
+      }
     }
     
-    // After storing the rejection, navigate back
+    // Always navigate back after submission
     handleBackNavigation();
   } catch (error) {
     console.error('Error submitting rejection:', error);
-    // Still navigate back even if there's an error
     handleBackNavigation();
   } finally {
     setLoading(false);
