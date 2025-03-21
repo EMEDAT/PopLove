@@ -132,90 +132,90 @@ export function ChatScreen({
     }
   }, [appActive, isFocused]);
 
-// Subscribe to messages
-useEffect(() => {
-  console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
+  // Subscribe to messages
+  useEffect(() => {
+    console.log(`Setting up chat for ${user?.uid} with other user: ${otherUser.id} in ${forcedCollectionPath || 'auto-detected'} collection`);
 
-  if (!matchId) return;
-  setLoading(true);
-  
-  // Default path to ensure actualCollectionPath is always defined
-  let actualCollectionPath = forcedCollectionPath || 'matches';
-  
-  const setupMessageListener = async () => {
-    console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
+    if (!matchId) return;
+    setLoading(true);
     
-    // Only detect collection if it wasn't forced
-    if (!forcedCollectionPath) {
-      // Try matches collection first
-      let matchRef = doc(firestore, 'matches', matchId);
-      let matchExists = (await getDoc(matchRef)).exists();
+    // Default path to ensure actualCollectionPath is always defined
+    let actualCollectionPath = forcedCollectionPath || 'matches';
+    
+    const setupMessageListener = async () => {
+      console.log(`BREAKPOINT 1: Collection path detection, forced=${forcedCollectionPath}`);
       
-      // If not found, try speedDatingConnections
-      if (!matchExists) {
-        actualCollectionPath = 'speedDatingConnections';
-        matchRef = doc(firestore, 'speedDatingConnections', matchId);
-        matchExists = (await getDoc(matchRef)).exists();
+      // Only detect collection if it wasn't forced
+      if (!forcedCollectionPath) {
+        // Try matches collection first
+        let matchRef = doc(firestore, 'matches', matchId);
+        let matchExists = (await getDoc(matchRef)).exists();
         
+        // If not found, try speedDatingConnections
         if (!matchExists) {
-          console.error(`Chat not found: ${matchId}`);
-          setLoading(false);
-          return () => {};
+          actualCollectionPath = 'speedDatingConnections';
+          matchRef = doc(firestore, 'speedDatingConnections', matchId);
+          matchExists = (await getDoc(matchRef)).exists();
+          
+          if (!matchExists) {
+            console.error(`Chat not found: ${matchId}`);
+            setLoading(false);
+            return () => {};
+          }
         }
       }
-    }
-    
-    // Save the collection path for other functions to use
-    setCollectionPath(actualCollectionPath);
-    console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
-    
-    // Now setup message listener with the determined path
-    const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
-    const q = query(
-      messagesRef, 
-      orderBy('createdAt', 'asc')
-    );
+      
+      // Save the collection path for other functions to use
+      setCollectionPath(actualCollectionPath);
+      console.log(`Subscribing to: ${actualCollectionPath}/${matchId}/messages`);
+      
+      // Now setup message listener with the determined path
+      const messagesRef = collection(firestore, actualCollectionPath, matchId, 'messages');
+      const q = query(
+        messagesRef, 
+        orderBy('createdAt', 'asc')
+      );
 
-    // Add explicit logging in listener
-    console.log('MESSAGE LISTENER DEBUG', {
-      userId: user?.uid,
-      otherUserId: otherUser.id,
-      matchId,
-      collectionPath
-    });
+      // Add explicit logging in listener
+      console.log('MESSAGE LISTENER DEBUG', {
+        userId: user?.uid,
+        otherUserId: otherUser.id,
+        matchId,
+        collectionPath
+      });
+      
+      return onSnapshot(q, (snapshot) => {
+        const newMessages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          status: doc.data().status || MessageStatus.SENT
+        })) as Message[];
+        
+        // Important: Don't filter messages by sender - show ALL messages
+        setMessages(newMessages);
+        setLoading(false);
+        
+        // Scroll to bottom on new messages
+        if (newMessages.length > 0) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 200);
+        }
+        
+        // Mark messages as read
+        if (appActive && !hasMarkedMessagesAsRead.current) {
+          markMessagesAsRead();
+        }
+      });
+    };
     
-    return onSnapshot(q, (snapshot) => {
-      const newMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        status: doc.data().status || MessageStatus.SENT
-      })) as Message[];
-      
-      // Important: Don't filter messages by sender - show ALL messages
-      setMessages(newMessages);
-      setLoading(false);
-      
-      // Scroll to bottom on new messages
-      if (newMessages.length > 0) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 200);
-      }
-      
-      // Mark messages as read
-      if (appActive && !hasMarkedMessagesAsRead.current) {
-        markMessagesAsRead();
-      }
+    let unsubscribe = () => {};
+    setupMessageListener().then(unsub => {
+      if (unsub) unsubscribe = unsub;
     });
-  };
-  
-  let unsubscribe = () => {};
-  setupMessageListener().then(unsub => {
-    if (unsub) unsubscribe = unsub;
-  });
 
-  return () => unsubscribe();
-}, [matchId, forcedCollectionPath]);
+    return () => unsubscribe();
+  }, [matchId, forcedCollectionPath]);
 
 
   // Mark messages as read when chat is opened - FIXED VERSION
