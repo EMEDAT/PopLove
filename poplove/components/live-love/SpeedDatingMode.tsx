@@ -843,14 +843,18 @@ const handleConnectWithMatch = async (match: Match) => {
   
   
   // End the current chat session
-// Update handleEndChatSession to immediately clean up the room
+// Updated handleEndChatSession to properly notify rejected user and clear chat
 const handleEndChatSession = async () => {
   if (!chatRoomId || !user || !selectedMatch) return;
   
   try {
     setLoading(true);
     
-    // First, update the room status to rejected
+    // CRITICAL FIX: First, update the room status to rejected BUT DO NOT DELETE YET
+    // This allows the other user's listener to detect the change and navigate away
+    console.log(`Marking room ${chatRoomId} as rejected by user ${user.uid}`);
+    
+    // Update with explicit rejection status so other user's listener will trigger
     await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
       status: 'rejected',
       rejectedAt: serverTimestamp(),
@@ -864,7 +868,12 @@ const handleEndChatSession = async () => {
       }
     });
     
-    // Immediately cleanup the room messages (don't wait)
+    // Wait a moment to ensure the status update is propagated to Firebase
+    // This gives the other user's listener time to detect the change
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Now the other user should have received the notification and navigated away
+    // We can now clean up the chat room data
     try {
       // Delete all messages
       const messagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
@@ -879,9 +888,31 @@ const handleEndChatSession = async () => {
         console.log(`Cleared ${messagesSnapshot.size} messages`);
       }
       
-      // Also delete the room document itself - NOT waiting for feedback
-      await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
-      console.log(`Deleted chat room: ${chatRoomId}`);
+      // CRITICAL: Keep the document but mark it as fully cleared
+      // This ensures both users can properly detect the rejection but data is cleaned up
+      await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
+        status: 'rejected_final',
+        dataCleared: true,
+        finalCleanupTime: serverTimestamp(),
+        // Keep minimal metadata for debugging
+        rejectionMetadata: {
+          rejectorId: user.uid,
+          rejectedId: selectedMatch.id,
+          timeCleared: new Date().toISOString()
+        }
+      });
+      
+      console.log(`Cleaned up chat room: ${chatRoomId}`);
+      
+      // Schedule final deletion after both users have likely navigated away
+      setTimeout(async () => {
+        try {
+          await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
+          console.log(`Fully deleted chat room: ${chatRoomId}`);
+        } catch (err) {
+          console.error('Error in final room deletion:', err);
+        }
+      }, 30000); // Wait 30 seconds for final deletion
     } catch (err) {
       console.error('Error cleaning up chat room:', err);
       // Continue even if cleanup fails
@@ -1064,50 +1095,6 @@ const handleContinueToPermanentChat = async () => {
       ? `${paddedHours}:${paddedMinutes}:${paddedSeconds}`
       : `${paddedMinutes}:${paddedSeconds}`;
   };
-
-  // Add this after your other useEffect hooks
-useEffect(() => {
-  // Only set up listener in chat mode with a valid room ID
-  if (currentStep === 'chat' && chatRoomId) {
-    console.log(`Setting up rejection listener for room: ${chatRoomId}`);
-    
-    // Listen for changes to the room document
-    const unsub = onSnapshot(doc(firestore, 'speedDatingConnections', chatRoomId), (snapshot) => {
-      // If the document was deleted or marked as rejected
-      if (!snapshot.exists() || (snapshot.exists() && snapshot.data()?.status === 'rejected')) {
-        console.log('Other user rejected or deleted the chat - returning to selection');
-        
-        // The other user has popped the balloon
-        Alert.alert(
-          'Chat Ended',
-          'The other user has ended this chat session.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Clear timers
-                if (chatTimerRef.current) clearInterval(chatTimerRef.current);
-                if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
-                
-                // Go back to selection screen IMMEDIATELY
-                handleBackNavigation();
-              }
-            }
-          ]
-        );
-      }
-    }, 
-    // Add error handling for the listener
-    (error) => {
-      console.error("Error in chat room listener:", error);
-      // If listening fails (e.g., document deleted), go back to selection
-      handleBackNavigation();
-    });
-    
-    // Cleanup listener on unmount or mode change
-    return () => unsub();
-  }
-}, [currentStep, chatRoomId, user]);
   
   // Render based on current step
   return (

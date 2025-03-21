@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
 import { useAuthContext } from '../../../components/auth/AuthProvider';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { firestore } from '../../../lib/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +46,42 @@ export default function SpeedDatingChatRoom({
   const { user } = useAuthContext();
   const currentUserId = user?.uid;
   const isCurrentUserSender = true;
+  const [isBeingRejected, setIsBeingRejected] = useState(false);
+
+  // Add an effect to listen for rejection updates
+  useEffect(() => {
+    if (!matchId || !user) return;
+    
+    console.log(`Setting up chat room rejection listener for ${matchId}`);
+    
+    // Listen for changes to the room document
+    const unsub = onSnapshot(doc(firestore, 'speedDatingConnections', matchId), (snapshot) => {
+      // Check if room is marked as rejected
+      if (snapshot.exists() && snapshot.data()?.status === 'rejected') {
+        const rejectedBy = snapshot.data()?.rejectedBy;
+        
+        // If rejected by the other user
+        if (rejectedBy && rejectedBy !== user.uid) {
+          console.log('This chat was rejected by the other user');
+          setIsBeingRejected(true);
+          
+          // Force navigation back
+          onBack();
+        }
+      }
+      // If document is deleted
+      else if (!snapshot.exists()) {
+        console.log('Chat room document no longer exists');
+        onBack();
+      }
+    }, 
+    (error) => {
+      console.error("Error in SpeedDatingChatRoom listener:", error);
+      onBack();
+    });
+    
+    return () => unsub();
+  }, [matchId, user]);
 
   console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
     matchId,
