@@ -9,6 +9,7 @@ import {
   query, 
   where, 
   serverTimestamp, 
+  QueryDocumentSnapshot,
   doc, 
   limit,
   setDoc,
@@ -617,64 +618,60 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
 };
   
   // Connect with a match
-  const handleConnectWithMatch = async (match: Match) => {
-    if (!user || !match) return;
+// Connect with a match - FIX FOR CHAT ROOM SYNC ISSUE
+const handleConnectWithMatch = async (match: Match) => {
+  if (!user || !match) return;
+  
+  try {
+    setLoading(true);
     
-    try {
-      setLoading(true);
-      
-      // Check if there's already a connection between these users
+    // CREATE A CONSISTENT ROOM ID BASED ON USER IDs
+    // Sort user IDs to ensure the same room ID regardless of who initiates
+    const userIds = [user.uid, match.id].sort();
+    const consistentRoomId = `speed_${userIds[0]}_${userIds[1]}`;
+    
+    console.log(`Checking for room with consistent ID: ${consistentRoomId}`);
+    
+    // Check if the room already exists using the consistent ID
+    const roomRef = doc(firestore, 'speedDatingConnections', consistentRoomId);
+    const roomSnapshot = await getDoc(roomRef);
+    
+    let connectionId;
+    
+    if (roomSnapshot.exists()) {
+      // Room already exists, use it
+      connectionId = consistentRoomId;
+      console.log(`Using existing connection with consistent ID: ${connectionId}`);
+    } else {
+      // As a fallback, check if there's a connection in a different format
       const connectionsRef = collection(firestore, 'speedDatingConnections');
       
-      // First query connections where current user is in the users array
-      const userConnectionsQuery = query(
-        connectionsRef,
-        where('users', 'array-contains', user.uid)
-      );
+      // Single query that can find the connection regardless of who created it
+      // Use a compound query with two array-contains clauses
+      const possibleRooms = await getDocs(query(connectionsRef));
       
-      const userConnections = await getDocs(userConnectionsQuery);
-      let existingConnectionId = null;
-      
-      // Check each connection to see if it includes the match user
-      for (const connectionDoc of userConnections.docs) {
-        const connectionData = connectionDoc.data();
-        if (connectionData.users && connectionData.users.includes(match.id)) {
-          existingConnectionId = connectionDoc.id;
-          console.log(`Found existing connection: ${existingConnectionId}`);
+      // Filter rooms manually to find one containing both users
+      let existingRoom: QueryDocumentSnapshot<DocumentData> | null = null;
+      for (const roomDoc of possibleRooms.docs) {
+        const data = roomDoc.data();
+        if (data.users && 
+            data.users.includes(user.uid) && 
+            data.users.includes(match.id)) {
+          existingRoom = roomDoc;
           break;
         }
       }
       
-      // Also check connections where match user initiated (in case we missed it)
-      if (!existingConnectionId) {
-        const matchConnectionsQuery = query(
-          connectionsRef,
-          where('users', 'array-contains', match.id)
-        );
-        
-        const matchConnections = await getDocs(matchConnectionsQuery);
-        
-        for (const connectionDoc of matchConnections.docs) {
-          const connectionData = connectionDoc.data();
-          if (connectionData.users && connectionData.users.includes(user.uid)) {
-            existingConnectionId = connectionDoc.id;
-            console.log(`Found existing connection initiated by match: ${existingConnectionId}`);
-            break;
-          }
-        }
-      }
-      
-      let connectionId;
-      
-      if (existingConnectionId) {
-        // Use existing connection
-        connectionId = existingConnectionId;
-        console.log(`Using existing connection: ${connectionId}`);
+      if (existingRoom) {
+        // Use existing room found through fallback
+        connectionId = existingRoom.id;
+        console.log(`Found existing connection through fallback: ${connectionId}`);
       } else {
-        // Create a new connection if none exists
-        console.log('Creating new speed dating connection');
+        // Create a new connection with the consistent ID
+        console.log('Creating new speed dating connection with consistent ID');
         
-        const newConnectionRef = await addDoc(collection(firestore, 'speedDatingConnections'), {
+        // Create with setDoc instead of addDoc to use our consistent ID
+        await setDoc(doc(firestore, 'speedDatingConnections', consistentRoomId), {
           users: [user.uid, match.id],
           userProfiles: {
             [user.uid]: {
@@ -694,77 +691,84 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
           createdAt: serverTimestamp(),
           status: 'temporary',
           sessionType: 'speed-dating',
-          startedAt: serverTimestamp()
+          startedAt: serverTimestamp(),
+          // Add room creation info for debugging
+          createdBy: user.uid,
+          createdFor: match.id
         });
         
-        connectionId = newConnectionRef.id;
+        connectionId = consistentRoomId;
         
-        // Add initial system message only for new connections
+        // Add initial system message
         await addDoc(collection(firestore, 'speedDatingConnections', connectionId, 'messages'), {
           text: "You are now connected through Speed Dating! You have 4 hours to chat.",
           senderId: "system",
           createdAt: serverTimestamp()
         });
       }
+    }
+    
+    // Log the final connection ID for debugging
+    console.log(`FINAL CONNECTION ID: ${connectionId} (User: ${user.uid}, Match: ${match.id})`);
+    
+    // Store the connection ID
+    setChatRoomId(connectionId);
+    
+    // Rest of your existing timer code remains the same...
+    const connectionSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', connectionId));
+    const connectionData = connectionSnapshot.data();
+    
+    if (connectionData && connectionData.startedAt) {
+      // Sync timer with server timestamp
+      const serverStartTime = connectionData.startedAt.toDate().getTime();
+      const initialElapsed = (Date.now() - serverStartTime) / 1000;
+      const initialRemaining = Math.max(0, 4 * 60 * 60 - initialElapsed);
       
-      // Store the connection ID
-      setChatRoomId(connectionId);
+      setChatTimeLeft(initialRemaining);
       
-      // Immediately fetch connection data for timer sync
-      const connectionSnapshot = await getDoc(doc(firestore, 'speedDatingConnections', connectionId));
-      const connectionData = connectionSnapshot.data();
-      
-      if (connectionData && connectionData.startedAt) {
-        // Sync timer with server timestamp
-        const serverStartTime = connectionData.startedAt.toDate().getTime();
-        const initialElapsed = (Date.now() - serverStartTime) / 1000;
-        const initialRemaining = Math.max(0, 4 * 60 * 60 - initialElapsed);
+      // Update timer interval to use server time reference
+      chatTimerRef.current = setInterval(() => {
+        const currentElapsed = (Date.now() - serverStartTime) / 1000;
+        const remaining = Math.max(0, 4 * 60 * 60 - currentElapsed);
         
-        setChatTimeLeft(initialRemaining);
+        setChatTimeLeft(remaining);
         
-        // Update timer interval to use server time reference
-        chatTimerRef.current = setInterval(() => {
-          const currentElapsed = (Date.now() - serverStartTime) / 1000;
-          const remaining = Math.max(0, 4 * 60 * 60 - currentElapsed);
-          
-          setChatTimeLeft(remaining);
-          
-          if (remaining <= 1) {
+        if (remaining <= 1) {
+          if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+          handleEndChatSession();
+        }
+      }, 1000);
+    } else {
+      // Fallback to client-side timer if server timestamp isn't available
+      setChatTimeLeft(4 * 60 * 60);
+      chatTimerRef.current = setInterval(() => {
+        setChatTimeLeft(prev => {
+          if (prev <= 1) {
             if (chatTimerRef.current) clearInterval(chatTimerRef.current);
             handleEndChatSession();
+            return 0;
           }
-        }, 1000);
-      } else {
-        // Fallback to client-side timer if server timestamp isn't available
-        setChatTimeLeft(4 * 60 * 60);
-        chatTimerRef.current = setInterval(() => {
-          setChatTimeLeft(prev => {
-            if (prev <= 1) {
-              if (chatTimerRef.current) clearInterval(chatTimerRef.current);
-              handleEndChatSession();
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-      
-      // Set up reminder timer (1 hour)
-      reminderTimerRef.current = setTimeout(() => {
-        setMiniOverlayVisible(true);
-        setTimeout(() => setMiniOverlayVisible(false), 10000);
-      }, 60 * 60 * 1000);
-      
-      // Move to chat screen
-      setCurrentStep('chat');
-      
-    } catch (error) {
-      console.error('Error connecting with match:', error);
-      Alert.alert('Error', 'Failed to connect with match. Please try again.');
-    } finally {
-      setLoading(false);
+          return prev - 1;
+        });
+      }, 1000);
     }
-  };
+    
+    // Set up reminder timer (1 hour)
+    reminderTimerRef.current = setTimeout(() => {
+      setMiniOverlayVisible(true);
+      setTimeout(() => setMiniOverlayVisible(false), 10000);
+    }, 60 * 60 * 1000);
+    
+    // Move to chat screen
+    setCurrentStep('chat');
+    
+  } catch (error) {
+    console.error('Error connecting with match:', error);
+    Alert.alert('Error', 'Failed to connect with match. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   
   
   // End the current chat session
