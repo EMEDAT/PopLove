@@ -115,6 +115,49 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
     restoreSpeedDatingSession();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    
+    const matchCreationListener = onSnapshot(
+      query(
+        collection(firestore, 'speedDatingConnections'),
+        where('matchEvents.permanent.status', '==', 'permanent_match_created'),
+        where('matchEvents.permanent.users', 'array-contains', user.uid)
+      ),
+      (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+          const data = change.doc.data();
+          const matchEvent = data.matchEvents?.permanent;
+          
+          if (matchEvent?.status === 'permanent_match_created' && 
+              matchEvent.users.includes(user.uid)) {
+            const otherUserId = matchEvent.users.find(id => id !== user.uid);
+            const otherUserProfile = data.userProfiles[otherUserId];
+            
+            setChatRoomId(matchEvent.matchId);
+            setSelectedMatch({
+              id: matchEvent.matchId,
+              displayName: otherUserProfile.displayName,
+              photoURL: otherUserProfile.photoURL,
+              ageRange: otherUserProfile.ageRange || '??',
+              matchPercentage: otherUserProfile.matchPercentage || 0,
+              scores: {
+                interests: otherUserProfile.scores?.interests || 0,
+                lifestyle: otherUserProfile.scores?.lifestyle || 0,
+                age: otherUserProfile.scores?.age || 0,
+                location: otherUserProfile.scores?.location || 0
+              }
+            });
+            setCurrentStep('congratulations');
+          }
+        });
+      }
+    );
+  
+    // Cleanup listener
+    return () => matchCreationListener();
+  }, [user]);
+
 // Add this after your other useEffect hooks
 useEffect(() => {
   // Only set up listener in chat mode with a valid room ID
@@ -920,6 +963,7 @@ const handleContinueToPermanentChat = async () => {
       // First, update the user's preference in Firestore directly
       await updateDoc(connectionRef, { 
         [`userProfiles.${user.uid}.continuePermanently`]: true,
+        [`userProfiles.${user.uid}.continueTimestamp`]: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
 
@@ -936,11 +980,18 @@ const handleContinueToPermanentChat = async () => {
       // Check if both users want to continue permanently
       const userWantsToContinue = updatedProfiles[user.uid]?.continuePermanently === true;
       const otherUserWantsToContinue = updatedProfiles[otherUserId]?.continuePermanently === true;
-      const bothWantToContinue = userWantsToContinue && otherUserWantsToContinue;
-
-      console.log(`User wants to continue: ${userWantsToContinue}`);
-      console.log(`Other user wants to continue: ${otherUserWantsToContinue}`);
-      console.log(`Both want to continue: ${bothWantToContinue}`);
+      const bothWantToContinue = 
+      userWantsToContinue && 
+      otherUserWantsToContinue && 
+      updatedProfiles[user.uid]?.continueTimestamp && 
+      updatedProfiles[otherUserId]?.continueTimestamp;
+    
+    console.log(`Validation checks:
+    - User wants to continue: ${userWantsToContinue}
+    - Other user wants to continue: ${otherUserWantsToContinue}
+    - User has timestamp: ${!!updatedProfiles[user.uid]?.continueTimestamp}
+    - Other user has timestamp: ${!!updatedProfiles[otherUserId]?.continueTimestamp}
+    - Both want to continue: ${bothWantToContinue}`);
 
       if (bothWantToContinue) {
         // Create a permanent match
@@ -979,18 +1030,23 @@ const handleContinueToPermanentChat = async () => {
           status: 'permanent_match_created',
           matchId: matchRef.id,
           timestamp: serverTimestamp(),
-          shouldPreventAutoExit: true  
-        });
+          preventAutoExit: true,  // Critical addition
+          users: updatedData.users,  // Include both user IDs
+          shouldTransitionToCongratuations: true 
+        }); 
 
-        // Delete the temporary connection
-        await deleteDoc(connectionRef);
+          // Optional: Soft delete instead of hard delete
+          await updateDoc(connectionRef, { 
+            status: 'converted_to_match',
+            convertedMatchId: matchRef.id
+          });
 
-        // Update chat room ID to new permanent match
-        setChatRoomId(matchRef.id as string);
+          // Update chat room ID to new permanent match
+          setChatRoomId(matchRef.id as string);
 
-        // Navigate to congratulations screen
-        setCurrentStep('congratulations');
-      } else {
+          // Navigate to congratulations screen
+          setCurrentStep('congratulations');
+        } else {
         // Display notification to wait for match
         Alert.alert(
           'Wait for Match',

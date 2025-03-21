@@ -67,24 +67,30 @@ export default function SpeedDatingChatRoom({
       { includeMetadataChanges: true },
       async (snapshot) => {
         if (!snapshot.exists()) {
-          // Check for match creation event before exiting
+          // Check match creation events
           const matchEventsRef = collection(firestore, 'speedDatingConnections', matchId, 'matchEvents');
-          const matchEventsQuery = query(matchEventsRef, where('status', '==', 'permanent_match_created'));
-          const matchEventsSnapshot = await getDocs(matchEventsQuery);
-          
-          // If there's a match creation event with the prevent exit flag, don't exit
-          const shouldPreventExit = matchEventsSnapshot.docs.some(
-            doc => doc.data().shouldPreventAutoExit === true
+          const matchEventsQuery = query(
+            matchEventsRef, 
+            where('status', '==', 'permanent_match_created'),
+            where('preventAutoExit', '==', true)
           );
           
+          const matchEventsSnapshot = await getDocs(matchEventsQuery);
+          
+          // Verify current user is part of the match
+          const shouldPreventExit = matchEventsSnapshot.docs.some(doc => {
+            const eventData = doc.data();
+            return eventData.users?.includes(user.uid);
+          });
+          
           if (!shouldPreventExit) {
-            console.log("Room document deleted, exiting immediately");
+            console.log("Room deleted, exiting immediately");
             onBack();
           }
           return;
         }
         
-        // Existing rejection detection logic remains the same
+        // Existing rejection detection
         const data = snapshot.data();
         if (data?.status === 'rejected' || data?.rejectedBy) {
           console.log("Room rejection detected, exiting immediately");
