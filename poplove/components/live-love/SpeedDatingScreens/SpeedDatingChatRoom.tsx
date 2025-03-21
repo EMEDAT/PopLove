@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
-import { auth } from '../../../lib/firebase';
 import { useAuthContext } from '../../../components/auth/AuthProvider';
 
 const { width, height } = Dimensions.get('window');

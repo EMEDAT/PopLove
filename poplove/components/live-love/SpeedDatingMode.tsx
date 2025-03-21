@@ -18,7 +18,8 @@ import {
   deleteDoc,
   writeBatch,
   DocumentData,
-  DocumentSnapshot
+  DocumentSnapshot,
+  onSnapshot
 } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { router } from 'expo-router';
@@ -114,6 +115,49 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
     restoreSpeedDatingSession();
   }, [user]);
 
+// Add this after your other useEffect hooks
+useEffect(() => {
+  // Only set up listener in chat mode with a valid room ID
+  if (currentStep === 'chat' && chatRoomId) {
+    console.log(`Setting up rejection listener for room: ${chatRoomId}`);
+    
+    // Listen for changes to the room document
+    const unsub = onSnapshot(doc(firestore, 'speedDatingConnections', chatRoomId), (snapshot) => {
+      // If the document was deleted or marked as rejected
+      if (!snapshot.exists() || (snapshot.exists() && snapshot.data()?.status === 'rejected')) {
+        console.log('Other user rejected or deleted the chat - returning to selection');
+        
+        // The other user has popped the balloon
+        Alert.alert(
+          'Chat Ended',
+          'The other user has ended this chat session.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Clear timers
+                if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+                if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
+                
+                // Go back to selection screen IMMEDIATELY
+                handleBackNavigation();
+              }
+            }
+          ]
+        );
+      }
+    }, 
+    // Add error handling for the listener
+    (error) => {
+      console.error("Error in chat room listener:", error);
+      // If listening fails (e.g., document deleted), go back to selection
+      handleBackNavigation();
+    });
+    
+    // Cleanup listener on unmount or mode change
+    return () => unsub();
+  }
+}, [currentStep, chatRoomId, user]);
   const handleOverlayDismiss = () => {
     console.log("Overlay auto-dismissed");
     setNoUsersAvailable(false);
@@ -595,27 +639,54 @@ const handleSubmitRejection = async (reason: string, feedbackData?: any) => {
       rejectedUserId: selectedMatch.id
     });
     
-    // If we had a chat room, update its status
+    // If we had a chat room, update its status and clean up the messages
     if (chatRoomId) {
+      // First update the room with final rejection details
       await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
-        status: 'rejected',
+        status: 'rejected_final',
         rejectionReason: reason,
         rejectionFeedback: feedbackData || null,
-        rejectedAt: serverTimestamp(),
-        rejectedBy: user.uid
+        finalizedAt: serverTimestamp(),
+        // Keep track of who submitted feedback
+        feedbackSubmitter: user.uid
       });
+      
+      // Add a timer to clean up the room and messages in 5 minutes
+      // We delay this to allow the other user to see what happened
+      setTimeout(async () => {
+        try {
+          // Delete all messages
+          const messagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
+          const messagesSnapshot = await getDocs(messagesRef);
+          
+          if (!messagesSnapshot.empty) {
+            const batch = writeBatch(firestore);
+            messagesSnapshot.docs.forEach(messageDoc => {
+              batch.delete(messageDoc.ref);
+            });
+            await batch.commit();
+          }
+          
+          // Finally delete the room itself
+          await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
+          console.log(`Cleaned up rejected chat room: ${chatRoomId}`);
+        } catch (err) {
+          console.error('Error cleaning up rejected chat room:', err);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
     }
     
     // After storing the rejection, navigate back
     handleBackNavigation();
   } catch (error) {
     console.error('Error submitting rejection:', error);
-    // Still navigate back even if there was an error
+    // Still navigate back even if there's an error
     handleBackNavigation();
   } finally {
     setLoading(false);
   }
 };
+
   
   // Connect with a match
 // Connect with a match - FIX FOR CHAT ROOM SYNC ISSUE
@@ -772,20 +843,64 @@ const handleConnectWithMatch = async (match: Match) => {
   
   
   // End the current chat session
-  const handleEndChatSession = () => {
-    // Instead of immediately navigating back, save the current match for the rejection screen
-    if (selectedMatch) {
-      // Set the step to the rejection screen
-      setCurrentStep('rejection');
-    } else {
-      // Fallback if no match exists (should never happen)
-      handleBackNavigation();
+// Update handleEndChatSession to immediately clean up the room
+const handleEndChatSession = async () => {
+  if (!chatRoomId || !user || !selectedMatch) return;
+  
+  try {
+    setLoading(true);
+    
+    // First, update the room status to rejected
+    await updateDoc(doc(firestore, 'speedDatingConnections', chatRoomId), {
+      status: 'rejected',
+      rejectedAt: serverTimestamp(),
+      rejectedBy: user.uid,
+      // Store rejection metadata
+      rejectionData: {
+        rejectorId: user.uid,
+        rejectorName: user.displayName || 'User',
+        rejectedUserId: selectedMatch.id,
+        rejectedUserName: selectedMatch.displayName
+      }
+    });
+    
+    // Immediately cleanup the room messages (don't wait)
+    try {
+      // Delete all messages
+      const messagesRef = collection(firestore, 'speedDatingConnections', chatRoomId, 'messages');
+      const messagesSnapshot = await getDocs(messagesRef);
+      
+      if (!messagesSnapshot.empty) {
+        const batch = writeBatch(firestore);
+        messagesSnapshot.docs.forEach(messageDoc => {
+          batch.delete(messageDoc.ref);
+        });
+        await batch.commit();
+        console.log(`Cleared ${messagesSnapshot.size} messages`);
+      }
+      
+      // Also delete the room document itself - NOT waiting for feedback
+      await deleteDoc(doc(firestore, 'speedDatingConnections', chatRoomId));
+      console.log(`Deleted chat room: ${chatRoomId}`);
+    } catch (err) {
+      console.error('Error cleaning up chat room:', err);
+      // Continue even if cleanup fails
     }
+    
+    // The rejector goes to the rejection screen
+    setCurrentStep('rejection');
     
     // Clear timers
     if (chatTimerRef.current) clearInterval(chatTimerRef.current);
     if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
-  };
+  } catch (error) {
+    console.error('Error ending chat session:', error);
+    // Still go to rejection screen even if there's an error
+    setCurrentStep('rejection');
+  } finally {
+    setLoading(false);
+  }
+};
   
 // Continue to permanent chat
 const handleContinueToPermanentChat = async () => {
@@ -949,6 +1064,50 @@ const handleContinueToPermanentChat = async () => {
       ? `${paddedHours}:${paddedMinutes}:${paddedSeconds}`
       : `${paddedMinutes}:${paddedSeconds}`;
   };
+
+  // Add this after your other useEffect hooks
+useEffect(() => {
+  // Only set up listener in chat mode with a valid room ID
+  if (currentStep === 'chat' && chatRoomId) {
+    console.log(`Setting up rejection listener for room: ${chatRoomId}`);
+    
+    // Listen for changes to the room document
+    const unsub = onSnapshot(doc(firestore, 'speedDatingConnections', chatRoomId), (snapshot) => {
+      // If the document was deleted or marked as rejected
+      if (!snapshot.exists() || (snapshot.exists() && snapshot.data()?.status === 'rejected')) {
+        console.log('Other user rejected or deleted the chat - returning to selection');
+        
+        // The other user has popped the balloon
+        Alert.alert(
+          'Chat Ended',
+          'The other user has ended this chat session.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Clear timers
+                if (chatTimerRef.current) clearInterval(chatTimerRef.current);
+                if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
+                
+                // Go back to selection screen IMMEDIATELY
+                handleBackNavigation();
+              }
+            }
+          ]
+        );
+      }
+    }, 
+    // Add error handling for the listener
+    (error) => {
+      console.error("Error in chat room listener:", error);
+      // If listening fails (e.g., document deleted), go back to selection
+      handleBackNavigation();
+    });
+    
+    // Cleanup listener on unmount or mode change
+    return () => unsub();
+  }
+}, [currentStep, chatRoomId, user]);
   
   // Render based on current step
   return (
