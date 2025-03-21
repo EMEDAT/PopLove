@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../SpeedDatingMode';
 import ChatScreen from '../../chat/ChatScreen';
 import { auth } from '../../../lib/firebase';
+import { useAuthContext } from '../../../components/auth/AuthProvider';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,9 +42,9 @@ export default function SpeedDatingChatRoom({
   const [isOverlayMinimized, setIsOverlayMinimized] = useState(false);
   const overlayPosition = React.useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const overlayScale = React.useRef(new Animated.Value(1)).current;
-  const currentUserId = auth.currentUser?.uid;
+  const { user } = useAuthContext();
+  const currentUserId = user?.uid;
   const isCurrentUserSender = true;
-  const chattingUsers = [currentUserId, match.id].sort().join('_');
 
   console.log("BREAKPOINT 4: CHAT ROOM MAPPING:", {
     matchId,
