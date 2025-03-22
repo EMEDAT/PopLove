@@ -129,53 +129,56 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const rotationListenerRef = useRef<() => void>(() => {});
   const statsListenerRef = useRef<() => void>(() => {});
 
-  // For gender-filtered spotlights
-  const getGenderFilteredSpotlights = async (): Promise<Contestant[]> => {
-    if (!sessionId || !user) return [];
-    
-    try {
-      // Get user gender if not cached
-      if (!userGenderRef.current) {
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (userDoc.exists()) {
-          userGenderRef.current = userDoc.data().gender || '';
-        }
+/**
+ * Get gender-filtered spotlights
+ */
+const getGenderFilteredSpotlights = async (): Promise<Contestant[]> => {
+  if (!sessionId || !user) return [];
+  
+  try {
+    // Get user gender if not cached
+    if (!userGenderRef.current) {
+      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+      if (userDoc.exists()) {
+        userGenderRef.current = userDoc.data().gender || '';
       }
-      
-      const userGender = userGenderRef.current;
-      if (!userGender) return [];
-      
-      // Determine opposite gender to show
-      const oppositeGender = userGender === 'male' ? 'female' : 'male';
-      
-      // Get spotlights from service, filtering by opposite gender
-      const allSpotlights = await LineupService.getSpotlights(sessionId, user.uid);
-      
-      // Further filter to ensure only opposite gender is shown
-      const filteredSpotlights = allSpotlights.filter(spotlight => 
-        spotlight.gender === oppositeGender
-      );
-      
-      // Run match percentage calculation for each spotlight
-      const spotlightsWithMatch = await Promise.all(
-        filteredSpotlights.map(async (spotlight) => {
-          if (!spotlight.matchPercentage) {
-            try {
-              const matchPercentage = await calculateMatchPercentage(user.uid, spotlight.id);
-              return { ...spotlight, matchPercentage };
-            } catch (error) {
-              return { ...spotlight, matchPercentage: 50 };
-            }
-          }
-          return spotlight;
-        })
-      );
-      
-      return spotlightsWithMatch;
-    } catch (error) {
-      return [];
     }
-  };
+    
+    const userGender = userGenderRef.current;
+    if (!userGender) return [];
+    
+    // Determine opposite gender to show
+    const oppositeGender = userGender === 'male' ? 'female' : 'male';
+    
+    // Get spotlights from service, filtering by opposite gender
+    const allSpotlights = await LineupService.getSpotlights(sessionId, user.uid);
+    
+    // Further filter to ensure only opposite gender is shown
+    const filteredSpotlights = allSpotlights.filter(spotlight => 
+      spotlight.gender === oppositeGender
+    );
+    
+    // Run match percentage calculation for each spotlight
+    const spotlightsWithMatch = await Promise.all(
+      filteredSpotlights.map(async (spotlight) => {
+        if (!spotlight.matchPercentage) {
+          try {
+            const matchPercentage = await calculateMatchPercentage(user.uid, spotlight.id);
+            return { ...spotlight, matchPercentage };
+          } catch (error) {
+            return { ...spotlight, matchPercentage: 50 };
+          }
+        }
+        return spotlight;
+      })
+    );
+    
+    return spotlightsWithMatch;
+  } catch (error) {
+    debugLog('GenderFilter', `Error getting filtered spotlights: ${error}`);
+    return [];
+  }
+};
   
   // Enhanced setter for spotlight time with ref update
   const setSpotlightTimeLeft = (time: number) => {
@@ -254,7 +257,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleAppStateChange = async (nextAppState: string) => {
     const wasBackground = appStateRef.current.match(/inactive|background/);
     const isActive = nextAppState === 'active';
-    appStateRef.current = nextAppState;
+    appStateRef.current = nextAppState as AppStateStatus;
     
     debugLog('AppState', `App state changed: ${nextAppState}`);
     
@@ -469,17 +472,7 @@ const startSpotlightTimer = useCallback(() => {
   
   // Set up timer interval (every second)
   const timerInterval = setInterval(() => {
-    setSpotlightTimeLeft(prev => {
-      // Prevent negative times
-      if (prev <= 0) {
-        if (timerIntervalRef.current) {
-          clearInterval(timerIntervalRef.current);
-          timerIntervalRef.current = null;
-        }
-        return 0;
-      }
-      return prev - 1;
-    });
+    setSpotlightTimeLeft(spotlightTimeLeftRef.current > 0 ? spotlightTimeLeftRef.current - 1 : 0);
   }, 1000);
   
   timerIntervalRef.current = timerInterval;
@@ -673,8 +666,8 @@ useEffect(() => {
   
   // Subscribe to messages with gender filtering
   const unsubscribeMessages = LineupService.subscribeToGenderFilteredMessages(
-    sessionId || '', 
-    user.uid || '', 
+    sessionId || '',
+    user?.uid || '',
     currentSpotlight?.id || '',
     (newMessages) => {
       setMessages(newMessages);
