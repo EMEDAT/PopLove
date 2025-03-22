@@ -226,24 +226,24 @@ export default function LineUpScreen() {
     };
   }, []);
 
-// Track profile views
-useEffect(() => {
-  if (currentContestant && user && sessionId) {
-    logLineUp('Tracking profile view', { 
-      viewerId: user.uid,
-      viewedProfileId: currentContestant.id,
-      profileName: currentContestant.displayName
-    });
-    
-    trackProfileView(sessionId, user.uid, currentContestant.id)
-      .then(() => {
-        logLineUp('Profile view tracked successfully');
-      })
-      .catch(err => {
-        logLineUp('Error tracking profile view', { error: err });
+  // Track profile views
+  useEffect(() => {
+    if (currentContestant && user && sessionId) {
+      logLineUp('Tracking profile view', { 
+        viewerId: user.uid,
+        viewedProfileId: currentContestant.id,
+        profileName: currentContestant.displayName
       });
-  }
-}, [currentContestant, user, sessionId]);
+      
+      trackProfileView(sessionId, user.uid, currentContestant.id)
+        .then(() => {
+          logLineUp('Profile view tracked successfully');
+        })
+        .catch(err => {
+          logLineUp('Error tracking profile view', { error: err });
+        });
+    }
+  }, [currentContestant, user, sessionId]);
 
   // Fallback timer to ensure we eventually render something
   useEffect(() => {
