@@ -207,10 +207,19 @@ export default function LineUpScreen() {
     // Initial update
     updateGenderBasedTimer();
     
-    // Set up interval for timer updates
-    const timer = setInterval(updateGenderBasedTimer, 60000); // Update every minute
+    // Create two intervals:
+    // 1. For server sync (every minute)
+    const serverSyncTimer = setInterval(updateGenderBasedTimer, 60000);
     
-    return () => clearInterval(timer);
+    // 2. For smooth countdown (every second)
+    const countdownTimer = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    
+    return () => {
+      clearInterval(serverSyncTimer);
+      clearInterval(countdownTimer);
+    };
   }, [sessionId, user]);
 
   // Log component lifecycle
