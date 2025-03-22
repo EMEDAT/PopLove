@@ -10,37 +10,31 @@ import {
   Platform,
   Alert,
   SafeAreaView,
-  FlatList
+  FlatList,
+  AppState,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLineUp } from './LineUpContext';
 import { useAuthContext } from '../../auth/AuthProvider';
 import { doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
-import { PrivateProfileDetailsModal } from '../../../components/shared/PrivateProfileDetailsModal';
-import * as LineupService from '../../../services/lineupService';
-
-// Import the ChatInputBar for fixed-height input
+import { debugLog, formatTime } from './utils';
 import ChatInputBar from './ChatInputBar';
 
-// TESTING CONFIGURATION - CHANGE BEFORE PRODUCTION
-const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 10 minutes for testing (should be 4 * 60 * 60)
+// Get screen dimensions
+const { width, height } = Dimensions.get('window');
 
-// Create a logger function for this component
-const logPrivate = (message: string, data?: any) => {
-  console.log(`[${new Date().toISOString()}] [SpotlightPrivateScreen] 👑 ${message}`, data ? data : '');
-};
+// Constants for timer
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds
 
-interface SpotlightPrivateScreenProps {
-  onBack?: () => void;
-}
+export default function SpotlightPrivateScreen() {
+  debugLog('PrivateScreen', 'Rendering SpotlightPrivateScreen');
 
-export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScreenProps = {}) {
   const { user } = useAuthContext();
   
   const { 
-    goBack, 
-    loading, 
     sessionId, 
     spotlightTimeLeft, 
     popCount, 
@@ -48,39 +42,152 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     setStep,
     messages,
     sendMessage,
-    setSpotlightTimeLeft,
-    setSelectedMatches,
-    isCurrentUser,
+    syncWithServerTime,
+    markUserActivity,
+    checkUserMatches
   } = useLineUp();
 
-  console.log(`[PRIVATE] Rendering private screen, isCurrentUser=${isCurrentUser}, userId=${user?.uid}`);
-
-  logPrivate('Component rendering');
-
-  if (!user) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B6B" />
-        <Text>Loading user data...</Text>
-      </View>
-    );
-  }
-
+  // Component state
   const [showCountdown, setShowCountdown] = useState(true);
+  const [showChat, setShowChat] = useState(false);
   const [stats, setStats] = useState({
     likes: likeCount || 0,
     pops: popCount || 0,
     viewCount: 0
   });
   const [timerHandled, setTimerHandled] = useState(false);
-  const [statSubscribed, setStatSubscribed] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [showBio, setShowBio] = useState(false);
-  const flatListRef = useRef<FlatList<any>>(null);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const hasLoggedCompletionRef = useRef(false);
+  const messageListRef = useRef<FlatList<any>>(null);
+  const appStateRef = useRef(AppState.currentState);
+  const lastSyncTimeRef = useRef<number>(Date.now());
 
-  // Format time left
+  // Log component lifecycle
+  useEffect(() => {
+    debugLog('PrivateScreen', 'Component mounted', { 
+      userId: user?.uid,
+      sessionId,
+      timeLeft: spotlightTimeLeft
+    });
+    
+    // Verify current user is actually current contestant
+    verifyCurrentContestantStatus();
+    
+    // Initial server sync
+    syncWithServerTime();
+    markUserActivity();
+    
+    // Continuous time sync - we need precise timing for the contestant
+    const syncInterval = setInterval(() => {
+      const now = Date.now();
+      // Only sync every 30 seconds to avoid excessive calls
+      if (now - lastSyncTimeRef.current >= 30000) {
+        lastSyncTimeRef.current = now;
+        syncWithServerTime();
+        markUserActivity();
+      }
+    }, 30000);
+    
+    // Setup app state monitoring
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      debugLog('PrivateScreen', `App state changed: ${appStateRef.current} -> ${nextAppState}`);
+      appStateRef.current = nextAppState;
+      
+      // When returning to active state, sync immediately
+      if (nextAppState === 'active') {
+        syncWithServerTime();
+        markUserActivity();
+      }
+    });
+    
+    return () => {
+      debugLog('PrivateScreen', 'Component unmounted');
+      clearInterval(syncInterval);
+      subscription.remove();
+    };
+  }, []);
+
+  // Update stats when props change
+  useEffect(() => {
+    setStats({
+      likes: likeCount || 0,
+      pops: popCount || 0,
+      viewCount: stats.viewCount
+    });
+    
+    debugLog('PrivateScreen', 'Stats updated', { likes: likeCount, pops: popCount });
+  }, [likeCount, popCount]);
+
+  // Auto-scroll to bottom of message list when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0 && messageListRef.current) {
+      setTimeout(() => {
+        messageListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
+  // Handle timer expiration
+  useEffect(() => {
+    if (spotlightTimeLeft <= 0 && !timerHandled) {
+      debugLog('PrivateScreen', 'Timer reached zero, checking for matches');
+      setTimerHandled(true);
+      
+      // Check for matches when timer expires
+      const checkAndNavigate = async () => {
+        try {
+          await checkUserMatches();
+        } catch (error) {
+          debugLog('PrivateScreen', 'Error checking matches on timer expiration', error);
+          // Fallback to lineup screen on error
+          setStep('lineup');
+        }
+      };
+      
+      // Execute after brief delay to avoid race conditions
+      setTimeout(checkAndNavigate, 300);
+    }
+  }, [spotlightTimeLeft, timerHandled]);
+
+  // Verify current user is actually the current contestant
+  const verifyCurrentContestantStatus = async () => {
+    if (!sessionId || !user) return;
+    
+    try {
+      debugLog('PrivateScreen', 'Verifying current contestant status');
+      
+      // Get user gender
+      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+      if (!userDoc.exists()) return;
+      
+      const userGender = userDoc.data().gender || '';
+      const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
+      
+      // Get session data
+      const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+      if (!sessionDoc.exists()) return;
+      
+      const currentContestantId = sessionDoc.data()[genderField];
+      
+      // If user is not actually the current contestant, go back to lineup screen
+      if (currentContestantId !== user.uid) {
+        debugLog('PrivateScreen', 'User is not the current contestant, redirecting', {
+          userId: user.uid,
+          currentContestantId
+        });
+        
+        Alert.alert(
+          'Session Update',
+          'You are no longer the featured contestant.',
+          [{ text: 'OK', onPress: () => setStep('lineup') }]
+        );
+      } else {
+        debugLog('PrivateScreen', 'Verified user is current contestant');
+      }
+    } catch (error) {
+      debugLog('PrivateScreen', 'Error verifying contestant status', error);
+    }
+  };
+
+  // Format timer display
   const formatTimeLeft = () => {
     const hours = Math.floor(spotlightTimeLeft / 3600);
     const minutes = Math.floor((spotlightTimeLeft % 3600) / 60);
@@ -89,220 +196,21 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Verify user is really the current contestant
-  useEffect(() => {
-    const verifyCurrentContestantStatus = async () => {
-      if (!sessionId || !user) return;
-      
-      try {
-        // Add delay to allow Firestore updates to propagate
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (!userDoc.exists()) return;
-        
-        const userGender = userDoc.data().gender || '';
-        const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
-        
-        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-        if (!sessionDoc.exists()) return;
-        
-        const currentContestantId = sessionDoc.data()[genderField];
-        
-        // Only redirect if we're DEFINITELY not the current contestant
-        // and context also says we're not the current user
-        if (currentContestantId !== user.uid && !isCurrentUser) {
-          logPrivate('User is not the actual current contestant, redirecting to lineup screen');
-          goBack(); // Return to lineup screen instead of showing private screen incorrectly
-        }
-      } catch (error) {
-        logPrivate('Error verifying contestant status:', error);
-      }
-    };
-    
-    verifyCurrentContestantStatus();
-  }, [sessionId, user, isCurrentUser]);
-
-  // Add this useEffect to track and log completion:
-    useEffect(() => {
-      if (spotlightTimeLeft <= 0 && !hasLoggedCompletionRef.current) {
-        hasLoggedCompletionRef.current = true;
-        
-        logPrivate(`Spotlight time reached zero for user ${user?.uid}`);
-        
-        // Log completion event
-        if (sessionId && user) {
-          try {
-            // Record completed state for analytics
-            const completionRef = doc(
-              firestore, 
-              'lineupSessions', 
-              sessionId, 
-              'completions', 
-              user.uid
-            );
-            
-            setDoc(completionRef, {
-              userId: user.uid,
-              timestamp: serverTimestamp(),
-              timeExpired: true
-            }, { merge: true });
-            
-            logPrivate('Logged completion event to Firestore');
-          } catch (error) {
-            logPrivate('Error logging completion event:', error);
-          }
-        }
-      }
-    }, [spotlightTimeLeft, sessionId, user]);
-
-  useEffect(() => {
-    if (spotlightTimeLeft <= 0 && timerHandled === false) {
-      logPrivate('Timer reached zero, checking for matches');
-      setTimerHandled(true);
-      
-      // Check for matches when timer expires
-      const checkAndNavigate = async () => {
-        try {
-          // Get user matches
-          const matchesList = await LineupService.getUserMatches(sessionId || '', user?.uid || '');
-          logPrivate(`Found ${matchesList.length} matches on timer expiration`);
-          
-          if (matchesList.length > 0) {
-            // User has matches, go to matches screen
-            setSelectedMatches(matchesList);
-            setStep('matches');
-          } else {
-            // No matches, go to no-matches screen
-            setStep('no-matches');
-          }
-        } catch (error) {
-          console.error('Error checking matches:', error);
-          // Fallback to lineup screen on error
-          setStep('lineup');
-        }
-      };
-      
-      // Execute with small delay to avoid race conditions
-      setTimeout(() => {
-        checkAndNavigate();
-      }, 300);
-    }
-  }, [spotlightTimeLeft, timerHandled, setStep, sessionId, user]);
-
-  // Add this useEffect right after the existing timer useEffect
-  useEffect(() => {
-    const calculateRemainingTime = async () => {
-      if (!sessionId || !user) return;
-      
-      try {
-        // Get user gender
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (!userDoc.exists()) return;
-        
-        const userGender = userDoc.data().gender || '';
-        const rotationTimeField = `${userGender}LastRotationTime`;
-        
-        // Get session with proper gender field
-        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-        if (!sessionDoc.exists()) return;
-        
-        const lastRotationTime = sessionDoc.data()[rotationTimeField]?.toDate();
-        if (!lastRotationTime) return;
-        
-        // Calculate time exactly
-        const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
-        const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
-        
-        // Update correct timer based on gender
-        setSpotlightTimeLeft(remainingTime);
-      } catch (error) {
-        console.error('Error calculating remaining time:', error);
-      }
-    };
-    
-    calculateRemainingTime();
-    
-    // Force refresh timer every minute to prevent drift
-    const refreshInterval = setInterval(calculateRemainingTime, 60000);
-    return () => clearInterval(refreshInterval);
-  }, [sessionId, user]);
-
-  // Set up real-time stats updates
-  useEffect(() => {
-    if (!sessionId || !user || statSubscribed) {
-      logPrivate('Cannot set up stats listener - missing sessionId, user, or already subscribed', {
-        hasSessionId: !!sessionId,
-        hasUser: !!user,
-        statSubscribed
-      });
-      return;
-    }
-    
-    logPrivate(`Setting up stats listener for user ${user.uid} in session ${sessionId}`);
-    setStatSubscribed(true);
-    
-    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', user.uid);
-    
-    const unsubscribe = onSnapshot(statsRef, 
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          logPrivate('Stats update received', {
-            likeCount: data.likeCount || 0,
-            popCount: data.popCount || 0,
-            viewCount: data.viewCount || 0
-          });
-          
-          setStats({
-            likes: data.likeCount || 0,
-            pops: data.popCount || 0,
-            viewCount: data.viewCount || 0
-          });
-          
-          // Check for elimination
-          if (data.popCount >= 20) {
-            logPrivate('User eliminated - pop count exceeded 20');
-            Alert.alert(
-              "You've been eliminated",
-              "You received too many pops and have been eliminated from this lineup.",
-              [{ 
-                text: "OK",
-                onPress: () => {
-                  logPrivate('Elimination alert acknowledged, navigating to eliminated screen');
-                  setStep('eliminated');
-                }
-              }]
-            );
-          }
-        } else {
-          logPrivate('Stats document does not exist');
-        }
-      },
-      (error) => {
-        logPrivate('Error in stats snapshot listener', { error });
-      }
-    );
-    
-    return () => {
-      logPrivate('Removing stats listener');
-      unsubscribe();
-    };
-  }, [sessionId, user, statSubscribed, setStep]);
-
   // Handle sending a message
   const handleSendMessage = async (text: string) => {
+    if (!text.trim()) return;
+    
     try {
+      debugLog('PrivateScreen', 'Sending message');
       await sendMessage(text);
       
       // Scroll to bottom after sending
       setTimeout(() => {
-        if (flatListRef.current) {
-          flatListRef.current.scrollToEnd({animated: true});
-        }
+        messageListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
-      console.error('Error sending message:', error);
+      debugLog('PrivateScreen', 'Error sending message', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
     }
   };
 
@@ -312,7 +220,6 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     
     return (
       <View 
-        key={`${item.id || 'default'}_${index}_${Math.random().toString(36).substring(7)}`} 
         style={[
           styles.messageContainer,
           isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
@@ -347,6 +254,15 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     );
   };
 
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text>Loading user data...</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -355,18 +271,12 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
           {showCountdown && (
             <TouchableOpacity 
               style={styles.countdownContainer}
-              onPress={() => {
-                logPrivate('Countdown container pressed, hiding countdown');
-                setShowCountdown(false);
-              }}
+              onPress={() => setShowCountdown(false)}
             >
               <Ionicons name="time-outline" size={16} color="#FF6B6B" />
               <Text style={styles.countdownText}>{formatTimeLeft()}</Text>
               <TouchableOpacity 
-                onPress={() => {
-                  logPrivate('Close countdown button pressed');
-                  setShowCountdown(false);
-                }}
+                onPress={() => setShowCountdown(false)}
               >
                 <Ionicons name="close-circle" size={16} color="#FF6B6B" />
               </TouchableOpacity>
@@ -384,7 +294,7 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
           <Image 
             source={{ uri: user?.photoURL || 'https://via.placeholder.com/150' }} 
             style={styles.profileImage}
-            onError={(e) => logPrivate('Error loading profile image', { error: e.nativeEvent })}
+            onError={(e) => debugLog('PrivateScreen', 'Error loading profile image', e.nativeEvent)}
           />
           
           <View style={styles.statsContainer}>
@@ -416,7 +326,7 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
           </View>
           
           <View style={styles.timerContainer}>
-          <Text style={styles.timerLabel}>Countdown timer</Text>
+            <Text style={styles.timerLabel}>Countdown timer</Text>
             <View style={styles.timerDigits}>
               <View style={styles.timerDigit}>
                 <Text style={styles.digit}>{Math.floor(spotlightTimeLeft / 3600).toString().padStart(2, '0')}</Text>
@@ -434,20 +344,20 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
           </View>
           
           <TouchableOpacity 
-          style={styles.sampleMessageContainer}
-          onPress={() => {
-            logPrivate('Sample message container pressed, switching to chat view');
-            setShowChat(true);
-          }}
-        >
-          <Image 
-            source={{ uri: user?.photoURL || 'https://via.placeholder.com/30' }} 
-            style={styles.messageSenderImage} 
-          />
-          <View style={styles.sampleMessageContent}>
-            <Text style={styles.sampleMessageText}>Tap to open the live chat...</Text>
-          </View>
-        </TouchableOpacity>
+            style={styles.sampleMessageContainer}
+            onPress={() => {
+              debugLog('PrivateScreen', 'Opening chat view');
+              setShowChat(true);
+            }}
+          >
+            <Image 
+              source={{ uri: user?.photoURL || 'https://via.placeholder.com/30' }} 
+              style={styles.messageSenderImage} 
+            />
+            <View style={styles.sampleMessageContent}>
+              <Text style={styles.sampleMessageText}>Tap to open the live chat...</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.chatWrapper}>
@@ -469,42 +379,21 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
               </View>
             ) : (
               <FlatList
-                ref={flatListRef}
+                ref={messageListRef}
                 data={messages}
-                keyExtractor={(item, index) => `${item.id || 'default'}_${index}_${Math.random().toString(36).substring(7)}`}
+                keyExtractor={(item, index) => `${item.id || 'msg'}_${index}_${Math.random().toString(36).substring(7)}`}
                 renderItem={renderMessageItem}
                 contentContainerStyle={styles.messagesList}
                 onContentSizeChange={() => {
-                  if (flatListRef.current) {
-                    flatListRef.current.scrollToEnd({animated: false});
-                  }
+                  messageListRef.current?.scrollToEnd({ animated: false });
                 }}
               />
             )}
           </View>
           
-          {/* Fixed-height ChatInputBar */}
           <ChatInputBar onSendMessage={handleSendMessage} />
         </View>
       )}
-      
-      {/* Loading overlay */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#FF6B6B" />
-        </View>
-      )}
-          {showProfileModal && (
-      <PrivateProfileDetailsModal
-        visible={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        profile={{
-          id: user?.uid || '',
-          displayName: user?.displayName || 'User',
-          photoURL: user?.photoURL || ''
-        }}
-      />
-    )}
     </SafeAreaView>
   );
 }

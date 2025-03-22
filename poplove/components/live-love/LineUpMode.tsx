@@ -1,41 +1,48 @@
 // components/live-love/LineUpMode.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLineUp } from './LineUpScreens/LineUpContext';
 import LineUpProviderWrapper from './LineUpProviderWrapper';
 import SelectionScreen from './LineUpScreens/SelectionScreen';
 import LineUpScreen from './LineUpScreens/LineUpScreen';
-import ContestantPrivateScreen from './LineUpScreens/SpotlightPrivateScreen';
+import SpotlightPrivateScreen from './LineUpScreens/SpotlightPrivateScreen';
 import MatchSelectionScreen from './LineUpScreens/MatchSelectionScreen';
 import ConfirmationScreen from './LineUpScreens/ConfirmationScreen';
 import EliminatedScreen from './LineUpScreens/EliminatedScreen';
 import NoMatchesScreen from './LineUpScreens/NoMatchesScreen';
+import { debugLog } from './LineUpScreens/utils';
 
 // LineUp container component
 const LineUpContainer = ({ onBack }) => {
   const { step, loading } = useLineUp();
   
+  // Handle back navigation
+  const handleBack = () => {
+    debugLog('LineUpMode', 'Back button pressed');
+    onBack();
+  };
+  
   // Render different screens based on current step
   const renderScreen = () => {
-    console.log(`[${new Date().toISOString()}] [LineUpMode] 🎯 Rendering screen for step: ${step}`);
+    debugLog('LineUpMode', `Rendering screen for step: ${step}`);
     
     switch (step) {
       case 'selection':
-        return <SelectionScreen onBack={onBack} />;
+        return <SelectionScreen onBack={handleBack} />;
       case 'lineup':
         return <LineUpScreen />;
       case 'private':
-        return <ContestantPrivateScreen />;
+        return <SpotlightPrivateScreen />;
       case 'matches':
         return <MatchSelectionScreen />;
       case 'confirmation':
-        return <ConfirmationScreen onBack={onBack} />;
+        return <ConfirmationScreen onBack={handleBack} />;
       case 'eliminated':
-        return <EliminatedScreen onBack={onBack} />;
+        return <EliminatedScreen onBack={handleBack} />;
       case 'no-matches':
         return <NoMatchesScreen />;
       default:
-        return <SelectionScreen onBack={onBack} />;
+        return <SelectionScreen onBack={handleBack} />;
     }
   };
   
@@ -51,11 +58,11 @@ export default function LineUpMode({ onBack }) {
   // Create global reference for direct navigation from other components
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      console.log(`[${new Date().toISOString()}] [LineUpMode] Setting up global LineUp context reference`);
+      debugLog('LineUpMode', 'Setting up global LineUp context reference');
       window.lineupContextRef = { current: null };
       
       return () => {
-        console.log(`[${new Date().toISOString()}] [LineUpMode] Cleaning up global LineUp context reference`);
+        debugLog('LineUpMode', 'Cleaning up global LineUp context reference');
         if (window.lineupContextRef) {
           window.lineupContextRef.current = null;
         }

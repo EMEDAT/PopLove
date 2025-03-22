@@ -2,13 +2,14 @@
 import React, { useRef, useEffect } from 'react';
 import { LineUpProvider } from './LineUpScreens/LineUpContext';
 import { serverTimestamp } from 'firebase/firestore';
+import { debugLog } from './LineUpScreens/utils';
 
-// Create a logger function for this component
-const logProviderWrapper = (message: string, data?: any) => {
-  console.log(`[${new Date().toISOString()}] [ProviderWrapper] 🧩 ${message}`, data ? data : '');
-};
-
-// Create properly formatted notification payload
+/**
+ * Create properly formatted notification payload for lineup turn
+ * @param userId User ID to notify
+ * @param sessionId Session ID
+ * @returns Notification payload
+ */
 export const createLineupTurnNotification = (userId: string, sessionId: string) => {
   return {
     userId,
@@ -28,13 +29,14 @@ const LineUpProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childr
   // Register provider with global window object for notification access
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      logProviderWrapper('Registering LineUpProvider with window object');
+      debugLog('ProviderWrapper', 'Registering LineUpProvider with window object');
       // Will be initialized in the LineUpProvider component
       window.lineupContextRef = { current: null };
     }
     
     return () => {
       if (typeof window !== 'undefined' && window.lineupContextRef) {
+        debugLog('ProviderWrapper', 'Cleaning up global LineUpProvider reference');
         window.lineupContextRef.current = null;
       }
     };
@@ -42,7 +44,7 @@ const LineUpProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childr
   
   // Only log on first render
   if (isFirstRender.current) {
-    logProviderWrapper('Creating stable LineUpProvider instance');
+    debugLog('ProviderWrapper', 'Creating stable LineUpProvider instance');
     isFirstRender.current = false;
   }
   

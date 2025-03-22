@@ -1,7 +1,16 @@
 // components/live-love/LineUpScreens/ChatInputBar.tsx
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { 
+  View, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ActivityIndicator,
+  Platform,
+  Keyboard
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { debugLog } from './utils';
 
 interface ChatInputBarProps {
   onSendMessage: (text: string) => Promise<void>;
@@ -10,30 +19,50 @@ interface ChatInputBarProps {
 export default function ChatInputBar({ onSendMessage }: ChatInputBarProps) {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
+  // Handle send button press
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
     
     try {
+      debugLog('ChatInput', 'Sending message');
       setSending(true);
-      const text = inputText;
+      
+      const text = inputText.trim();
       setInputText('');
+      
+      // Dismiss keyboard for better UX
+      Keyboard.dismiss();
+      
+      // Send the message
       await onSendMessage(text);
     } catch (error) {
-      console.error('Send error:', error);
+      debugLog('ChatInput', 'Error sending message', error);
     } finally {
       setSending(false);
+    }
+  };
+
+  // Handle submit via keyboard
+  const handleSubmitEditing = () => {
+    if (inputText.trim()) {
+      handleSend();
     }
   };
 
   return (
     <View style={styles.fixedHeightContainer}>
       <TextInput
+        ref={inputRef}
         style={styles.input}
         placeholder="Type a message..."
         value={inputText}
         onChangeText={setInputText}
-        maxLength={200}
+        maxLength={500}
+        onSubmitEditing={handleSubmitEditing}
+        returnKeyType="send"
+        blurOnSubmit={false}
       />
       
       <TouchableOpacity
