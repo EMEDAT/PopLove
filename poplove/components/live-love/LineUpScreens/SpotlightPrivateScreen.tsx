@@ -124,31 +124,31 @@ export default function SpotlightPrivateScreen() {
   }, [messages]);
 
   // In SpotlightPrivateScreen component
-    useEffect(() => {
-      const determineCurrentSpotlight = async () => {
-        if (!user || !sessionId) return;
-
-        try {
-          const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-          if (sessionDoc.exists()) {
-            const sessionData = sessionDoc.data();
-            const userGender = user.gender || '';
-            const oppositeGender = userGender === 'male' ? 'female' : 'male';
-            const spotlightField = `current${oppositeGender.charAt(0).toUpperCase()}${oppositeGender.slice(1)}ContestantId`;
-            
-            const currentSpotlightId = sessionData[spotlightField];
-            
-            // Explicitly set in context
-            setSessionId(sessionId);
-            setCurrentSpotlight(currentSpotlightId);
-          }
-        } catch (error) {
-          console.error('Spotlight Determination Error:', error);
+  useEffect(() => {
+    const determineCurrentSpotlight = async () => {
+      if (!user || !sessionId) return;
+  
+      try {
+        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+        if (sessionDoc.exists()) {
+          const sessionData = sessionDoc.data();
+          const userGender = user.gender || '';
+          const oppositeGender = userGender === 'male' ? 'female' : 'male';
+          const spotlightField = `current${oppositeGender.charAt(0).toUpperCase()}${oppositeGender.slice(1)}ContestantId`;
+          
+          const currentSpotlightId = sessionData[spotlightField];
+          
+          // Safe method calls with optional chaining
+          setSessionId?.(sessionId);
+          setCurrentSpotlight?.(currentSpotlightId);
         }
-      };
-
-      determineCurrentSpotlight();
-    }, [user, sessionId]);
+      } catch (error) {
+        console.error('Spotlight Determination Error:', error);
+      }
+    };
+  
+    determineCurrentSpotlight();
+  }, [user, sessionId]);
 
   // Handle timer expiration
   useEffect(() => {

@@ -946,7 +946,8 @@ export const subscribeToGenderFilteredMessages = (
   return onSnapshot(q, async (snapshot) => {
     const rawMessages = snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      senderGender: doc.data().senderGender || '' // Add fallback for senderGender
     })) as ChatMessage[];
 
     console.log('DEBUG: Raw Messages Received', {
@@ -954,6 +955,7 @@ export const subscribeToGenderFilteredMessages = (
       messageDetails: rawMessages.map(m => ({
         id: m.id,
         senderId: m.senderId,
+        senderGender: m.senderGender,
         text: m.text
       }))
     });
@@ -966,44 +968,51 @@ export const subscribeToGenderFilteredMessages = (
     const userGender = userDoc.exists() ? userDoc.data().gender || '' : '';
     const spotlightGender = spotlightDoc?.exists() ? spotlightDoc.data().gender || '' : '';
 
-    console.log('DEBUG: Gender Information', {
+    // Fallback: Try to determine spotlight from session if not provided
+    let resolvedCurrentSpotlightId = currentSpotlightId;
+    if (!resolvedCurrentSpotlightId) {
+      const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        const oppositeGender = userGender === 'male' ? 'female' : 'male';
+        const spotlightField = `current${oppositeGender.charAt(0).toUpperCase()}${oppositeGender.slice(1)}ContestantId`;
+        resolvedCurrentSpotlightId = sessionData[spotlightField];
+      }
+    }
+
+    console.log('DEBUG: Gender & Spotlight Information', {
       userId,
       userGender,
-      currentSpotlightId,
+      currentSpotlightId: resolvedCurrentSpotlightId,
       spotlightGender
     });
 
     // Filtering Logic
-    const filteredMessages = await Promise.all(rawMessages.map(async (message) => {
+    const filteredMessages = rawMessages.filter(message => {
       // Always show own and system messages
-      if (message.senderId === userId || message.senderId === 'system') return message;
-
-      // Fetch sender's gender
-      const senderDoc = await getDoc(doc(firestore, 'users', message.senderId));
-      const senderGender = senderDoc.exists() ? senderDoc.data().gender || '' : '';
-
+      if (message.senderId === userId || message.senderId === 'system') return true;
+    
       // In Waiting Room
-      if (userId !== currentSpotlightId) {
-        // Only show messages from current spotlight
-        return message.senderId === currentSpotlightId ? message : null;
+      if (userId !== resolvedCurrentSpotlightId) {
+        // ONLY show messages from CURRENT SPOTLIGHT of OPPOSITE GENDER
+        return message.senderId === resolvedCurrentSpotlightId;
       }
-
+    
       // In Private Screen
-      if (userId === currentSpotlightId) {
-        // Debug logging to understand filtering
-        debugLog('PrivateScreen', `Filtering message: sender=${message.senderId}, senderGender=${senderGender}, userGender=${userGender}, currentSpotlightId=${currentSpotlightId}`);
-      
-        // Show messages from:
-        // 1. Opposite gender waiters
-        // 2. System messages
+      if (userId === resolvedCurrentSpotlightId) {
+        // Show:
+        // 1. System messages
+        // 2. Messages from OPPOSITE gender waiters
+        // 3. Own messages
         return (
-          message.senderId === 'system' ||  // Always show system messages
-          (senderGender !== userGender && message.senderId !== currentSpotlightId)  // Opposite gender waiters, exclude current spotlight
-        ) ? message : null;
+          message.senderId === 'system' ||
+          message.senderGender !== userGender ||
+          message.senderId === userId
+        );
       }
-
-      return null;
-    })).then(results => results.filter(Boolean) as ChatMessage[]);
+    
+      return false;
+    });
 
     // Sort and return filtered messages
     callback(filteredMessages.sort((a, b) => 
@@ -1018,24 +1027,34 @@ export const subscribeToGenderFilteredMessages = (
  * @param message Message data
  */
 export const sendMessage = async (sessionId: string, message: Omit<ChatMessage, 'id'>): Promise<void> => {
-  debugLog('SendMessage', `Sending message in session ${sessionId}`);
+  console.log('DEBUG: Sending Message', {
+    sessionId,
+    senderId: message.senderId,
+    text: message.text
+  });
   
   try {
-    // Add message to collection
+    // Fetch sender's gender
+    const senderDoc = await getDoc(doc(firestore, 'users', message.senderId));
+    const senderGender = senderDoc.exists() ? senderDoc.data().gender || '' : '';
+
+    console.log('DEBUG: Sender Gender', {
+      senderId: message.senderId,
+      senderGender
+    });
+
+    // Add message with gender
     await addDoc(collection(firestore, 'lineupSessions', sessionId, 'messages'), {
       ...message,
+      senderGender,  // Add sender's gender
       timestamp: serverTimestamp()
     });
-    
-    // Mark user as active
-    if (message.senderId !== 'system') {
-      await markUserActive(sessionId, message.senderId);
-    }
   } catch (error) {
-    debugLog('SendMessage', 'Error sending message', error);
+    console.error('Message Send Error', error);
     throw error;
   }
 };
+
 
 /**
  * Mark user as active in session
