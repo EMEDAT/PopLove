@@ -1357,7 +1357,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     
     return () => unsubscribe();
-  }, [sessionId, user, step]);
+  }, [sessionId, user]);
 
   const contextValue: LineUpContextType = {
     step,
