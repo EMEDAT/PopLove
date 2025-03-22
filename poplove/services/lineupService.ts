@@ -375,6 +375,22 @@ export const getSpotlights = async (sessionId: string, userId: string): Promise<
         };
       })
     );
+
+    // Add this block just before the final return statement
+    console.log('🚨 Critical Spotlight Selection Debug', {
+      sessionId,
+      userId,
+      userGender,
+      oppositeGender,
+      oppositeGenderField,
+      currentOppositeGenderSpotlightId,
+      sessionData: {
+        category: sessionData.category,
+        currentMaleSpotlightId: sessionData.currentMaleSpotlightId,
+        currentFemaleSpotlightId: sessionData.currentFemaleSpotlightId,
+        currentSpotlightId: sessionData.currentSpotlightId
+      }
+    });
     
     return spotlightsWithMatchPercentage;
   } catch (error) {
