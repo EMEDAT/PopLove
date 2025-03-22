@@ -558,7 +558,6 @@ useEffect(() => {
 
   return (
     <SafeAreaView style={styles.container}>
-      console.log(`[LIVE-LOVE] Rendering screen with step: ${selectedMode}, gender: ${userGenderRef.current}`);
       {renderContent()}
     </SafeAreaView>
   );
