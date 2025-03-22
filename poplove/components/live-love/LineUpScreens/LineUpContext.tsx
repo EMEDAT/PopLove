@@ -25,7 +25,7 @@ import { calculateMatchPercentage } from '../../../utils/matchCalculation';
 import { debugLog, formatTime, checkUserEligibility, getSpotlightRemainingTime } from './utils';
 
 // Constants for lineup
-const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds (14,400 seconds)
+const SPOTLIGHT_TIMER_SECONDS = 5 * 60; // 4 hours in seconds (14,400 seconds)
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 48 hours in seconds (172,800 seconds)
 const SERVER_SYNC_INTERVAL = 60 * 1000; // Sync with server every minute
 const MIN_REFRESH_INTERVAL = 30 * 1000; // Minimum time between refreshes
