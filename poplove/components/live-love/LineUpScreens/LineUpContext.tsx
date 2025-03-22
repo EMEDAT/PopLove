@@ -279,7 +279,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 👤 User gender: ${userGender}`);
         
         // Check gender-specific field
-        const genderField = userGender === 'male' ? 'currentMaleContestantId' : 'currentFemaleContestantId';
+        const genderField = userGender === 'male' ? 'currentMaleSpotlightId' : 'currentFemaleSpotlightId';
         const isCurrentContestant = 
           sessionData.currentContestantId === user?.uid || 
           sessionData[genderField] === user?.uid;
@@ -1073,7 +1073,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSessionId(session.id);
       
       // Get gender-specific field name
-      const genderField = userGender === 'male' ? 'currentMaleContestantId' : 'currentFemaleContestantId';
+      const genderField = userGender === 'male' ? 'currentMaleSpotlightId' : 'currentFemaleSpotlightId';
       
       // CRITICAL FIX: Check early if there's already someone of the same gender in spotlight
       const currentGenderSpotlight = session[genderField];
