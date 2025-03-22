@@ -109,6 +109,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [likeCount, setLikeCount] = useState<number>(0);
   const [transitioning, setTransitioning] = useState(false);
   const [interactedContestants, setInteractedContestants] = useState<Set<string>>(new Set());
+  const [contestantActions, setContestantActions] = useState<Map<string, 'like' | 'pop'>>(new Map());
   
   // Refs for stable references between renders
   const turnCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -129,6 +130,61 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const messageSubscriptionRef = useRef<() => void>(() => {});
   const rotationListenerRef = useRef<() => void>(() => {});
   const statsListenerRef = useRef<() => void>(() => {});
+  const [viewCount, setViewCount] = useState<number>(0);
+
+
+  // Add this useEffect to set up real-time view count listener
+  useEffect(() => {
+    if (!sessionId || !currentSpotlight) return;
+    
+    debugLog('Views', `Setting up view count listener for ${currentSpotlight.id}`);
+    
+    // Listen for stats changes on the current spotlight
+    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', currentSpotlight.id);
+    
+    const unsubscribe = onSnapshot(statsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.viewCount !== undefined) {
+          debugLog('Views', `Received viewCount update: ${data.viewCount}`);
+          
+          // Update current spotlight with new view count
+          setCurrentSpotlight(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              viewCount: data.viewCount
+            };
+          });
+        }
+      }
+    }, (error) => {
+      debugLog('Views', 'Error in view count listener', error);
+    });
+    
+    // Add cleanup function
+    return () => {
+      debugLog('Views', 'Cleaning up view count listener');
+      unsubscribe();
+    };
+  }, [sessionId, currentSpotlight?.id]);
+
+  // Update the trackProfileView function call when a new contestant is viewed
+  useEffect(() => {
+    if (!user || !sessionId || !currentSpotlight) return;
+    
+    // Add a debounce to avoid multiple view counts when component re-renders
+    const timeoutId = setTimeout(() => {
+      debugLog('Views', `Tracking view for contestant ${currentSpotlight.id}`);
+      
+      LineupService.trackProfileView(sessionId, user.uid, currentSpotlight.id)
+        .catch(error => {
+          debugLog('Views', 'Error tracking profile view', error);
+        });
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentSpotlight?.id, sessionId, user?.uid]);
 
 /**
  * Get gender-filtered spotlights
@@ -688,6 +744,7 @@ useEffect(() => {
         
         setLikeCount(data.likeCount || 0);
         setPopCount(data.popCount || 0);
+        setViewCount(data.viewCount || 0);
         
         // Check for elimination threshold
         if (data.popCount >= 20 && !eliminated) {
@@ -770,8 +827,19 @@ const handleAction = async (action: 'like' | 'pop', contestantId: string) => {
   
   // Check if already interacted with this contestant
   if (interactedContestants.has(contestantId)) {
-    debugLog('Action', `Already interacted with contestant ${contestantId}`);
-    setError('You have already interacted with this contestant');
+    // Get the previous action performed
+    const previousAction = contestantActions.get(contestantId);
+    
+    // If same action, show already performed error
+    if (previousAction === action) {
+      debugLog('Action', `Already performed ${action} on contestant ${contestantId}`);
+      setError(`You have already ${action === 'like' ? 'liked' : 'popped'} this contestant`);
+    } else {
+      // If different action, show can't perform both error
+      debugLog('Action', `Trying to ${action} after ${previousAction} on contestant ${contestantId}`);
+      setError(`You cannot ${action} a contestant you've already ${previousAction === 'like' ? 'liked' : 'popped'}`);
+    }
+    
     setTimeout(() => setError(null), 3000);
     return;
   }
@@ -781,12 +849,14 @@ const handleAction = async (action: 'like' | 'pop', contestantId: string) => {
   try {
     setLoading(true);
     
-    // Add to interacted set immediately to prevent double actions
+    // Add to interacted set and action map immediately to prevent double actions
     setInteractedContestants(prev => new Set(prev).add(contestantId));
+    setContestantActions(prev => new Map(prev).set(contestantId, action));
     
     // Record action in service
     await LineupService.recordAction(sessionIdRef.current, user.uid, contestantId, action);
     
+    // Rest of your existing code remains the same...
     if (action === 'like') {
       // Check for immediate match
       debugLog('Action', 'Checking for immediate match');
