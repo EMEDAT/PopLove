@@ -666,9 +666,9 @@ useEffect(() => {
   
   // Subscribe to messages with gender filtering
   const unsubscribeMessages = LineupService.subscribeToGenderFilteredMessages(
-    sessionId || '',
-    user?.uid || '',
-    currentSpotlight?.id || '',
+    sessionIdRef.current!, // Force non-null
+    user!.uid,            // Force non-null
+    currentSpotlight?.id || null,
     (newMessages) => {
       setMessages(newMessages);
     }
@@ -695,7 +695,7 @@ useEffect(() => {
           safeSetStep('eliminated');
           
           // Record elimination
-          LineupService.eliminateUser(sessionIdRef.current, user.uid).catch((error) => {
+          LineupService.eliminateUser(sessionIdRef.current || '', user.uid).catch((error) => {
             debugLog('Elimination', 'Error recording elimination', error);
           });
         }

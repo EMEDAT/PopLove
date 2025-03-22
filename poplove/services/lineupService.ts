@@ -928,8 +928,8 @@ export const createChat = async (userId1: string, userId2: string, source: strin
  * @returns Unsubscribe function
  */
 export const subscribeToGenderFilteredMessages = (
-  sessionId: string,
-  userId: string,
+  sessionId: string | null,  // Allow null
+  userId: string | null,     // Allow null
   currentSpotlightId: string | null,
   callback: (messages: ChatMessage[]) => void
 ): () => void => {
