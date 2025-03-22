@@ -14,10 +14,7 @@ import {
   Timestamp,
   setDoc,
   orderBy,
-  limit,
-  writeBatch,
   runTransaction,
-  deleteField
 } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import { Contestant, ChatMessage, LineUpSessionData, MatchData } from '../components/live-love/LineUpScreens/types';
@@ -935,7 +932,6 @@ export const subscribeToGenderFilteredMessages = (
   callback: (messages: ChatMessage[]) => void
 ): () => void => {
   if (!sessionId || !userId) {
-    console.error('CRITICAL: Missing sessionId or userId');
     callback([]);
     return () => {};
   }
@@ -944,15 +940,18 @@ export const subscribeToGenderFilteredMessages = (
   const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
   return onSnapshot(q, async (snapshot) => {
+    // Define rawMessages here
     const rawMessages = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
-      senderGender: doc.data().senderGender || '' // Add fallback for senderGender
+      senderGender: doc.data().senderGender || ''
     })) as ChatMessage[];
 
-    console.log('DEBUG: Raw Messages Received', {
-      count: rawMessages.length,
-      messageDetails: rawMessages.map(m => ({
+    console.log('🔍 FULL SUBSCRIPTION DEBUG', {
+      sessionId, 
+      userId, 
+      rawMessageCount: rawMessages.length,
+      messages: rawMessages.map(m => ({
         id: m.id,
         senderId: m.senderId,
         senderGender: m.senderGender,
@@ -991,23 +990,41 @@ export const subscribeToGenderFilteredMessages = (
     const filteredMessages = rawMessages.filter(message => {
       // Always show own and system messages
       if (message.senderId === userId || message.senderId === 'system') return true;
+
+      // In Waiting Room
+      if (userId !== resolvedCurrentSpotlightId) {
+        // Show messages from opposite gender waiters
+        return (
+          message.senderGender !== userGender &&  // Opposite gender
+          message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight
+        );
+      }
+
+      // In Private Screen (keep existing logic)
+      if (userId === resolvedCurrentSpotlightId) {
+        return (
+          message.senderId === 'system' ||  // Always show system messages
+          (
+            message.senderGender !== userGender &&  // Opposite gender messages
+            message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight's own messages
+          )
+        );
+      }
     
       // In Waiting Room
       if (userId !== resolvedCurrentSpotlightId) {
-        // ONLY show messages from CURRENT SPOTLIGHT of OPPOSITE GENDER
-        return message.senderId === resolvedCurrentSpotlightId;
+        // ONLY show messages from current spotlight of opposite gender
+        return (
+          message.senderId === resolvedCurrentSpotlightId
+        );
       }
     
       // In Private Screen
       if (userId === resolvedCurrentSpotlightId) {
-        // Show:
-        // 1. System messages
-        // 2. Messages from OPPOSITE gender waiters
-        // 3. Own messages
+        // Show messages from opposite gender waiters
         return (
-          message.senderId === 'system' ||
-          message.senderGender !== userGender ||
-          message.senderId === userId
+          message.senderGender !== userGender &&  // Opposite gender
+          message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight
         );
       }
     
