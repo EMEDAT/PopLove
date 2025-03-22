@@ -1102,14 +1102,14 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         session.currentSpotlightId === user.uid || 
         session[genderField] === user.uid;
       
-      if (isUserCurrentContestant) {
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] 👑 USER IS THE CURRENT CONTESTANT - GOING TO PRIVATE SCREEN`);
-        setIsCurrentUser(true);
-        startSpotlightTimer();
-        safeSetStep('private');
-        setLoading(false);
-        return;
-      }
+        if (isUserCurrentContestant) {
+          console.log(`[LineUpProvider] CRITICAL: USER IS CURRENT CONTESTANT - FORCING PRIVATE SCREEN`);
+          setIsCurrentUser(true);
+          startSpotlightTimer();
+          setStep('private');
+          setLoading(false);
+          return;
+        }
       
       console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏳ Adding delay before first refresh...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
