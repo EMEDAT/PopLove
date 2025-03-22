@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  FlatList,
+  ScrollView
 } from 'react-native';
 import { User } from './types';
 import { Ionicons } from '@expo/vector-icons';
@@ -419,63 +419,8 @@ export default function LineUpScreen() {
       </View>
     );
   };
-  
-  // Waiting room view for when no contestants are available
-  if (initialLoadComplete && !currentContestant && !isLoading && orderedContestants.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Waiting Room</Text>
-        </View>
-        
-        <Text style={styles.upcomingTitle}>Next in Line</Text>
-        <View style={styles.emptyContestantsContainer}>
-          {orderedContestants.length > 0 ? (
-            <FlatList
-              data={orderedContestants.filter(c => c.gender === user?.gender)}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.waitingContestantItem}>
-                  <Image 
-                    source={{ uri: item.photoURL }} 
-                    style={styles.waitingContestantImage} 
-                  />
-                  <Text style={styles.waitingContestantName}>
-                    {item.displayName}
-                  </Text>
-                </View>
-              )}
-              ListEmptyComponent={
-                <Text style={styles.waitingText}>
-                  No {user?.gender} contestants waiting
-                </Text>
-              }
-            />
-          ) : (
-            <Text style={styles.waitingText}>
-              Waiting for contestants to join...
-            </Text>
-          )}
-        </View>
-        
-        <Text style={styles.currentContestantTitle}>Now in the Spotlight</Text>
-        <View style={styles.emptySpotlightContainer}>
-          <Ionicons name="person-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyText}>Waiting for the first contestant</Text>
-        </View>
-        
-        {/* Chat section for lineup members */}
-        <TouchableOpacity onPress={() => setShowChat(true)}>
-          <View style={styles.sampleMessageContainer}>
-            <View style={styles.sampleMessageContent}>
-              <Text style={styles.sampleMessageText}>Tap to chat with others in the lineup...</Text>
-              <Ionicons name="chatbubbles-outline" size={24} color="#666" />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+
+  logLineUp(`Full contestant list: ${JSON.stringify(orderedContestants)}`);
   
   // If we have a currentContestant, show the main UI even if we're still loading other data
   return (
