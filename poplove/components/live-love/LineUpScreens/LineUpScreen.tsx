@@ -419,19 +419,34 @@ export default function LineUpScreen() {
   };
 
   // Give the contestants time to load before showing "no contestants"
-  if (initialLoadComplete && !currentContestant && !isLoading && orderedContestants.length === 0) {
-    logLineUp('Rendering no contestants screen');
+  if (initialLoadComplete && !currentSpotlight && !isLoading && orderedContestants.length === 0) {
     return (
-      <View style={styles.noContestantContainer}>
-        <Text style={styles.noContestantText}>No contestants available at the moment</Text>
-        <TouchableOpacity 
-          style={styles.backButtonContainer} 
-          onPress={() => {
-            logLineUp('Back button pressed from no contestants screen');
-            goBack();
-          }}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Waiting Room</Text>
+        </View>
+        
+        <Text style={styles.upcomingTitle}>Next in Line</Text>
+        <View style={styles.emptyContestantsContainer}>
+          <Text style={styles.waitingText}>
+            Waiting for contestants to join...
+          </Text>
+        </View>
+        
+        <Text style={styles.currentContestantTitle}>Now in the Spotlight</Text>
+        <View style={styles.emptySpotlightContainer}>
+          <Ionicons name="person-outline" size={80} color="#ccc" />
+          <Text style={styles.emptyText}>Waiting for the first contestant</Text>
+        </View>
+        
+        {/* Chat section for lineup members */}
+        <TouchableOpacity onPress={() => setShowChat(true)}>
+          <View style={styles.sampleMessageContainer}>
+            <View style={styles.sampleMessageContent}>
+              <Text style={styles.sampleMessageText}>Tap to chat with others in the lineup...</Text>
+              <Ionicons name="chatbubbles-outline" size={24} color="#666" />
+            </View>
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -997,5 +1012,32 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     fontSize: 14,
+  },
+  emptyContestantsContainer: {
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  waitingText: {
+    color: '#999',
+    fontSize: 16,
+  },
+  emptySpotlightContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 16,
+    marginTop: 10,
   },
 });
