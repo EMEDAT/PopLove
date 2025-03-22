@@ -305,14 +305,17 @@ useEffect(() => {
   };
 
   // Render message items
-  const renderMessageItem = ({ item }: { item: any }) => {
+  const renderMessageItem = ({ item, index }: { item: any, index: number }) => {
     const isCurrentUser = item.senderId === user?.uid;
     
     return (
-      <View style={[
-        styles.messageContainer,
-        isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
-      ]}>
+      <View 
+        key={`${item.id || 'default'}_${index}_${Math.random().toString(36).substring(7)}`} 
+        style={[
+          styles.messageContainer,
+          isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
+        ]}
+      >
         {!isCurrentUser && (
           <Image 
             source={{ uri: item.senderPhoto || 'https://via.placeholder.com/40' }} 
@@ -466,7 +469,7 @@ useEffect(() => {
               <FlatList
                 ref={flatListRef}
                 data={messages}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => `${item.id || 'default'}_${index}_${Math.random().toString(36).substring(7)}`}
                 renderItem={renderMessageItem}
                 contentContainerStyle={styles.messagesList}
                 onContentSizeChange={() => {

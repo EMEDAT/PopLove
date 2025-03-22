@@ -97,10 +97,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
   
   while (attempt < MAX_RETRIES) {
     try {
-      debugLog('Join', `Attempt ${attempt+1} to join session`);
-      
       // Get user's gender for proper session assignment
-      debugLog('Join', `Getting gender for user ${userId}`);
       const userDoc = await getDoc(doc(firestore, 'users', userId));
       if (!userDoc.exists()) {
         throw new Error('User not found');
@@ -132,23 +129,31 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           
           const sessionData = freshSessionDoc.data();
           const spotlights = sessionData.spotlights || [];
-          const userGenderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}ContestantId`;
           
-          // CRITICAL: Check if there's already someone of this gender in the spotlight
-          const currentGenderContestant = sessionData[userGenderField];
+          // CRITICAL: Check if this is the first female/male contestant
+          const currentMaleSpotlightId = sessionData.currentMaleSpotlightId;
+          const currentFemaleSpotlightId = sessionData.currentFemaleSpotlightId;
           
-          // If user is already in the session, just return the data
-          if (spotlights.includes(userId)) {
-            return { 
-              ...sessionData, 
-              id: sessionId,
-              contestants: sessionData.spotlights || [],
-              category: sessionData.category || [categoryId],
-              currentSpotlightId: sessionData.currentSpotlightId || null,
-              startTime: sessionData.startTime || serverTimestamp(),
-              endTime: sessionData.endTime || null,
-              status: sessionData.status || 'active'
-            } as LineUpSessionData;
+          // Special handling for first contestant of each gender
+          const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
+          const rotationTimeField = `${userGender}LastRotationTime`;
+          
+          // First of gender becomes spotlight immediately
+          if (!sessionData[genderField]) {
+            const updates: Record<string, any> = {
+              [genderField]: userId,
+              [rotationTimeField]: serverTimestamp(),
+              // Update global spotlight if not set
+              ...(sessionData.currentSpotlightId ? {} : {
+                currentSpotlightId: userId,
+                lastRotationTime: serverTimestamp()
+              })
+            };
+            
+            transaction.update(doc(firestore, 'lineupSessions', sessionId), updates);
+            
+            // Notify user about turn
+            await addLineupTurnNotification(userId, sessionId);
           }
           
           // Add user to spotlights if not already there
@@ -158,7 +163,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
               spotlights: updatedSpotlights
             });
             
-            // Add user to spotlight timestamps for proper ordering
+            // Record join time for ordering
             transaction.set(doc(firestore, 'lineupSessions', sessionId, 'spotlightJoinTimes', userId), {
               joinedAt: serverTimestamp(),
               gender: userGender,
@@ -169,7 +174,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           
           return { 
             ...sessionData, 
-            id: sessionId, 
+            id: sessionId,
             spotlights: [...spotlights, userId],
             contestants: [...(sessionData.contestants || []), userId],
             category: sessionData.category || [categoryId],
@@ -180,22 +185,15 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           } as LineUpSessionData;
         });
       } else {
-        // Create new session
-        debugLog('Join', `No existing session found, creating new session`);
+        // Create new session with first contestant as spotlight
         const now = new Date();
         const fourHoursLater = new Date(now.getTime() + SPOTLIGHT_TIMER_SECONDS * 1000);
         
-        const maleField = userGender === 'male' ? userId : '';
-        const femaleField = userGender === 'female' ? userId : '';
-        
-        // NEW SESSION - Create with proper gender fields
         const newSession = {
           category: [categoryId],
           primaryGender: userGender, // Set primary gender based on first user
-          currentMaleSpotlightId: maleField,
-          currentFemaleSpotlightId: femaleField,
-          maleLastRotationTime: userGender === 'male' ? serverTimestamp() : null,
-          femaleLastRotationTime: userGender === 'female' ? serverTimestamp() : null,
+          [`current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`]: userId,
+          [`${userGender}LastRotationTime`]: serverTimestamp(),
           spotlights: [userId],
           startTime: serverTimestamp(),
           endTime: Timestamp.fromDate(fourHoursLater),
@@ -220,7 +218,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
         return { 
           ...newSession, 
           id: docRef.id,
-          contestants: [userId] // Add this line
+          contestants: [userId]
         } as LineUpSessionData;
       }
     } catch (error) {
@@ -231,7 +229,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
       }
       
       attempt++;
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer between retries
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait between retries
     }
   }
   

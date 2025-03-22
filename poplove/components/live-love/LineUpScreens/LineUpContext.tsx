@@ -22,13 +22,10 @@ import {
   getDoc, 
   updateDoc, 
   serverTimestamp, 
-  increment,
   onSnapshot,
-  Timestamp,
   setDoc,
   orderBy,
-  limit,
-  writeBatch
+  writeBatch,
 } from 'firebase/firestore';
 import { runTransaction } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
@@ -974,40 +971,40 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Send chat message
   const sendMessage = async (text: string) => {
-    if (!user || !sessionId) {
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ Cannot send message - missing user or sessionId`);
-      return;
-    }
-    
-    console.log(`[${new Date().toISOString()}] [LineUpProvider] 💬 Sending message: ${text.substring(0, 20)}...`);
+    if (!user || !sessionId) return;
     
     try {
-      // Get user gender for message metadata (fix User.gender error)
-      let userGender = userGenderRef.current;
-      if (!userGender) {
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (userDoc.exists()) {
-          userGender = userDoc.data().gender;
-          userGenderRef.current = userGender;
-        }
+      const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+      const sessionData = sessionDoc.data();
+      
+      if (sessionData?.clearPreviousMessages) {
+        // Clear previous messages
+        const prevMessagesRef = collection(firestore, 'lineupSessions', sessionId, 'messages');
+        const snapshot = await getDocs(prevMessagesRef);
+        
+        // Batch delete to improve performance
+        const batch = writeBatch(firestore);
+        snapshot.docs.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        
+        // Reset the clear flag
+        await updateDoc(doc(firestore, 'lineupSessions', sessionId), {
+          clearPreviousMessages: false
+        });
       }
       
-      // Add message directly to Firestore
-      const messagesRef = collection(firestore, 'lineupSessions', sessionId, 'messages');
-      
-      await addDoc(messagesRef, {
+      // Send new message
+      await addDoc(collection(firestore, 'lineupSessions', sessionId, 'messages'), {
         senderId: user.uid,
         senderName: user.displayName || 'User',
         senderPhoto: user.photoURL || '',
-        senderGender: userGender, // Use fetched gender
         text,
         timestamp: serverTimestamp()
       });
-      
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Message sent successfully`);
-    } catch (err) {
-      console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error sending message:`, err);
-      setError('Failed to send message. Please try again.');
+    } catch (error) {
+      console.error('Message send error:', error);
     }
   };
   
