@@ -250,6 +250,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Querying for existing sessions...`);
         const snapshot = await getDocs(q);
+        console.log(`[RESTORE] Checking for user ${user?.uid} active sessions`);
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Found ${snapshot.size} active sessions`);
         
         if (snapshot.empty) {
@@ -282,6 +283,15 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const isCurrentContestant = 
           sessionData.currentContestantId === user?.uid || 
           sessionData[genderField] === user?.uid;
+
+          console.log(`[RESTORE] User contestant check:`, {
+            userId: user?.uid,  // Added optional chaining
+            userGender,
+            isCurrentContestant,
+            currentFieldValue: sessionData.currentContestantId,
+            genderFieldValue: sessionData[genderField],
+            decision: isCurrentContestant ? 'PRIVATE SCREEN' : 'LINEUP SCREEN'
+          });
         
         console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Current contestant check: ${isCurrentContestant ? 'YES' : 'NO'}`);
         
@@ -1053,6 +1063,13 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Joining/creating lineup session...`);
       const session = await LineupService.joinLineupSession(user.uid, selectedCategory.id);
       console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Session created/joined: ${session.id}`);
+      console.log(`[START] Session data:`, {
+        id: session.id,
+        currentSpotlightId: session.currentSpotlightId,
+        currentMaleContestantId: session?.currentMaleContestantId,
+        currentFemaleContestantId: session?.currentFemaleContestantId,
+        userGender
+      });
       setSessionId(session.id);
       
       // Get gender-specific field name
@@ -1103,6 +1120,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         session[genderField] === user.uid;
 
         console.log(`[LineUpProvider] Critical gender check: user=${user.uid}, gender=${userGender}, field=${genderField}, value=${session[genderField]}`);
+        console.log(`[START DECISION] Calculation: isCurrentContestant = (${session.currentSpotlightId === user.uid}) || (${session[genderField] === user.uid}) = ${isUserCurrentContestant}`);
         console.log(`[LineUpProvider] IsCurrentContestant=${isUserCurrentContestant}`);
       
         if (isUserCurrentContestant) {

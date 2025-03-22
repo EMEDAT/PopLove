@@ -103,6 +103,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
       }
       const userGender = userDoc.data().gender || 'unknown';
       debugLog('Join', `User gender: ${userGender}`);
+      console.log(`[JOIN] User gender: ${userGender}, Setting field current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`);
       
       const sessionsRef = collection(firestore, 'lineupSessions');
       const q = query(
@@ -123,13 +124,13 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           if (!freshSessionDoc.exists()) {
             throw new Error('Session disappeared during join');
           }
-          
+        
           const sessionData = freshSessionDoc.data();
           const spotlights = sessionData.spotlights || [];
-          
+        
           const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
           const rotationTimeField = `${userGender}LastRotationTime`;
-          
+        
           // CRITICAL: First of gender becomes spotlight, others wait
           if (!sessionData[genderField]) {
             const updates: Record<string, any> = {
@@ -137,27 +138,28 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
               [rotationTimeField]: serverTimestamp(),
               clearPreviousMessages: true // Flag to clear chat for new spotlight
             };
-            
+        
             // CRITICAL FIX: Make sure general fields are updated too
             // This ensures currentSpotlightId gets updated for both genders
             if (!sessionData.currentSpotlightId) {
               updates.currentSpotlightId = userId;
               updates.lastRotationTime = serverTimestamp();
             }
-            
+        
             transaction.update(doc(firestore, 'lineupSessions', sessionId), updates);
-            
+            console.log(`[JOIN] Fields set: gender=${userGender}, field=${genderField}, value=${userId}, currentSpotlightId=${updates.currentSpotlightId || 'not set'}`);
+        
             // Notify user about turn
             await addLineupTurnNotification(userId, sessionId);
           }
-          
+        
           // Add user to spotlights if not already there
           if (!spotlights.includes(userId)) {
             const updatedSpotlights = [...spotlights, userId];
             transaction.update(doc(firestore, 'lineupSessions', sessionId), {
               spotlights: updatedSpotlights
             });
-            
+        
             // Record join time for ordering
             transaction.set(doc(firestore, 'lineupSessions', sessionId, 'spotlightJoinTimes', userId), {
               joinedAt: serverTimestamp(),
@@ -166,8 +168,8 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
               completed: false
             });
           }
-          
-          return { 
+        
+          const sessionDataToReturn = { 
             ...sessionData, 
             id: sessionId,
             spotlights: [...spotlights, userId],
@@ -178,6 +180,15 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
             endTime: sessionData.endTime || null,
             status: sessionData.status || 'active'
           } as LineUpSessionData;
+        
+          console.log(`[JOIN] Returning session data:`, {
+            id: sessionId,
+            currentSpotlightId: sessionData.currentSpotlightId,
+            [genderField]: sessionData[genderField],
+            gender: userGender
+          });
+        
+          return sessionDataToReturn;
         });
       } else {
         // Create new session

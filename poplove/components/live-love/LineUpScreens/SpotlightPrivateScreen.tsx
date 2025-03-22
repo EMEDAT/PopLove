@@ -36,7 +36,7 @@ interface SpotlightPrivateScreenProps {
 }
 
 export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScreenProps = {}) {
-  logPrivate('Component rendering');
+  const { user } = useAuthContext();
   
   const { 
     goBack, 
@@ -52,8 +52,10 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     setSelectedMatches,
     isCurrentUser,
   } = useLineUp();
-  
-  const { user } = useAuthContext();
+
+  console.log(`[PRIVATE] Rendering private screen, isCurrentUser=${isCurrentUser}, userId=${user?.uid}`);
+
+  logPrivate('Component rendering');
 
   if (!user) {
     return (

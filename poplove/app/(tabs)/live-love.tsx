@@ -36,6 +36,7 @@ const logLiveLove = (message: string, data?: any) => {
 export default function LiveLoveScreen() {
   const searchParams = useLocalSearchParams();
   const { user } = useAuthContext();
+  const userGenderRef = useRef<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<'selection' | 'speed-dating' | 'line-up'>('selection');
   const [selectedDatingMode, setSelectedDatingMode] = useState<'speed-dating' | 'line-up' | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -557,6 +558,7 @@ useEffect(() => {
 
   return (
     <SafeAreaView style={styles.container}>
+      console.log(`[LIVE-LOVE] Rendering screen with step: ${selectedMode}, gender: ${userGenderRef.current}`);
       {renderContent()}
     </SafeAreaView>
   );
