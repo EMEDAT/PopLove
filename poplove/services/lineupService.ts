@@ -114,14 +114,26 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
     } else {
       const newSessionRef = doc(collection(firestore, 'lineupSessions'));
       sessionId = newSessionRef.id;
+      
+      // Fully initialize session document
+      const initialSessionData = {
+        category: [categoryId],
+        status: 'active',
+        spotlights: [],
+        contestants: [],
+        currentSpotlightId: null,
+        currentMaleSpotlightId: null,
+        currentFemaleSpotlightId: null,
+        lastRotationTime: null,
+        maleLastRotationTime: null,
+        femaleLastRotationTime: null
+      };
+
+      transaction.set(newSessionRef, initialSessionData);
+
       sessionDoc = {
         id: sessionId,
-        data: () => ({
-          category: [categoryId],
-          status: 'active',
-          spotlights: [],
-          contestants: []
-        })
+        data: () => initialSessionData
       };
     }
 
