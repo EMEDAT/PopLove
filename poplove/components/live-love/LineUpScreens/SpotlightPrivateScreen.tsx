@@ -50,6 +50,7 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     sendMessage,
     setSpotlightTimeLeft,
     setSelectedMatches,
+    isCurrentUser,
   } = useLineUp();
   
   const { user } = useAuthContext();
@@ -92,6 +93,9 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
       if (!sessionId || !user) return;
       
       try {
+        // Add delay to allow Firestore updates to propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const userDoc = await getDoc(doc(firestore, 'users', user.uid));
         if (!userDoc.exists()) return;
         
@@ -103,7 +107,9 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
         
         const currentContestantId = sessionDoc.data()[genderField];
         
-        if (currentContestantId !== user.uid) {
+        // Only redirect if we're DEFINITELY not the current contestant
+        // and context also says we're not the current user
+        if (currentContestantId !== user.uid && !isCurrentUser) {
           logPrivate('User is not the actual current contestant, redirecting to lineup screen');
           goBack(); // Return to lineup screen instead of showing private screen incorrectly
         }
@@ -113,7 +119,7 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
     };
     
     verifyCurrentContestantStatus();
-  }, [sessionId, user]);
+  }, [sessionId, user, isCurrentUser]);
 
   // Add this useEffect to track and log completion:
     useEffect(() => {

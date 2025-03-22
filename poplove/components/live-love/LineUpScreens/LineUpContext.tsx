@@ -1124,88 +1124,48 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Loading contestants with multiple attempts...`);
       const loadedContestants = await loadContestantsWithRetry(session.id, user.uid);
       
-      // Check if there are contestants of opposite gender
-      if (loadedContestants.length > 0) {
-        // Setup turn check interval
-        if (turnCheckIntervalRef.current) {
-          clearInterval(turnCheckIntervalRef.current);
-        }
-        
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Setting up turn check interval`);
-        const newTurnCheckInterval = setInterval(async () => {
-          if (sessionId && user) {
-            try {
-              const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-              if (sessionDoc.exists()) {
-                const sessionData = sessionDoc.data();
-                const isUserTurn = sessionData[genderField] === user.uid;
-                
-                if (isUserTurn && !isCurrentUser) {
-                  setIsCurrentUser(true);
-                  await NotificationService.addLineupTurnNotification(user.uid, sessionId);
-                  startSpotlightTimer();
-                  setStep('private');
-                }
-              }
-            } catch (error) {
-              console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error checking if it's user's turn:`, error);
-            }
-          }
-        }, 60000);
-        
-        turnCheckIntervalRef.current = newTurnCheckInterval;
-        
-        // Go to lineup screen
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔀 Moving to lineup screen with ${loadedContestants.length} contestants`);
-        setStep('lineup');
-        setLoading(false);
-        return;
-      } 
-      // No opposite gender contestants - check if we should be the current contestant of our gender
-      else {
-        // Get fresh session data
-        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', session.id));
-        if (!sessionDoc.exists()) {
-          setError('Session not found');
-          setStep('selection');
-          setLoading(false);
-          return;
-        }
-        
-        const freshSessionData = sessionDoc.data();
-        const currentGenderSpotlight = freshSessionData[genderField];
-        
-        // Double-check there's no one of same gender in spotlight
-        if (currentGenderSpotlight && currentGenderSpotlight !== user.uid) {
-          console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ Another ${userGender} contestant is already in spotlight: ${currentGenderSpotlight}`);
-          // Setup turn check interval and go to lineup
-          setStep('lineup');
-          setLoading(false);
-          return;
-        }
-        
-        // If no one of same gender is in spotlight, we can be the current contestant
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] 👑 No current ${userGender} contestant - making user current`);
-        setIsCurrentUser(true);
-        
-        const rotationTimeField = `${userGender}LastRotationTime`;
-        await updateDoc(doc(firestore, 'lineupSessions', session.id), {
-          [genderField]: user.uid,
-          [rotationTimeField]: serverTimestamp(),
-        });
-        
-        await NotificationService.addLineupTurnNotification(user.uid, session.id);
-        startSpotlightTimer();
-        setStep('private');
-        setLoading(false);
-        return;
+      // Setup turn check interval
+      if (turnCheckIntervalRef.current) {
+        clearInterval(turnCheckIntervalRef.current);
       }
+      
+      console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Setting up turn check interval`);
+      const newTurnCheckInterval = setInterval(async () => {
+        if (sessionId && user) {
+          try {
+            const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+            if (sessionDoc.exists()) {
+              const sessionData = sessionDoc.data();
+              const isUserTurn = sessionData[genderField] === user.uid;
+              
+              if (isUserTurn && !isCurrentUser) {
+                setIsCurrentUser(true);
+                await NotificationService.addLineupTurnNotification(user.uid, sessionId);
+                startSpotlightTimer();
+                setStep('private');
+              }
+            }
+          } catch (error) {
+            console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error checking if it's user's turn:`, error);
+          }
+        }
+      }, 60000);
+      
+      turnCheckIntervalRef.current = newTurnCheckInterval;
+      
+      // Always go to lineup screen, regardless of contestants availability
+      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔀 Moving to lineup screen, waiting for contestants`);
+      setStep('lineup');
+      setLoading(false);
+      return;
+      
     } catch (err) {
       console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Lineup Start Error:`, err);
       setError('Failed to start lineup session');
       setLoading(false);
     }
   };
+
   // Select a match from the matches screen
   const selectMatch = (match: MatchData) => {
     console.log(`[${new Date().toISOString()}] [LineUpProvider] 👆 User selected match: ${match.displayName}`);
