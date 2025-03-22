@@ -135,12 +135,15 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
             const updates: Record<string, any> = {
               [genderField]: userId,
               [rotationTimeField]: serverTimestamp(),
-              clearPreviousMessages: true, // Flag to clear chat for new spotlight
-              ...(sessionData.currentSpotlightId ? {} : {
-                currentSpotlightId: userId,
-                lastRotationTime: serverTimestamp()
-              })
+              clearPreviousMessages: true // Flag to clear chat for new spotlight
             };
+            
+            // CRITICAL FIX: Make sure general fields are updated too
+            // This ensures currentSpotlightId gets updated for both genders
+            if (!sessionData.currentSpotlightId) {
+              updates.currentSpotlightId = userId;
+              updates.lastRotationTime = serverTimestamp();
+            }
             
             transaction.update(doc(firestore, 'lineupSessions', sessionId), updates);
             
@@ -177,7 +180,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           } as LineUpSessionData;
         });
       } else {
-        // Create new session logic remains the same
+        // Create new session
         const now = new Date();
         const fourHoursLater = new Date(now.getTime() + SPOTLIGHT_TIMER_SECONDS * 1000);
         
@@ -190,7 +193,7 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           startTime: serverTimestamp(),
           endTime: Timestamp.fromDate(fourHoursLater),
           status: 'active',
-          currentSpotlightId: userId,
+          currentSpotlightId: userId, // ENSURE this is set for all genders
           lastRotationTime: serverTimestamp(),
           clearPreviousMessages: true
         };

@@ -1101,6 +1101,9 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const isUserCurrentContestant = 
         session.currentSpotlightId === user.uid || 
         session[genderField] === user.uid;
+
+        console.log(`[LineUpProvider] Critical gender check: user=${user.uid}, gender=${userGender}, field=${genderField}, value=${session[genderField]}`);
+        console.log(`[LineUpProvider] IsCurrentContestant=${isUserCurrentContestant}`);
       
         if (isUserCurrentContestant) {
           console.log(`[LineUpProvider] CRITICAL: USER IS CURRENT CONTESTANT - FORCING PRIVATE SCREEN`);
@@ -1308,14 +1311,20 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Add this function to verify current contestant status
   const verifyCurrentContestantStatus = async (sessionId: string, userId: string, userGender: string): Promise<boolean> => {
     try {
+      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Verifying contestant status for ${userId} (${userGender})`);
+      
       const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
       if (!sessionDoc.exists()) return false;
       
       const sessionData = sessionDoc.data();
       const genderField = `current${userGender.charAt(0).toUpperCase()}${userGender.slice(1)}ContestantId`;
-      return sessionData[genderField] === userId;
+      
+      const isCurrentContestant = sessionData[genderField] === userId;
+      
+      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Verification result: ${isCurrentContestant}`);
+      return isCurrentContestant;
     } catch (error) {
-      console.error('Error verifying contestant status:', error);
+      console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error verifying contestant status:`, error);
       return false;
     }
   };
