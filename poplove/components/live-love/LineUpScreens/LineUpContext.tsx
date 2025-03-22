@@ -1,7 +1,7 @@
 // components/live-love/LineUpScreens/LineUpContext.tsx
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Alert, AppState } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import { 
   Contestant, 
   LineUpStep, 
@@ -13,27 +13,13 @@ import {
 } from './types';
 import { useAuthContext } from '../../auth/AuthProvider';
 import * as LineupService from '../../../services/lineupService';
-import * as NotificationService from '../../../services/notificationService';
 import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
   doc, 
   getDoc, 
-  updateDoc, 
   serverTimestamp, 
   onSnapshot,
   setDoc,
-  orderBy,
-  writeBatch,
-  limit,
-  increment,
-  Timestamp,
-  deleteDoc
 } from 'firebase/firestore';
-import { runTransaction } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 import { calculateMatchPercentage } from '../../../utils/matchCalculation';
 import { debugLog, formatTime, checkUserEligibility, getSpotlightRemainingTime } from './utils';
@@ -133,7 +119,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isCurrentUserRef = useRef(isCurrentUser);
   const sessionIdRef = useRef(sessionId);
   const userGenderRef = useRef<string | null>(null);
-  const appStateRef = useRef(AppState.currentState);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const lastServerSyncTimeRef = useRef<number>(Date.now());
   const matchPercentageCacheRef = useRef<Map<string, number>>(new Map());
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -142,6 +128,54 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const messageSubscriptionRef = useRef<() => void>(() => {});
   const rotationListenerRef = useRef<() => void>(() => {});
   const statsListenerRef = useRef<() => void>(() => {});
+
+  // For gender-filtered spotlights
+  const getGenderFilteredSpotlights = async (): Promise<Contestant[]> => {
+    if (!sessionId || !user) return [];
+    
+    try {
+      // Get user gender if not cached
+      if (!userGenderRef.current) {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (userDoc.exists()) {
+          userGenderRef.current = userDoc.data().gender || '';
+        }
+      }
+      
+      const userGender = userGenderRef.current;
+      if (!userGender) return [];
+      
+      // Determine opposite gender to show
+      const oppositeGender = userGender === 'male' ? 'female' : 'male';
+      
+      // Get spotlights from service, filtering by opposite gender
+      const allSpotlights = await LineupService.getSpotlights(sessionId, user.uid);
+      
+      // Further filter to ensure only opposite gender is shown
+      const filteredSpotlights = allSpotlights.filter(spotlight => 
+        spotlight.gender === oppositeGender
+      );
+      
+      // Run match percentage calculation for each spotlight
+      const spotlightsWithMatch = await Promise.all(
+        filteredSpotlights.map(async (spotlight) => {
+          if (!spotlight.matchPercentage) {
+            try {
+              const matchPercentage = await calculateMatchPercentage(user.uid, spotlight.id);
+              return { ...spotlight, matchPercentage };
+            } catch (error) {
+              return { ...spotlight, matchPercentage: 50 };
+            }
+          }
+          return spotlight;
+        })
+      );
+      
+      return spotlightsWithMatch;
+    } catch (error) {
+      return [];
+    }
+  };
   
   // Enhanced setter for spotlight time with ref update
   const setSpotlightTimeLeft = (time: number) => {
@@ -639,12 +673,10 @@ useEffect(() => {
   
   // Subscribe to messages with gender filtering
   const unsubscribeMessages = LineupService.subscribeToGenderFilteredMessages(
-    sessionIdRef.current, 
-    user.uid, 
-    currentSpotlight?.id || null,
+    sessionId || '', 
+    user.uid || '', 
+    currentSpotlight?.id || '',
     (newMessages) => {
-      // Only log message counts to avoid spam
-      debugLog('Messages', `Received ${newMessages.length} messages from subscription`);
       setMessages(newMessages);
     }
   );
@@ -813,25 +845,18 @@ const handleAction = async (action: 'like' | 'pop', contestantId: string) => {
 
 // Check for matches when user's turn ends
 const checkUserMatches = async () => {
-  if (!sessionIdRef.current || !user || loading || transitioning) {
-    debugLog('Matches', 'Cannot check matches - busy or missing data');
-    return;
-  }
-  
-  debugLog('Matches', 'Checking user matches');
+  if (!sessionId || !user || loading) return;
   
   try {
-    setTransitioning(true);
     setLoading(true);
     
     // Get user matches
-    const matchesList = await LineupService.getUserMatches(sessionIdRef.current, user.uid);
-    debugLog('Matches', `Found ${matchesList.length} matches`);
+    const matchesList = await LineupService.getUserMatches(sessionId, user.uid);
     
     if (matchesList.length > 0) {
       // User has matches, go to matches screen
       setSelectedMatches(matchesList);
-      safeSetStep('matches');
+      setStep('matches');
     } else {
       // No matches, clear previous contestant status
       setIsCurrentUser(false);
@@ -839,39 +864,30 @@ const checkUserMatches = async () => {
       hasStartedTimerRef.current = false;
       
       // Move to no-matches screen
-      safeSetStep('no-matches');
+      setStep('no-matches');
     }
   } catch (error) {
-    debugLog('Matches', 'Error checking matches', error);
     // On error, just reset and go to lineup screen
     setIsCurrentUser(false);
-    safeSetStep('lineup');
+    setStep('lineup');
   } finally {
     setLoading(false);
-    // Release transition lock after delay
-    setTimeout(() => {
-      setTransitioning(false);
-    }, 500);
   }
 };
 
 // Refresh spotlights with better gender filtering
 const refreshSpotlights = async (): Promise<Contestant[]> => {
-  if (!sessionIdRef.current || !user) {
-    debugLog('Refresh', 'Cannot refresh spotlights - missing session or user');
-    return [];
-  }
+  if (!sessionId || !user) return [];
   
   try {
-    if (isRefreshingRef.current) {
-      debugLog('Refresh', 'Already refreshing, skipping duplicate call');
-      return [];
-    }
+    if (isRefreshingRef.current) return [];
     
-    debugLog('Refresh', 'Starting spotlights refresh');
     isRefreshingRef.current = true;
     
-    // Get user gender if not already cached
+    // Get gender-filtered spotlights
+    const spotlights = await getGenderFilteredSpotlights();
+    
+    // Extract current spotlight
     if (!userGenderRef.current) {
       const userDoc = await getDoc(doc(firestore, 'users', user.uid));
       if (userDoc.exists()) {
@@ -881,21 +897,14 @@ const refreshSpotlights = async (): Promise<Contestant[]> => {
     
     const userGender = userGenderRef.current;
     if (!userGender) {
-      debugLog('Refresh', 'Cannot refresh - missing user gender');
       isRefreshingRef.current = false;
       return [];
     }
     
-    // Get spotlights from service
-    const spotlights = await LineupService.getSpotlights(sessionIdRef.current, user.uid);
-    debugLog('Refresh', `Got ${spotlights.length} spotlights from service`);
-    
-    // Extract current spotlight
     const oppositeGender = userGender === 'male' ? 'female' : 'male';
-    const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionIdRef.current));
+    const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
     
     if (!sessionDoc.exists()) {
-      debugLog('Refresh', 'Session not found during refresh');
       isRefreshingRef.current = false;
       return [];
     }
@@ -904,57 +913,17 @@ const refreshSpotlights = async (): Promise<Contestant[]> => {
     const oppositeGenderField = `current${oppositeGender.charAt(0).toUpperCase()}${oppositeGender.slice(1)}ContestantId`;
     const currentSpotlightId = sessionData[oppositeGenderField];
     
-    debugLog('Refresh', `Current ${oppositeGender} spotlight ID: ${currentSpotlightId || 'none'}`);
-    
     // Find current spotlight in list
-    let currentSpotlight = spotlights.find(s => s.id === currentSpotlightId);
-    
-    // If not found but ID exists, fetch directly
-    if (!currentSpotlight && currentSpotlightId) {
-      debugLog('Refresh', 'Current spotlight not in list, fetching directly');
-      
-      try {
-        const spotlightDoc = await getDoc(doc(firestore, 'users', currentSpotlightId));
-        
-        if (spotlightDoc.exists()) {
-          const spotlightData = spotlightDoc.data();
-          
-          // Only create if gender matches
-          if (spotlightData.gender === oppositeGender) {
-            // Create spotlight with match percentage
-            const matchPercentage = await calculateMatchPercentage(user.uid, currentSpotlightId);
-            
-            currentSpotlight = {
-              id: currentSpotlightId,
-              displayName: spotlightData.displayName || 'User',
-              photoURL: spotlightData.photoURL || '',
-              ageRange: spotlightData.ageRange || '',
-              bio: spotlightData.bio || '',
-              gender: spotlightData.gender || oppositeGender,
-              interests: spotlightData.interests || [],
-              location: spotlightData.location || '',
-              matchPercentage
-            };
-            
-            debugLog('Refresh', `Created current spotlight object: ${currentSpotlight.displayName}`);
-          }
-        }
-      } catch (error) {
-        debugLog('Refresh', 'Error fetching current spotlight directly', error);
-      }
-    }
+    let currentSpot = spotlights.find(s => s.id === currentSpotlightId);
     
     // Set current spotlight if found
-    if (currentSpotlight) {
-      setCurrentSpotlight(currentSpotlight);
+    if (currentSpot) {
+      setCurrentSpotlight(currentSpot);
       
       // Upcoming spotlights should exclude current spotlight
       const upcomingList = spotlights.filter(s => s.id !== currentSpotlightId);
       setUpcomingSpotlights(upcomingList);
-      
-      debugLog('Refresh', `Set current spotlight: ${currentSpotlight.displayName}, upcoming: ${upcomingList.length}`);
     } else {
-      debugLog('Refresh', 'No current spotlight found');
       setCurrentSpotlight(null);
       setUpcomingSpotlights(spotlights);
     }
@@ -962,7 +931,6 @@ const refreshSpotlights = async (): Promise<Contestant[]> => {
     isRefreshingRef.current = false;
     return spotlights;
   } catch (error) {
-    debugLog('Refresh', 'Error refreshing spotlights', error);
     isRefreshingRef.current = false;
     return [];
   }
