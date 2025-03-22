@@ -69,6 +69,7 @@ interface LineUpContextType {
   setSessionId: (id: string | null) => void;
   setSpotlightTimeLeft: (time: number) => void;
   checkUserMatches: () => Promise<void>;
+  setCurrentSpotlight?: (spotlight: Contestant | null) => void;
   
   // Enhanced methods for better stability
   resetTimers: () => void;
@@ -1146,6 +1147,7 @@ const contextValue: LineUpContextType = {
   eliminationTimeLeft,
   popCount,
   likeCount,
+  setCurrentSpotlight,
   
   setStep: safeSetStep,
   toggleCategory,

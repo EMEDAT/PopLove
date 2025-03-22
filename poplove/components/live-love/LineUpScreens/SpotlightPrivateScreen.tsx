@@ -15,19 +15,15 @@ import {
   Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLineUp } from './LineUpContext';
 import { useAuthContext } from '../../auth/AuthProvider';
-import { doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
-import { debugLog, formatTime } from './utils';
+import { debugLog } from './utils';
 import ChatInputBar from './ChatInputBar';
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
-
-// Constants for timer
-const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds
 
 export default function SpotlightPrivateScreen() {
   debugLog('PrivateScreen', 'Rendering SpotlightPrivateScreen');
@@ -44,7 +40,9 @@ export default function SpotlightPrivateScreen() {
     sendMessage,
     syncWithServerTime,
     markUserActivity,
-    checkUserMatches
+    checkUserMatches,
+    setSessionId, 
+    setCurrentSpotlight 
   } = useLineUp();
 
   // Component state
@@ -124,6 +122,33 @@ export default function SpotlightPrivateScreen() {
       }, 100);
     }
   }, [messages]);
+
+  // In SpotlightPrivateScreen component
+    useEffect(() => {
+      const determineCurrentSpotlight = async () => {
+        if (!user || !sessionId) return;
+
+        try {
+          const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+          if (sessionDoc.exists()) {
+            const sessionData = sessionDoc.data();
+            const userGender = user.gender || '';
+            const oppositeGender = userGender === 'male' ? 'female' : 'male';
+            const spotlightField = `current${oppositeGender.charAt(0).toUpperCase()}${oppositeGender.slice(1)}ContestantId`;
+            
+            const currentSpotlightId = sessionData[spotlightField];
+            
+            // Explicitly set in context
+            setSessionId(sessionId);
+            setCurrentSpotlight(currentSpotlightId);
+          }
+        } catch (error) {
+          console.error('Spotlight Determination Error:', error);
+        }
+      };
+
+      determineCurrentSpotlight();
+    }, [user, sessionId]);
 
   // Handle timer expiration
   useEffect(() => {

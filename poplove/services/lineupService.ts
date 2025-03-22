@@ -934,128 +934,81 @@ export const subscribeToGenderFilteredMessages = (
   currentSpotlightId: string | null,
   callback: (messages: ChatMessage[]) => void
 ): () => void => {
-  debugLog('Subscription', `Setting up filtered message subscription for user ${userId} in session ${sessionId}`);
-  
   if (!sessionId || !userId) {
-    debugLog('Subscription', 'Missing session ID or user ID, returning empty subscription');
+    console.error('CRITICAL: Missing sessionId or userId');
     callback([]);
     return () => {};
   }
-  
-  // Create messages query
+
   const messagesRef = collection(firestore, 'lineupSessions', sessionId, 'messages');
   const q = query(messagesRef, orderBy('timestamp', 'asc'));
-  
-  // Create gender cache to minimize database lookups
-  const genderCache: Map<string, string> = new Map();
-  
-  // Determine if user is the current spotlight
-  const isCurrentSpotlight = userId === currentSpotlightId;
-  
-  // Subscribe to messages
+
   return onSnapshot(q, async (snapshot) => {
     const rawMessages = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as ChatMessage[];
-    
-    debugLog('Subscription', `Received ${rawMessages.length} raw messages`);
-    
-    // Get user's gender if needed
-    if (!genderCache.has(userId)) {
-      const userDoc = await getDoc(doc(firestore, 'users', userId));
-      if (userDoc.exists()) {
-        const gender = userDoc.data().gender || '';
-        genderCache.set(userId, gender);
-      }
-    }
-    
-    const userGender = genderCache.get(userId) || '';
-    
-    // Filter messages based on gender visibility rules
-    const filteredMessages: ChatMessage[] = [];
-    const processingPromises: Promise<void>[] = [];
-    
-    for (const message of rawMessages) {
-      // Always include user's own messages
-      if (message.senderId === userId || message.senderId === 'system') {
-        filteredMessages.push(message);
-        continue;
-      }
-      
-      // Process message based on whether user is current spotlight or not
-      const processPromise = (async () => {
-        // Get sender gender if not cached
-        if (!genderCache.has(message.senderId)) {
-          try {
-            const senderDoc = await getDoc(doc(firestore, 'users', message.senderId));
-            if (senderDoc.exists()) {
-              const gender = senderDoc.data().gender || '';
-              genderCache.set(message.senderId, gender);
-            }
-          } catch (error) {
-            // If error, assume gender is unknown and skip this message
-            return;
-          }
-        }
-        
-        const senderGender = genderCache.get(message.senderId);
-        
-        if (isCurrentSpotlight) {
-          // If user is current spotlight, only show messages from opposite gender
-          if (senderGender && senderGender !== userGender) {
-            filteredMessages.push(message);
-          }
-        } else {
-          // If user is NOT current spotlight:
-          if (message.senderId === currentSpotlightId) {
-            // Always show current spotlight's messages
-            filteredMessages.push(message);
-          } else if (currentSpotlightId && senderGender) {
-            // Get spotlight gender if not cached
-            if (!genderCache.has(currentSpotlightId)) {
-              try {
-                const spotlightDoc = await getDoc(doc(firestore, 'users', currentSpotlightId));
-                if (spotlightDoc.exists()) {
-                  const gender = spotlightDoc.data().gender || '';
-                  genderCache.set(currentSpotlightId, gender);
-                }
-              } catch (error) {
-                // If error, skip message
-                return;
-              }
-            }
-            
-            const spotlightGender = genderCache.get(currentSpotlightId);
-            
-            // Only show messages from same gender as current spotlight 
-            // (so men only see other men's messages to the woman)
-            if (spotlightGender && senderGender === spotlightGender) {
-              filteredMessages.push(message);
-            }
-          }
-        }
-      })();
-      
-      processingPromises.push(processPromise);
-    }
-    
-    // Wait for all processing to complete
-    await Promise.all(processingPromises);
-    
-    // Sort messages by timestamp
-    filteredMessages.sort((a, b) => {
-      // Convert Firestore timestamps to milliseconds
-      const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
-      const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
-      return timeA - timeB;
+
+    console.log('DEBUG: Raw Messages Received', {
+      count: rawMessages.length,
+      messageDetails: rawMessages.map(m => ({
+        id: m.id,
+        senderId: m.senderId,
+        text: m.text
+      }))
     });
-    
-    debugLog('Subscription', `Returning ${filteredMessages.length} filtered messages`);
-    callback(filteredMessages);
-  }, (error) => {
-    debugLog('Subscription', 'Error in message subscription', error);
-    callback([]);
+
+    const [userDoc, spotlightDoc] = await Promise.all([
+      getDoc(doc(firestore, 'users', userId)),
+      currentSpotlightId ? getDoc(doc(firestore, 'users', currentSpotlightId)) : Promise.resolve(null)
+    ]);
+
+    const userGender = userDoc.exists() ? userDoc.data().gender || '' : '';
+    const spotlightGender = spotlightDoc?.exists() ? spotlightDoc.data().gender || '' : '';
+
+    console.log('DEBUG: Gender Information', {
+      userId,
+      userGender,
+      currentSpotlightId,
+      spotlightGender
+    });
+
+    // Filtering Logic
+    const filteredMessages = await Promise.all(rawMessages.map(async (message) => {
+      // Always show own and system messages
+      if (message.senderId === userId || message.senderId === 'system') return message;
+
+      // Fetch sender's gender
+      const senderDoc = await getDoc(doc(firestore, 'users', message.senderId));
+      const senderGender = senderDoc.exists() ? senderDoc.data().gender || '' : '';
+
+      // In Waiting Room
+      if (userId !== currentSpotlightId) {
+        // Only show messages from current spotlight
+        return message.senderId === currentSpotlightId ? message : null;
+      }
+
+      // In Private Screen
+      if (userId === currentSpotlightId) {
+        // Debug logging to understand filtering
+        debugLog('PrivateScreen', `Filtering message: sender=${message.senderId}, senderGender=${senderGender}, userGender=${userGender}, currentSpotlightId=${currentSpotlightId}`);
+      
+        // Show messages from:
+        // 1. Opposite gender waiters
+        // 2. System messages
+        return (
+          message.senderId === 'system' ||  // Always show system messages
+          (senderGender !== userGender && message.senderId !== currentSpotlightId)  // Opposite gender waiters, exclude current spotlight
+        ) ? message : null;
+      }
+
+      return null;
+    })).then(results => results.filter(Boolean) as ChatMessage[]);
+
+    // Sort and return filtered messages
+    callback(filteredMessages.sort((a, b) => 
+      (a.timestamp?.toDate?.().getTime() || 0) - (b.timestamp?.toDate?.().getTime() || 0)
+    ));
   });
 };
 
