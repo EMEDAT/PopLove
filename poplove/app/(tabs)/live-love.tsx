@@ -207,8 +207,8 @@ useEffect(() => {
           // Check both general and gender-specific current contestant fields
           const isCurrentContestant = 
           sessionData.currentContestantId === user?.uid || 
-          sessionData.currentMaleContestantId === user?.uid ||
-          sessionData.currentFemaleContestantId === user?.uid;
+          sessionData.currentMaleSpotlightId === user?.uid ||
+          sessionData.currentFemaleSpotlightId === user?.uid;
             
           logLiveLove('Checking if user is current contestant', {
             sessionId: sessionDoc.id,

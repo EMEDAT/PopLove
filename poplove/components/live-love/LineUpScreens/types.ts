@@ -52,8 +52,8 @@ export interface Contestant {
     id: string;
     category: string[];
     currentSpotlightId: string;
-    currentMaleContestantId?: string;  // Add this
-    currentFemaleContestantId?: string; // Add this
+    currentMaleSpotlightId?: string;  // Add this
+    currentFemaleSpotlightId?: string; // Add this
     contestants: string[];
     startTime: any;
     endTime: any;

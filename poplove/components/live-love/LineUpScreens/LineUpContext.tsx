@@ -1066,8 +1066,8 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log(`[START] Session data:`, {
         id: session.id,
         currentSpotlightId: session.currentSpotlightId,
-        currentMaleContestantId: session?.currentMaleContestantId,
-        currentFemaleContestantId: session?.currentFemaleContestantId,
+        currentMaleSpotlightId: session?.currentMaleSpotlightId,
+        currentFemaleSpotlightId: session?.currentFemaleSpotlightId,
         userGender
       });
       setSessionId(session.id);
