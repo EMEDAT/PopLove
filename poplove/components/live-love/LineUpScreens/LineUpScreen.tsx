@@ -23,6 +23,7 @@ import { Contestant } from './types';
 import { useAuthContext } from '../../auth/AuthProvider';
 import * as LineupService from '../../../services/lineupService';
 import { PrivateProfileDetailsModal } from '../../../components/shared/PrivateProfileDetailsModal';
+import { getRemainingTime, trackProfileView } from '../../../services/lineupService';
 
 // Logging helper
 const logLineUp = (message: string, data?: any) => {
@@ -187,6 +188,8 @@ export default function LineUpScreen() {
     // Get the timer values with gender awareness
     const updateGenderBasedTimer = async () => {
       try {
+        if (!sessionId || !user) return;
+        
         const userDoc = await getDoc(doc(firestore, 'users', user.uid));
         if (!userDoc.exists()) return;
         
@@ -194,10 +197,8 @@ export default function LineUpScreen() {
         const oppositeGender = userGender === 'male' ? 'female' : 'male';
         
         // For viewing the opposite gender, get their remaining time
-        const remainingTime = await LineupService.getRemainingTime(sessionId, oppositeGender);
+        const remainingTime = await getRemainingTime(sessionId, oppositeGender);
         setTimeLeft(remainingTime);
-        
-        logLineUp(`Updated timer for ${oppositeGender}: ${remainingTime} seconds remaining`);
       } catch (error) {
         console.error('Error updating gender-based timer:', error);
       }
@@ -225,24 +226,24 @@ export default function LineUpScreen() {
     };
   }, []);
 
-  // Track profile views
-  useEffect(() => {
-    if (currentContestant && user && sessionId) {
-      logLineUp('Tracking profile view', { 
-        viewerId: user.uid,
-        viewedProfileId: currentContestant.id,
-        profileName: currentContestant.displayName
+// Track profile views
+useEffect(() => {
+  if (currentContestant && user && sessionId) {
+    logLineUp('Tracking profile view', { 
+      viewerId: user.uid,
+      viewedProfileId: currentContestant.id,
+      profileName: currentContestant.displayName
+    });
+    
+    trackProfileView(sessionId, user.uid, currentContestant.id)
+      .then(() => {
+        logLineUp('Profile view tracked successfully');
+      })
+      .catch(err => {
+        logLineUp('Error tracking profile view', { error: err });
       });
-      
-      LineupService.trackProfileView(sessionId, user.uid, currentContestant.id)
-        .then(() => {
-          logLineUp('Profile view tracked successfully');
-        })
-        .catch(err => {
-          logLineUp('Error tracking profile view', { error: err });
-        });
-    }
-  }, [currentContestant, user, sessionId]);
+  }
+}, [currentContestant, user, sessionId]);
 
   // Fallback timer to ensure we eventually render something
   useEffect(() => {

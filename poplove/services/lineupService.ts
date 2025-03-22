@@ -1273,6 +1273,118 @@ export const requestForcedRotation = async (
   }
 };
 
+// Add these functions to your existing services/lineupService.ts file
+
+/**
+ * Get remaining time for a contestant's spotlight
+ * @param sessionId Session ID
+ * @param gender Gender to check
+ * @returns Remaining seconds in the spotlight
+ */
+export const getRemainingTime = async (sessionId: string, gender: string): Promise<number> => {
+  debugLog('Timer', `Getting remaining time for ${gender} contestant in session ${sessionId}`);
+  
+  try {
+    const sessionRef = doc(firestore, 'lineupSessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      debugLog('Timer', `Session ${sessionId} does not exist`);
+      return SPOTLIGHT_TIMER_SECONDS; // Default to full time if session doesn't exist
+    }
+    
+    const sessionData = sessionDoc.data();
+    const rotationTimeField = `${gender}LastRotationTime`;
+    
+    // Get last rotation time
+    const lastRotationTime = sessionData[rotationTimeField]?.toDate();
+    if (!lastRotationTime) {
+      debugLog('Timer', `No rotation time found for ${gender} in session ${sessionId}`);
+      return SPOTLIGHT_TIMER_SECONDS; // Default to full time if no rotation time
+    }
+    
+    // Calculate remaining time
+    const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
+    const remainingSeconds = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
+    
+    debugLog('Timer', `Remaining time for ${gender} in session ${sessionId}: ${remainingSeconds}s`);
+    return remainingSeconds;
+  } catch (error) {
+    debugLog('Timer', `Error getting remaining time: ${error}`);
+    return SPOTLIGHT_TIMER_SECONDS; // Default to full time on error
+  }
+};
+
+/**
+ * Track profile view for analytics
+ * @param sessionId Session ID
+ * @param viewerId Viewer user ID
+ * @param viewedProfileId Viewed profile user ID
+ */
+export const trackProfileView = async (
+  sessionId: string,
+  viewerId: string,
+  viewedProfileId: string
+): Promise<void> => {
+  if (!sessionId || !viewerId || !viewedProfileId) {
+    debugLog('View', 'Missing required parameters for trackProfileView');
+    return;
+  }
+  
+  // Don't track self-views
+  if (viewerId === viewedProfileId) {
+    return;
+  }
+  
+  debugLog('View', `Tracking view from ${viewerId} to ${viewedProfileId} in session ${sessionId}`);
+  
+  try {
+    // Create a unique ID for this view
+    const viewId = `${viewerId}_${viewedProfileId}`;
+    const viewRef = doc(firestore, 'lineupSessions', sessionId, 'views', viewId);
+    
+    // Check if view already exists
+    const viewDoc = await getDoc(viewRef);
+    
+    if (!viewDoc.exists()) {
+      // Record view
+      await setDoc(viewRef, {
+        viewerId,
+        viewedProfileId,
+        timestamp: serverTimestamp()
+      });
+      
+      // Increment view count in stats
+      const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', viewedProfileId);
+      const statsDoc = await getDoc(statsRef);
+      
+      if (statsDoc.exists()) {
+        await updateDoc(statsRef, {
+          viewCount: increment(1)
+        });
+      } else {
+        // Create stats document if it doesn't exist
+        await setDoc(statsRef, {
+          viewCount: 1,
+          likeCount: 0,
+          popCount: 0
+        });
+      }
+      
+      debugLog('View', `Tracked new view and incremented count`);
+    } else {
+      // View already exists, update timestamp
+      await updateDoc(viewRef, {
+        timestamp: serverTimestamp()
+      });
+      
+      debugLog('View', `View already recorded, updated timestamp only`);
+    }
+  } catch (error) {
+    debugLog('View', `Error tracking profile view: ${error}`);
+  }
+};
+
 export default {
   joinLineupSession,
   getSpotlights,
