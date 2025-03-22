@@ -1060,7 +1060,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // CRITICAL FIX: Check early if there's already someone of the same gender in spotlight
       const currentGenderSpotlight = session[genderField];
-      if (currentGenderSpotlight !== user.uid) {
+      if (currentGenderSpotlight && currentGenderSpotlight !== user.uid) {
         console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ Another ${userGender} contestant is already in spotlight: ${currentGenderSpotlight}`);
         
         // Setup turn check interval
