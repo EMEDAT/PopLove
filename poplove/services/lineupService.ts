@@ -91,153 +91,65 @@ async function checkGenderTimeout(sessionId: string, sessionData: any, gender: '
  * Join or create a lineup session with improved gender awareness
  */
 export const joinLineupSession = async (userId: string, categoryId: string): Promise<LineUpSessionData> => {
-  debugLog('Join', `Attempting to join lineup session for user ${userId} in category ${categoryId}`);
-  const MAX_RETRIES = 3;
-  let attempt = 0;
-  
-  while (attempt < MAX_RETRIES) {
-    try {
-      const userDoc = await getDoc(doc(firestore, 'users', userId));
-      if (!userDoc.exists()) {
-        throw new Error('User not found');
-      }
-      const userGender = userDoc.data().gender || 'unknown';
-      debugLog('Join', `User gender: ${userGender}`);
-      console.log(`[JOIN] User gender: ${userGender}, Setting field current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`);
-      
-      const sessionsRef = collection(firestore, 'lineupSessions');
-      const q = query(
-        sessionsRef,
-        where('category', 'array-contains', categoryId),
-        where('status', '==', 'active')
-      );
-      
-      const snapshot = await getDocs(q);
-      debugLog('Join', `Found ${snapshot.size} active sessions for category ${categoryId}`);
-      
-      if (!snapshot.empty) {
-        const sessionDoc = snapshot.docs[0];
-        const sessionId = sessionDoc.id;
-        
-        return await runTransaction(firestore, async (transaction) => {
-          const freshSessionDoc = await transaction.get(doc(firestore, 'lineupSessions', sessionId));
-          if (!freshSessionDoc.exists()) {
-            throw new Error('Session disappeared during join');
-          }
-        
-          const sessionData = freshSessionDoc.data();
-          const spotlights = sessionData.spotlights || [];
-        
-          const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
-          const rotationTimeField = `${userGender}LastRotationTime`;
-        
-          // CRITICAL: First of gender becomes spotlight, others wait
-          if (!sessionData[genderField]) {
-            const updates: Record<string, any> = {
-              [genderField]: userId,
-              [rotationTimeField]: serverTimestamp(),
-              clearPreviousMessages: true // Flag to clear chat for new spotlight
-            };
-        
-            // CRITICAL FIX: Make sure general fields are updated too
-            // This ensures currentSpotlightId gets updated for both genders
-            if (!sessionData.currentSpotlightId) {
-              updates.currentSpotlightId = userId;
-              updates.lastRotationTime = serverTimestamp();
-            }
-        
-            transaction.update(doc(firestore, 'lineupSessions', sessionId), updates);
-            console.log(`[JOIN] Fields set: gender=${userGender}, field=${genderField}, value=${userId}, currentSpotlightId=${updates.currentSpotlightId || 'not set'}`);
-        
-            // Notify user about turn
-            await addLineupTurnNotification(userId, sessionId);
-          }
-        
-          // Add user to spotlights if not already there
-          if (!spotlights.includes(userId)) {
-            const updatedSpotlights = [...spotlights, userId];
-            transaction.update(doc(firestore, 'lineupSessions', sessionId), {
-              spotlights: updatedSpotlights
-            });
-        
-            // Record join time for ordering
-            transaction.set(doc(firestore, 'lineupSessions', sessionId, 'spotlightJoinTimes', userId), {
-              joinedAt: serverTimestamp(),
-              gender: userGender,
-              categoryId: categoryId,
-              completed: false
-            });
-          }
-        
-          const sessionDataToReturn = { 
-            ...sessionData, 
-            id: sessionId,
-            spotlights: [...spotlights, userId],
-            contestants: [...(sessionData.contestants || []), userId],
-            category: sessionData.category || [categoryId],
-            currentSpotlightId: sessionData.currentSpotlightId || null,
-            startTime: sessionData.startTime || serverTimestamp(),
-            endTime: sessionData.endTime || null,
-            status: sessionData.status || 'active'
-          } as LineUpSessionData;
-        
-          console.log(`[JOIN] Returning session data:`, {
-            id: sessionId,
-            currentSpotlightId: sessionData.currentSpotlightId,
-            [genderField]: sessionData[genderField],
-            gender: userGender
-          });
-        
-          return sessionDataToReturn;
-        });
-      } else {
-        // Create new session
-        const now = new Date();
-        const fourHoursLater = new Date(now.getTime() + SPOTLIGHT_TIMER_SECONDS * 1000);
-        
-        const newSession = {
+  const userDoc = await getDoc(doc(firestore, 'users', userId));
+  const userGender = userDoc.data()?.gender || '';
+
+  const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
+  const rotationTimeField = `${userGender}LastRotationTime`;
+
+  return await runTransaction(firestore, async (transaction) => {
+    const sessionsRef = collection(firestore, 'lineupSessions');
+    const q = query(
+      sessionsRef, 
+      where('category', 'array-contains', categoryId),
+      where('status', '==', 'active')
+    );
+
+    const snapshot = await getDocs(q);
+    let sessionDoc, sessionId;
+
+    if (!snapshot.empty) {
+      sessionDoc = snapshot.docs[0];
+      sessionId = sessionDoc.id;
+    } else {
+      const newSessionRef = doc(collection(firestore, 'lineupSessions'));
+      sessionId = newSessionRef.id;
+      sessionDoc = {
+        id: sessionId,
+        data: () => ({
           category: [categoryId],
-          primaryGender: userGender,
-          [`current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`]: userId,
-          [`${userGender}LastRotationTime`]: serverTimestamp(),
-          spotlights: [userId],
-          startTime: serverTimestamp(),
-          endTime: Timestamp.fromDate(fourHoursLater),
           status: 'active',
-          currentSpotlightId: userId, // ENSURE this is set for all genders
-          lastRotationTime: serverTimestamp(),
-          clearPreviousMessages: true
-        };
-        
-        const docRef = await addDoc(collection(firestore, 'lineupSessions'), newSession);
-        debugLog('Join', `Created new session: ${docRef.id}`);
-        
-        await setDoc(doc(firestore, 'lineupSessions', docRef.id, 'spotlightJoinTimes', userId), {
-          joinedAt: serverTimestamp(),
-          gender: userGender,
-          categoryId,
-          completed: false
-        });
-        
-        return { 
-          ...newSession, 
-          id: docRef.id,
-          contestants: [userId]
-        } as LineUpSessionData;
-      }
-    } catch (error) {
-      debugLog('Join', `Error joining lineup session (attempt ${attempt + 1}):`, error);
-      
-      if (attempt === MAX_RETRIES - 1) {
-        throw error; // Re-throw on last attempt
-      }
-      
-      attempt++;
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait between retries
+          spotlights: [],
+          contestants: []
+        })
+      };
     }
-  }
-  
-  throw new Error('Failed to join lineup session after multiple attempts');
+
+    const sessionData = sessionDoc.data();
+    const isFirstGenderContestant = !sessionData[genderField];
+
+    const updates: Record<string, any> = {
+      [genderField]: userId,
+      [rotationTimeField]: serverTimestamp(),
+      spotlights: [...(sessionData.spotlights || []), userId],
+      contestants: [...(sessionData.contestants || []), userId],
+      ...(isFirstGenderContestant ? {
+        currentSpotlightId: userId,
+        lastRotationTime: serverTimestamp(),
+        category: [categoryId]
+      } : {})
+    };
+
+    transaction.update(doc(firestore, 'lineupSessions', sessionId), updates);
+
+    return {
+      ...sessionData,
+      id: sessionId,
+      isFirstGenderContestant,
+      currentSpotlightId: updates.currentSpotlightId || sessionData.currentSpotlightId,
+      [`${userGender}SpotlightId`]: userId
+    } as LineUpSessionData;
+  });
 };
 
 // Count spotlights of the same gender

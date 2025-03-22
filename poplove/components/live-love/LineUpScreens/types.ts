@@ -51,13 +51,14 @@ export interface Contestant {
   export interface LineUpSessionData {
     id: string;
     category: string[];
-    currentSpotlightId: string;
-    currentMaleSpotlightId?: string;  // Add this
-    currentFemaleSpotlightId?: string; // Add this
+    currentSpotlightId?: string;
+    currentMaleSpotlightId?: string;
+    currentFemaleSpotlightId?: string;
     contestants: string[];
-    startTime: any;
-    endTime: any;
+    startTime?: any;
+    endTime?: any;
     status: 'active' | 'completed' | 'cancelled';
+    isFirstGenderContestant?: boolean;  // New field
   }
   
   export interface MatchData {

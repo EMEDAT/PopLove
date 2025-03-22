@@ -1021,167 +1021,38 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Start lineup process
   const startLineUp = async () => {
     if (!user) {
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ No user available for lineup`);
-      Alert.alert('Error', 'You must be logged in to use this feature');
+      console.error('No user available for lineup');
       return;
     }
-    
-    console.log(`[${new Date().toISOString()}] [LineUpProvider] 🚀 Starting lineup process for user ${user.uid}`);
+  
     const selectedCategory = categories.find(cat => cat.selected);
-    
-    if (!selectedCategory) {
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ No category selected`);
-      setError('Please select a category');
-      return;
-    }
-    
-    try {
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🏁 Starting lineup with category: ${selectedCategory.id}`);
-      setLoading(true);
-    
-      // Check eligibility first
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔍 Checking user eligibility...`);
-      const isEligible = await checkEligibility();
-      if (!isEligible) {
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] ❌ User is not eligible for lineup`);
-        setLoading(false);
-        return;
-      }
-      
-      // Load or cache user gender if needed
-      if (!userGenderRef.current) {
+    if (!selectedCategory) return;
+  
+    // Cached gender retrieval
+    const userGender = userGenderRef.current || 
+      (await (async () => {
         const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (userDoc.exists()) {
-          userGenderRef.current = userDoc.data().gender || null;
-        }
-      }
-      
-      const userGender = userGenderRef.current;
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 👤 User gender for lineup: ${userGender || 'unknown'}`);
-      
-      // Create or join a lineup session
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Joining/creating lineup session...`);
-      const session = await LineupService.joinLineupSession(user.uid, selectedCategory.id);
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ✅ Session created/joined: ${session.id}`);
-      console.log(`[START] Session data:`, {
-        id: session.id,
-        currentSpotlightId: session.currentSpotlightId,
-        currentMaleSpotlightId: session?.currentMaleSpotlightId,
-        currentFemaleSpotlightId: session?.currentFemaleSpotlightId,
-        userGender
-      });
-      setSessionId(session.id);
-      
-      // Get gender-specific field name
-      const genderField = userGender === 'male' ? 'currentMaleSpotlightId' : 'currentFemaleSpotlightId';
-      
-      // CRITICAL FIX: Check early if there's already someone of the same gender in spotlight
-      const currentGenderSpotlight = session[genderField];
-      if (currentGenderSpotlight && currentGenderSpotlight !== user.uid) {
-        console.log(`[${new Date().toISOString()}] [LineUpProvider] ⚠️ Another ${userGender} contestant is already in spotlight: ${currentGenderSpotlight}`);
-        
-        // Setup turn check interval
-        if (turnCheckIntervalRef.current) {
-          clearInterval(turnCheckIntervalRef.current);
-        }
-        
-        const newTurnCheckInterval = setInterval(async () => {
-          if (sessionId && user) {
-            try {
-              const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-              if (sessionDoc.exists()) {
-                const sessionData = sessionDoc.data();
-                const isUserTurn = sessionData[genderField] === user.uid;
-                
-                if (isUserTurn && !isCurrentUser) {
-                  setIsCurrentUser(true);
-                  await NotificationService.addLineupTurnNotification(user.uid, sessionId);
-                  startSpotlightTimer();
-                  setStep('private');
-                }
-              }
-            } catch (error) {
-              console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error checking if it's user's turn:`, error);
-            }
-          }
-        }, 60000);
-        
-        turnCheckIntervalRef.current = newTurnCheckInterval;
-        
-        // Go to lineup screen
-        setStep('lineup');
-        setLoading(false);
-        return;
-      }
-      
-      // Check if user is already the current contestant
-      const isUserCurrentContestant = 
-        session.currentSpotlightId === user.uid || 
-        session[genderField] === user.uid;
-
-        console.log(`[LineUpProvider] Critical gender check: user=${user.uid}, gender=${userGender}, field=${genderField}, value=${session[genderField]}`);
-        console.log(`[START DECISION] Calculation: isCurrentContestant = (${session.currentSpotlightId === user.uid}) || (${session[genderField] === user.uid}) = ${isUserCurrentContestant}`);
-        console.log(`[LineUpProvider] IsCurrentContestant=${isUserCurrentContestant}`);
-      
-        if (isUserCurrentContestant) {
-          console.log(`[LineUpProvider] CRITICAL: USER IS CURRENT CONTESTANT - FORCING PRIVATE SCREEN`);
-          setIsCurrentUser(true);
-          startSpotlightTimer();
-          setStep('private');
-          setLoading(false);
-          return;
-        }
-      
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏳ Adding delay before first refresh...`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 👋 Marking user as active...`);
-      await LineupService.markUserActive(session.id, user.uid);
-      
-      // Load contestants
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔄 Loading contestants with multiple attempts...`);
-      const loadedContestants = await loadContestantsWithRetry(session.id, user.uid);
-      
-      // Setup turn check interval
-      if (turnCheckIntervalRef.current) {
-        clearInterval(turnCheckIntervalRef.current);
-      }
-      
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] ⏱️ Setting up turn check interval`);
-      const newTurnCheckInterval = setInterval(async () => {
-        if (sessionId && user) {
-          try {
-            const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-            if (sessionDoc.exists()) {
-              const sessionData = sessionDoc.data();
-              const isUserTurn = sessionData[genderField] === user.uid;
-              
-              if (isUserTurn && !isCurrentUser) {
-                setIsCurrentUser(true);
-                await NotificationService.addLineupTurnNotification(user.uid, sessionId);
-                startSpotlightTimer();
-                setStep('private');
-              }
-            }
-          } catch (error) {
-            console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Error checking if it's user's turn:`, error);
-          }
-        }
-      }, 60000);
-      
-      turnCheckIntervalRef.current = newTurnCheckInterval;
-      
-      // Always go to lineup screen, regardless of contestants availability
-      console.log(`[${new Date().toISOString()}] [LineUpProvider] 🔀 Moving to lineup screen, waiting for contestants`);
-      setStep('lineup');
-      setLoading(false);
+        return userDoc.data()?.gender;
+      })());
+  
+    const session = await LineupService.joinLineupSession(user.uid, selectedCategory.id);
+    const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
+  
+    console.log('Session Join Debug', {
+      isFirstGenderContestant: session.isFirstGenderContestant,
+      currentSpotlightId: session.currentSpotlightId,
+      genderSpotlightId: session[genderField]
+    });
+  
+    if (session.isFirstGenderContestant || session.currentSpotlightId === user.uid) {
+      setIsCurrentUser(true);
+      startSpotlightTimer();
+      setStep('private');
       return;
-      
-    } catch (err) {
-      console.error(`[${new Date().toISOString()}] [LineUpProvider] ❌ Lineup Start Error:`, err);
-      setError('Failed to start lineup session');
-      setLoading(false);
     }
+  
+    setStep('lineup');
+    await refreshSpotlights();
   };
 
   // Select a match from the matches screen
