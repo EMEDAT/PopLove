@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
+import { User } from './types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLineUp } from './LineUpContext';
 import LiveChatComponent from './LiveChatComponent';
@@ -417,9 +419,9 @@ export default function LineUpScreen() {
       </View>
     );
   };
-
-  // Give the contestants time to load before showing "no contestants"
-  if (initialLoadComplete && !currentSpotlight && !isLoading && orderedContestants.length === 0) {
+  
+  // Waiting room view for when no contestants are available
+  if (initialLoadComplete && !currentContestant && !isLoading && orderedContestants.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -428,9 +430,32 @@ export default function LineUpScreen() {
         
         <Text style={styles.upcomingTitle}>Next in Line</Text>
         <View style={styles.emptyContestantsContainer}>
-          <Text style={styles.waitingText}>
-            Waiting for contestants to join...
-          </Text>
+          {orderedContestants.length > 0 ? (
+            <FlatList
+              data={orderedContestants.filter(c => c.gender === user?.gender)}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.waitingContestantItem}>
+                  <Image 
+                    source={{ uri: item.photoURL }} 
+                    style={styles.waitingContestantImage} 
+                  />
+                  <Text style={styles.waitingContestantName}>
+                    {item.displayName}
+                  </Text>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.waitingText}>
+                  No {user?.gender} contestants waiting
+                </Text>
+              }
+            />
+          ) : (
+            <Text style={styles.waitingText}>
+              Waiting for contestants to join...
+            </Text>
+          )}
         </View>
         
         <Text style={styles.currentContestantTitle}>Now in the Spotlight</Text>
@@ -452,47 +477,6 @@ export default function LineUpScreen() {
     );
   }
   
-  // CRITICAL FIX: Try to trigger auto-selection when no contestants are found
-  if (initialLoadComplete && !currentContestant && !isLoading && orderedContestants.length === 0) {
-    if (!attemptedAutoSelectionRef.current && sessionId) {
-      attemptedAutoSelectionRef.current = true;
-      logLineUp('No contestants available, triggering auto-selection');
-      
-      // Determine opposite gender
-      const determineOppositeGender = async () => {
-        if (!user) return null;
-        
-        try {
-          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userGender = userDoc.data().gender || '';
-            return userGender === 'male' ? 'female' : 'male';
-          }
-          return null;
-        } catch (error) {
-          return null;
-        }
-      };
-      
-      // Execute auto-selection
-      determineOppositeGender().then(oppositeGender => {
-        if (oppositeGender && sessionId) {
-          logLineUp(`Triggering auto-selection for ${oppositeGender} contestants`);
-          LineupService.autoSelectSpotlightForGender(sessionId, oppositeGender)
-            .then(contestantId => {
-              if (contestantId) {
-                logLineUp(`Auto-selected contestant: ${contestantId}, refreshing`);
-                refreshContestants();
-              }
-            })
-            .catch(error => {
-              logLineUp('Error during auto-selection:', error);
-            });
-        }
-      });
-    }
-  }
-
   // If we have a currentContestant, show the main UI even if we're still loading other data
   return (
     <KeyboardAvoidingView 
@@ -1040,4 +1024,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 10,
   },
+  waitingContestantItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  waitingContestantImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  waitingContestantName: {
+    fontSize: 16,
+    color: '#333',
+  }
 });

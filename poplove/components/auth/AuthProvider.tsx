@@ -9,8 +9,12 @@ import { AppState } from 'react-native';
 import { updateAuthProfile } from '../../utils/profileAuthSync';
 import MatchSyncService from '../../services/matchSyncService';
 
+interface ExtendedUser extends User {
+  gender?: string;
+}
+
 type AuthContextType = {
-  user: User | null;
+  user: ExtendedUser | null;
   loading: boolean;
   error: string | null;
   hasCompletedOnboarding: boolean;

@@ -97,7 +97,6 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
   
   while (attempt < MAX_RETRIES) {
     try {
-      // Get user's gender for proper session assignment
       const userDoc = await getDoc(doc(firestore, 'users', userId));
       if (!userDoc.exists()) {
         throw new Error('User not found');
@@ -105,7 +104,6 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
       const userGender = userDoc.data().gender || 'unknown';
       debugLog('Join', `User gender: ${userGender}`);
       
-      // First check if there's an active session for this category
       const sessionsRef = collection(firestore, 'lineupSessions');
       const q = query(
         sessionsRef,
@@ -117,7 +115,6 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
       debugLog('Join', `Found ${snapshot.size} active sessions for category ${categoryId}`);
       
       if (!snapshot.empty) {
-        // Join existing session using transaction to avoid race conditions
         const sessionDoc = snapshot.docs[0];
         const sessionId = sessionDoc.id;
         
@@ -130,20 +127,15 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           const sessionData = freshSessionDoc.data();
           const spotlights = sessionData.spotlights || [];
           
-          // CRITICAL: Check if this is the first female/male contestant
-          const currentMaleSpotlightId = sessionData.currentMaleSpotlightId;
-          const currentFemaleSpotlightId = sessionData.currentFemaleSpotlightId;
-          
-          // Special handling for first contestant of each gender
           const genderField = `current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`;
           const rotationTimeField = `${userGender}LastRotationTime`;
           
-          // First of gender becomes spotlight immediately
+          // CRITICAL: First of gender becomes spotlight, others wait
           if (!sessionData[genderField]) {
             const updates: Record<string, any> = {
               [genderField]: userId,
               [rotationTimeField]: serverTimestamp(),
-              // Update global spotlight if not set
+              clearPreviousMessages: true, // Flag to clear chat for new spotlight
               ...(sessionData.currentSpotlightId ? {} : {
                 currentSpotlightId: userId,
                 lastRotationTime: serverTimestamp()
@@ -185,29 +177,27 @@ export const joinLineupSession = async (userId: string, categoryId: string): Pro
           } as LineUpSessionData;
         });
       } else {
-        // Create new session with first contestant as spotlight
+        // Create new session logic remains the same
         const now = new Date();
         const fourHoursLater = new Date(now.getTime() + SPOTLIGHT_TIMER_SECONDS * 1000);
         
         const newSession = {
           category: [categoryId],
-          primaryGender: userGender, // Set primary gender based on first user
+          primaryGender: userGender,
           [`current${userGender.charAt(0).toUpperCase() + userGender.slice(1)}SpotlightId`]: userId,
           [`${userGender}LastRotationTime`]: serverTimestamp(),
           spotlights: [userId],
           startTime: serverTimestamp(),
           endTime: Timestamp.fromDate(fourHoursLater),
           status: 'active',
-          
-          // Legacy fields for backward compatibility 
           currentSpotlightId: userId,
-          lastRotationTime: serverTimestamp()
+          lastRotationTime: serverTimestamp(),
+          clearPreviousMessages: true
         };
         
         const docRef = await addDoc(collection(firestore, 'lineupSessions'), newSession);
         debugLog('Join', `Created new session: ${docRef.id}`);
         
-        // Add initial user to timestamps collection
         await setDoc(doc(firestore, 'lineupSessions', docRef.id, 'spotlightJoinTimes', userId), {
           joinedAt: serverTimestamp(),
           gender: userGender,

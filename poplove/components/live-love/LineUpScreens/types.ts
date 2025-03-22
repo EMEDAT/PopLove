@@ -1,5 +1,13 @@
 // components/live-love/LineUpScreens/types.ts
 
+export interface User {
+  uid: string;
+  displayName?: string;
+  photoURL?: string;
+  gender?: string;
+  email?: string;
+}
+
 export interface Contestant {
     id: string;
     displayName: string;

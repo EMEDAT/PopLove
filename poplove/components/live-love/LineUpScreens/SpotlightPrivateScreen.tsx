@@ -189,42 +189,42 @@ export default function SpotlightPrivateScreen({ onBack }: SpotlightPrivateScree
   }, [spotlightTimeLeft, timerHandled, setStep, sessionId, user]);
 
   // Add this useEffect right after the existing timer useEffect
-useEffect(() => {
-  const calculateRemainingTime = async () => {
-    if (!sessionId || !user) return;
+  useEffect(() => {
+    const calculateRemainingTime = async () => {
+      if (!sessionId || !user) return;
+      
+      try {
+        // Get user gender
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (!userDoc.exists()) return;
+        
+        const userGender = userDoc.data().gender || '';
+        const rotationTimeField = `${userGender}LastRotationTime`;
+        
+        // Get session with proper gender field
+        const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
+        if (!sessionDoc.exists()) return;
+        
+        const lastRotationTime = sessionDoc.data()[rotationTimeField]?.toDate();
+        if (!lastRotationTime) return;
+        
+        // Calculate time exactly
+        const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
+        const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
+        
+        // Update correct timer based on gender
+        setSpotlightTimeLeft(remainingTime);
+      } catch (error) {
+        console.error('Error calculating remaining time:', error);
+      }
+    };
     
-    try {
-      // Get user gender
-      const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-      if (!userDoc.exists()) return;
-      
-      const userGender = userDoc.data().gender || '';
-      const rotationTimeField = `${userGender}LastRotationTime`;
-      
-      // Get session with proper gender field
-      const sessionDoc = await getDoc(doc(firestore, 'lineupSessions', sessionId));
-      if (!sessionDoc.exists()) return;
-      
-      const lastRotationTime = sessionDoc.data()[rotationTimeField]?.toDate();
-      if (!lastRotationTime) return;
-      
-      // Calculate time exactly
-      const elapsedSeconds = Math.floor((Date.now() - lastRotationTime.getTime()) / 1000);
-      const remainingTime = Math.max(0, SPOTLIGHT_TIMER_SECONDS - elapsedSeconds);
-      
-      // Update correct timer based on gender
-      setSpotlightTimeLeft(remainingTime);
-    } catch (error) {
-      console.error('Error calculating remaining time:', error);
-    }
-  };
-  
-  calculateRemainingTime();
-  
-  // Force refresh timer every minute to prevent drift
-  const refreshInterval = setInterval(calculateRemainingTime, 60000);
-  return () => clearInterval(refreshInterval);
-}, [sessionId, user]);
+    calculateRemainingTime();
+    
+    // Force refresh timer every minute to prevent drift
+    const refreshInterval = setInterval(calculateRemainingTime, 60000);
+    return () => clearInterval(refreshInterval);
+  }, [sessionId, user]);
 
   // Set up real-time stats updates
   useEffect(() => {
