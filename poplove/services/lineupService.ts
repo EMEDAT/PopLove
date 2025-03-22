@@ -596,7 +596,8 @@ export const getUserPopCount = async (sessionId: string, userId: string): Promis
  * @param sessionId Session ID
  * @param userId User ID to eliminate
  */
-export const eliminateUser = async (sessionId: string, userId: string): Promise<void> => {
+export const eliminateUser = async (sessionId: string | null, userId: string): Promise<void> => {
+  if (!sessionId) return;
   debugLog('Elimination', `Eliminating user ${userId} from session ${sessionId}`);
   
   try {
@@ -928,8 +929,8 @@ export const createChat = async (userId1: string, userId2: string, source: strin
  * @returns Unsubscribe function
  */
 export const subscribeToGenderFilteredMessages = (
-  sessionId: string | null,  // Allow null
-  userId: string | null,     // Allow null
+  sessionId: string | null,
+  userId: string | null,
   currentSpotlightId: string | null,
   callback: (messages: ChatMessage[]) => void
 ): () => void => {
