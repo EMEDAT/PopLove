@@ -10,6 +10,7 @@ import MatchSelectionScreen from './LineUpScreens/MatchSelectionScreen';
 import ConfirmationScreen from './LineUpScreens/ConfirmationScreen';
 import EliminatedScreen from './LineUpScreens/EliminatedScreen';
 import NoMatchesScreen from './LineUpScreens/NoMatchesScreen';
+import CongratulationsScreen from './LineUpScreens/CongratulationsScreen';
 import { debugLog } from './LineUpScreens/utils';
 
 // LineUp container component
@@ -41,6 +42,8 @@ const LineUpContainer = ({ onBack }) => {
         return <EliminatedScreen onBack={handleBack} />;
       case 'no-matches':
         return <NoMatchesScreen />;
+      case 'congratulations':
+        return <CongratulationsScreen />;
       default:
         return <SelectionScreen onBack={handleBack} />;
     }

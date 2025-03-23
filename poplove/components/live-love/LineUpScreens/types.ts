@@ -48,7 +48,8 @@ export type LineUpStep =
 | 'matches'        // Match selection after turn
 | 'confirmation'   // Match confirmation with 5s timer
 | 'eliminated'     // Eliminated/disqualified screen
-| 'no-matches';    // No matches found screen
+| 'no-matches'     // No matches found screen
+| 'congratulations'; // Congratulations screen after match
 
 export interface LineUpSessionData {
   id: string;

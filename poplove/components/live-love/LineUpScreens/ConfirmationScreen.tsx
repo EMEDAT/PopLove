@@ -1,5 +1,4 @@
 // components/live-love/LineUpScreens/ConfirmationScreen.tsx
-
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -22,7 +21,15 @@ interface ConfirmationScreenProps {
 }
 
 export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) {
-  const { selectedMatches, confirmMatch, loading } = useLineUp();
+  const { 
+    selectedMatches, 
+    confirmMatch, 
+    loading, 
+    setStep,
+    upcomingSpotlights,
+    setSelectedMatches,
+    handleAction
+  } = useLineUp();
   const [countdown, setCountdown] = useState(5);
   const [confirmed, setConfirmed] = useState(false);
   const [processingMatch, setProcessingMatch] = useState(false);
@@ -44,7 +51,7 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
     }
   }, [countdown, confirmed, processingMatch, match]);
   
-  // Handle confirm action
+  // Handle confirm action - Find Love
   const handleConfirm = async () => {
     if (!match || confirmed || processingMatch) return;
     
@@ -56,14 +63,11 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
       const chatId = await confirmMatch(match);
       
       if (chatId) {
-        // Short delay to show confirmation state
+        // Create navigation to chat with small delay
         setTimeout(() => {
-          // Navigate to chat screen
-          router.push({
-            pathname: '/chat/[id]',
-            params: { id: chatId }
-          });
-        }, 1500);
+          // Navigate to congratulations screen
+          setStep('congratulations');
+        }, 500);
       } else {
         // Handle error case
         setTimeout(() => {
@@ -77,6 +81,39 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
       setTimeout(() => {
         router.replace('/(tabs)/matches');
       }, 1500);
+    } finally {
+      setProcessingMatch(false);
+    }
+  };
+  
+  // Handle Pop Balloon action
+  const handlePopBalloon = async () => {
+    if (!match || processingMatch) return;
+    
+    try {
+      setProcessingMatch(true);
+      
+      // Remove current match from selected matches
+      const updatedMatches = selectedMatches.filter(m => m.userId !== match.userId);
+      setSelectedMatches(updatedMatches);
+      
+      // Record pop action
+      if (match) {
+        await handleAction('pop', match.userId);
+      }
+      
+      // Check if there are more matches
+      if (updatedMatches.length > 0) {
+        // If more matches exist, stay on confirmation screen
+        // The UI will automatically update with the next match
+      } else {
+        // If no more matches, return to selection screen
+        setStep('selection');
+      }
+    } catch (error) {
+      console.error('Error handling pop action:', error);
+    } finally {
+      setProcessingMatch(false);
     }
   };
 
@@ -127,6 +164,7 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
         
         {/* Action buttons */}
         <View style={styles.actionButtons}>
+          {/* Find Love button */}
           <TouchableOpacity 
             style={[styles.confirmButton, confirmed && styles.disabledButton]}
             onPress={handleConfirm}
@@ -142,12 +180,29 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.confirmButtonText}>
-                  {confirmed ? 'Match Confirmed!' : 'Confirm Match'}
+                  {confirmed ? 'Match Confirmed!' : 'Find Love'}
                 </Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
           
+          {/* Pop Balloon button */}
+          <TouchableOpacity 
+            style={[styles.popButton, confirmed && styles.disabledButton]}
+            onPress={handlePopBalloon}
+            disabled={confirmed || processingMatch}
+          >
+            <LinearGradient
+              colors={['#FFFFFF', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradient}
+            >
+              <Text style={styles.popButtonText}>Pop Balloon</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          {/* Skip button */}
           <TouchableOpacity 
             style={[styles.cancelButton, confirmed && styles.disabledButton]}
             onPress={onBack}
@@ -251,6 +306,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     overflow: 'hidden',
   },
+  popButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 15,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
   gradient: {
     flex: 1,
     justifyContent: 'center',
@@ -258,6 +322,11 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  popButtonText: {
+    color: '#FF6B6B',
     fontSize: 16,
     fontWeight: '600',
   },
