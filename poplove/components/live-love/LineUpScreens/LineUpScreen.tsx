@@ -11,9 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  ScrollView
 } from 'react-native';
-import { User } from './types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLineUp } from './LineUpContext';
 import LiveChatComponent from './LiveChatComponent';
