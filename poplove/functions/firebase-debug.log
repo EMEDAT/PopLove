@@ -25,3 +25,11 @@
 [debug] [2025-03-23T21:43:22.094Z] Checked if tokens are valid: true, expires at: 1742769800126
 [debug] [2025-03-23T21:43:22.095Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/poplove-32987/serviceAccounts/poplove-32987@appspot.gserviceaccount.com:testIamPermissions [none]
 [debug] [2025-03-23T21:43:22.095Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/poplove-32987/serviceAccounts/poplove-32987@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-03-23T21:43:23.142Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/poplove-32987/serviceAccounts/poplove-32987@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-03-23T21:43:23.142Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/poplove-32987/serviceAccounts/poplove-32987@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'poplove-32987'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run lint
+[info] Running command: npm --prefix "$RESOURCE_DIR" run build
