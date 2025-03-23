@@ -66,49 +66,37 @@ export default function MatchSelectionScreen() {
   };
 
   // Handle Find Love action
-  const handleFindLove = async () => {
-    if (selectionInProgress || !selectedMatches[currentIndex]) return;
+// Handle Find Love action
+const handleFindLove = async () => {
+  if (selectionInProgress || !selectedMatches[currentIndex]) return;
+  
+  setSelectionInProgress(true);
+  setIsLoading(true);
+  
+  try {
+    const currentMatch = selectedMatches[currentIndex];
     
-    setSelectionInProgress(true);
-    setIsLoading(true);
-    
-    try {
-      const currentMatch = selectedMatches[currentIndex];
-      
-      // Create mutual like if needed
-      if (!currentMatch.isMutualMatch) {
-        await setDoc(doc(firestore, 'likes', `${user?.uid}_${currentMatch.userId}`), {
-          fromUserId: user?.uid,
-          toUserId: currentMatch.userId,
-          createdAt: serverTimestamp(),
-          status: 'pending',
-          source: 'lineup'
-        });
-      }
-      
-      // Get or create chat
-      const chatId = await confirmMatch(currentMatch);
-      
-      if (chatId) {
-        // Navigate to chat screen
-        router.push({
-          pathname: '/chat/[id]',
-          params: { id: chatId }
-        });
-        
-        // Important: Reset to selection screen after a delay
-        setTimeout(() => {
-          setStep('selection');
-        }, 300);
-      }
-    } catch (error) {
-      console.error('Error creating match:', error);
-      Alert.alert('Error', 'Failed to connect with this match');
-    } finally {
-      setIsLoading(false);
-      setSelectionInProgress(false);
+    // Create mutual like if needed
+    if (!currentMatch.isMutualMatch) {
+      await setDoc(doc(firestore, 'likes', `${user?.uid}_${currentMatch.userId}`), {
+        fromUserId: user?.uid,
+        toUserId: currentMatch.userId,
+        createdAt: serverTimestamp(),
+        status: 'pending',
+        source: 'lineup'
+      });
     }
-  };
+    
+    // Instead of creating chat, go to confirmation
+    setStep('confirmation');
+  } catch (error) {
+    console.error('Error processing match:', error);
+    Alert.alert('Error', 'Failed to process match');
+  } finally {
+    setIsLoading(false);
+    setSelectionInProgress(false);
+  }
+};
 
   // Handle Pop Balloon (reject match)
 // Update handlePopBalloon function for proper match removal and UI update

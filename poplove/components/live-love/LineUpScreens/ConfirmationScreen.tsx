@@ -9,7 +9,6 @@ import {
   Dimensions,
   ActivityIndicator
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useLineUp } from './LineUpContext';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -63,11 +62,8 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
       const chatId = await confirmMatch(match);
       
       if (chatId) {
-        // Create navigation to chat with small delay
-        setTimeout(() => {
-          // Navigate to congratulations screen
-          setStep('congratulations');
-        }, 500);
+        // Navigate immediately - no delay
+        setStep('congratulations');
       } else {
         // Handle error case
         setTimeout(() => {
