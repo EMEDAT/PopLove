@@ -821,9 +821,7 @@ const handleAction = async (action: 'like' | 'pop', contestantId: string) => {
   
   // Check using ref directly (persists between renders)
   if (interactedContestantsRef.current.has(contestantId)) {
-    setError(`You've already interacted with this profile`);
-    setTimeout(() => setError(null), 3000);
-    return;
+    return; // Already interacted
   }
   
   // Add to ref immediately

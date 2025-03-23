@@ -60,6 +60,7 @@ export default function LineUpScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const attemptedAutoSelectionRef = useRef(false);
   const currentContestant = currentSpotlight;
+  const [viewCount, setViewCount] = useState<number>(0);
 
   // State tracking to prevent UI jitter
   const [profileHeight, setProfileHeight] = useState<number>(width * 0.8);
@@ -98,6 +99,26 @@ export default function LineUpScreen() {
       }, 2000);
     }
   };
+
+  // Add this useEffect to set up real-time view count listener
+  useEffect(() => {
+    if (!sessionId || !currentContestant) return;
+    
+    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', currentContestant.id);
+    
+    const unsubscribe = onSnapshot(statsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        // Just update the viewCount in the local component state
+        if (data.viewCount !== undefined) {
+          // Update local state value for viewCount display
+          setViewCount(data.viewCount);
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [sessionId, currentContestant?.id]);
 
   useEffect(() => {
     return () => {

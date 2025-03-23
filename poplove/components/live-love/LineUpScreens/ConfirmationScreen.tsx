@@ -104,10 +104,9 @@ export default function ConfirmationScreen({ onBack }: ConfirmationScreenProps) 
       
       // Check if there are more matches
       if (updatedMatches.length > 0) {
-        // If more matches exist, stay on confirmation screen
-        // The UI will automatically update with the next match
+        // Stay on confirmation with next match
       } else {
-        // If no more matches, return to selection screen
+        // No more matches, go back to selection
         setStep('selection');
       }
     } catch (error) {

@@ -12,12 +12,12 @@ import {
   SafeAreaView,
   FlatList,
   AppState,
-  Dimensions
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLineUp } from './LineUpContext';
 import { useAuthContext } from '../../auth/AuthProvider';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../../../lib/firebase';
 import { debugLog } from './utils';
 import ChatInputBar from './ChatInputBar';
@@ -56,6 +56,7 @@ export default function SpotlightPrivateScreen() {
   const messageListRef = useRef<FlatList<any>>(null);
   const appStateRef = useRef(AppState.currentState);
   const lastSyncTimeRef = useRef<number>(Date.now());
+  const [viewCount, setViewCount] = useState<number>(0);
 
   // Log component lifecycle
   useEffect(() => {
@@ -101,6 +102,23 @@ export default function SpotlightPrivateScreen() {
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!sessionId || !user) return;
+    
+    const statsRef = doc(firestore, 'lineupSessions', sessionId, 'spotlightStats', user.uid);
+    
+    const unsubscribe = onSnapshot(statsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.viewCount !== undefined) {
+          setViewCount(data.viewCount);
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [sessionId, user?.uid]);
 
   // Update stats when props change
   useEffect(() => {
