@@ -472,16 +472,22 @@ const handleTimerExpiration = async () => {
   if (!sessionIdRef.current || !user) return;
   
   // Prevent multiple executions of timer expiration
-  if (timerExpirationInProgressRef.current) return;
+  if (timerExpirationInProgressRef.current || timerZeroReachedRef.current) return;
   timerExpirationInProgressRef.current = true;
+  timerZeroReachedRef.current = true; // Set immediately to block competing handlers
   
   try {
+    // First, immediately clean up ANY rotation listeners
+    if (rotationListenerRef.current) {
+      rotationListenerRef.current();
+      rotationListenerRef.current = () => {};
+    }
+    
     // Check matches
     const matchesList = await LineupService.getUserMatches(sessionIdRef.current, user.uid);
     
     // Force navigation with a clean state reset
     if (matchesList.length > 0) {
-      // Has matches - go to matches screen
       setSelectedMatches(matchesList);
       setIsCurrentUser(false);
       setStep('matches');
@@ -490,25 +496,41 @@ const handleTimerExpiration = async () => {
       setIsCurrentUser(false);
       setStep('no-matches');
       
-      // Important: Block any competing state changes
-      timerZeroReachedRef.current = true;
-      
-      // Clear any rotation listeners that might override this state
-      if (rotationListenerRef.current) {
-        rotationListenerRef.current();
-        rotationListenerRef.current = () => {};
+      // CRITICAL: Clear all timer intervals immediately
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
       }
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+      
+      // Reset the timer value to prevent continued countdown
+      setSpotlightTimeLeft(SPOTLIGHT_TIMER_SECONDS);
+      
+      // Set blocks against restarting
+      hasStartedTimerRef.current = false;
+      timerZeroReachedRef.current = true;
+          
+      // Add delay before requesting rotation
+      setTimeout(() => {
+        // Only request rotation if still in no-matches screen
+        if (step === 'no-matches' && sessionIdRef.current) {
+          LineupService.requestForcedRotation(sessionIdRef.current, user.uid, userGenderRef.current || '')
+            .catch(err => console.error('Error requesting rotation:', err));
+        }
+      }, 1000);
     }
   } catch (error) {
     console.error('Error in timer expiration:', error);
-    // Fallback to lineup on error
     setIsCurrentUser(false);
     setStep('lineup');
   } finally {
-    // Release lock with delay to ensure state settles
+    // Never release timerZeroReachedRef - it should stay true
     setTimeout(() => {
       timerExpirationInProgressRef.current = false;
-    }, 500);
+    }, 1000);
   }
 };
 

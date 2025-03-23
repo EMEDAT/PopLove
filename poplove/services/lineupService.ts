@@ -991,24 +991,20 @@ export const subscribeToGenderFilteredMessages = (
       // Always show own and system messages
       if (message.senderId === userId || message.senderId === 'system') return true;
     
-      // In Waiting Room
-      if (userId !== resolvedCurrentSpotlightId) {
-        // ONLY show messages from current spotlight of opposite gender
-        return (
-          message.senderId === resolvedCurrentSpotlightId
-        );
-      }
-    
-      // In Private Screen
+      // If you're in the spotlight (Private Screen)
       if (userId === resolvedCurrentSpotlightId) {
-        // Show messages from opposite gender waiters
+        // Only show messages from opposite gender users who are NOT in spotlight
         return (
-          message.senderGender !== userGender &&  // Opposite gender
-          message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight
+          message.senderGender !== userGender && // Must be opposite gender
+          message.senderId !== spotlightGender   // Must NOT be the opposite gender's spotlight user
         );
       }
-    
-      return false;
+      
+      // If you're in waiting room (LineUp Screen)
+      else {
+        // Only show messages from current opposite gender spotlight
+        return message.senderId === resolvedCurrentSpotlightId;
+      }
     });
 
     // Sort and return filtered messages
@@ -1355,6 +1351,32 @@ export const trackProfileView = async (
   }
 };
 
+export const resetContestantStatus = async (sessionId: string, userId: string): Promise<void> => {
+  try {
+    // Remove from contestants array
+    const sessionRef = doc(firestore, 'lineupSessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (sessionDoc.exists()) {
+      const sessionData = sessionDoc.data();
+      const updatedContestants = sessionData.contestants.filter(id => id !== userId);
+      
+      await updateDoc(sessionRef, {
+        contestants: updatedContestants
+      });
+    }
+
+    // Mark as not completed in join times
+    const joinTimeRef = doc(firestore, 'lineupSessions', sessionId, 'contestantJoinTimes', userId);
+    await updateDoc(joinTimeRef, {
+      completed: true,
+      completedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error resetting contestant:', error);
+  }
+};
+
 export default {
   joinLineupSession,
   getSpotlights,
@@ -1371,5 +1393,6 @@ export default {
   rotateNextSpotlight,
   requestForcedRotation,
   getOrderedSpotlightsByGender,
-  autoSelectContestantForGender
+  autoSelectContestantForGender,
+  resetContestantStatus
 };

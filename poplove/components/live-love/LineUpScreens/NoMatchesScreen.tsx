@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLineUp } from './LineUpContext';
+import { useAuthContext } from '../../auth/AuthProvider';
+import * as LineupService from '../../../services/lineupService';
 
 const { width } = Dimensions.get('window');
 
 export default function NoMatchesScreen() {
-  const { setStep } = useLineUp();
+  const { setStep, sessionId } = useLineUp();
+  const { user } = useAuthContext();
 
   console.log("NoMatchesScreen rendering - Try Again button should navigate to selection");
 
@@ -39,6 +42,13 @@ export default function NoMatchesScreen() {
           style={styles.tryAgainButton}
           onPress={() => {
             console.log("Try Again button pressed - navigating to selection screen");
+            
+            // Reset contestant status in session
+            if (sessionId && user?.uid) {
+              LineupService.resetContestantStatus(sessionId, user.uid)
+                .catch(error => console.error('Error resetting contestant:', error));
+            }
+            
             setStep('selection');
           }}
         >

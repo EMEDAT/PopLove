@@ -423,6 +423,19 @@ async function checkAndRotateGender(sessionDoc: DocumentSnapshot, gender: string
   
   const lastRotationTime = sessionData[rotationTimeField]?.toDate();
   const currentContestantId = sessionData[currentContestantField];
+
+  // Skip if we have a pending rotation request for this contestant
+  const recentRequestQuery = await firestore.collection('rotationRequests')
+  .where('userId', '==', currentContestantId)
+  .where('sessionId', '==', sessionId)
+  .where('status', '==', 'pending')
+  .limit(1)
+  .get();
+
+  if (!recentRequestQuery.empty) {
+  console.log(`${functionName}: Skipping rotation - found pending rotation request for ${currentContestantId}`);
+  return false;
+  }
   
   // Skip if no rotation time or no current contestant
   if (!lastRotationTime || !currentContestantId) {
