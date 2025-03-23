@@ -990,26 +990,6 @@ export const subscribeToGenderFilteredMessages = (
     const filteredMessages = rawMessages.filter(message => {
       // Always show own and system messages
       if (message.senderId === userId || message.senderId === 'system') return true;
-
-      // In Waiting Room
-      if (userId !== resolvedCurrentSpotlightId) {
-        // Show messages from opposite gender waiters
-        return (
-          message.senderGender !== userGender &&  // Opposite gender
-          message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight
-        );
-      }
-
-      // In Private Screen (keep existing logic)
-      if (userId === resolvedCurrentSpotlightId) {
-        return (
-          message.senderId === 'system' ||  // Always show system messages
-          (
-            message.senderGender !== userGender &&  // Opposite gender messages
-            message.senderId !== resolvedCurrentSpotlightId  // Exclude current spotlight's own messages
-          )
-        );
-      }
     
       // In Waiting Room
       if (userId !== resolvedCurrentSpotlightId) {

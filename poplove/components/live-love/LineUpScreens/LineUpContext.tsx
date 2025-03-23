@@ -131,7 +131,9 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const rotationListenerRef = useRef<() => void>(() => {});
   const statsListenerRef = useRef<() => void>(() => {});
   const [viewCount, setViewCount] = useState<number>(0);
-
+  const interactedContestantsRef = useRef(new Set());
+  const sessionStateLocksRef = useRef(new Set<string>());
+  const timerExpirationInProgressRef = useRef(false);
 
   // Add this useEffect to set up real-time view count listener
   useEffect(() => {
@@ -466,51 +468,46 @@ const markUserActivity = async () => {
 
 // Handle timer expiration for current contestant
 const handleTimerExpiration = async () => {
-  if (!sessionIdRef.current || !user || !isCurrentUserRef.current) return;
+  if (!sessionIdRef.current || !user) return;
   
-  debugLog('Expiration', 'Handling timer expiration');
-  setLoading(true);
+  // Prevent multiple executions of timer expiration
+  if (timerExpirationInProgressRef.current) return;
+  timerExpirationInProgressRef.current = true;
   
   try {
-    // Get user's gender for the correct rotation field
-    const gender = userGenderRef.current;
-    if (!gender) {
-      debugLog('Expiration', 'Missing user gender, aborting');
-      setLoading(false);
-      return;
+    // Check matches
+    const matchesList = await LineupService.getUserMatches(sessionIdRef.current, user.uid);
+    
+    // Force navigation with a clean state reset
+    if (matchesList.length > 0) {
+      // Has matches - go to matches screen
+      setSelectedMatches(matchesList);
+      setIsCurrentUser(false);
+      setStep('matches');
+    } else {
+      // No matches - force to no-matches screen
+      setIsCurrentUser(false);
+      setStep('no-matches');
+      
+      // Important: Block any competing state changes
+      timerZeroReachedRef.current = true;
+      
+      // Clear any rotation listeners that might override this state
+      if (rotationListenerRef.current) {
+        rotationListenerRef.current();
+        rotationListenerRef.current = () => {};
+      }
     }
-    
-    // Log completion for analytics
-    await setDoc(doc(firestore, 'lineupSessions', sessionIdRef.current, 'completions', user.uid), {
-      userId: user.uid,
-      timestamp: serverTimestamp(),
-      gender: gender,
-      timerId: Date.now().toString() // Unique ID for tracking
-    });
-    
-    // Request server-side rotation (both directly and via request)
-    await LineupService.rotateNextSpotlight(sessionIdRef.current, gender);
-    await LineupService.requestForcedRotation(sessionIdRef.current, user.uid, gender);
-    
-    // Give server time to process rotation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Get match data and show to user
-    await checkUserMatches();
-    
-    // Reset timer flags for next time
-    timerZeroReachedRef.current = false;
   } catch (error) {
-    debugLog('Expiration', 'Error handling timer expiration', error);
-    
-    // Emergency fallback - just check matches even if rotation failed
-    try {
-      await checkUserMatches();
-    } catch (innerError) {
-      debugLog('Expiration', 'Error in fallback match check', innerError);
-    }
+    console.error('Error in timer expiration:', error);
+    // Fallback to lineup on error
+    setIsCurrentUser(false);
+    setStep('lineup');
   } finally {
-    setLoading(false);
+    // Release lock with delay to ensure state settles
+    setTimeout(() => {
+      timerExpirationInProgressRef.current = false;
+    }, 500);
   }
 };
 
@@ -820,88 +817,61 @@ useEffect(() => {
 
 // Handle like/pop action
 const handleAction = async (action: 'like' | 'pop', contestantId: string) => {
-  if (!user || !contestantId || !sessionIdRef.current) {
-    debugLog('Action', 'Cannot handle action - missing user, contestant, or session');
-    return;
-  }
+  if (!user || !contestantId || !sessionIdRef.current) return;
   
-  // Check if already interacted with this contestant
-  if (interactedContestants.has(contestantId)) {
-    // Get the previous action performed
-    const previousAction = contestantActions.get(contestantId);
-    
-    // If same action, show already performed error
-    if (previousAction === action) {
-      debugLog('Action', `Already performed ${action} on contestant ${contestantId}`);
-      setError(`You have already ${action === 'like' ? 'liked' : 'popped'} this contestant`);
-    } else {
-      // If different action, show can't perform both error
-      debugLog('Action', `Trying to ${action} after ${previousAction} on contestant ${contestantId}`);
-      setError(`You cannot ${action} a contestant you've already ${previousAction === 'like' ? 'liked' : 'popped'}`);
-    }
-    
+  // Check using ref directly (persists between renders)
+  if (interactedContestantsRef.current.has(contestantId)) {
+    setError(`You've already interacted with this profile`);
     setTimeout(() => setError(null), 3000);
     return;
   }
   
-  debugLog('Action', `Performing ${action} action on contestant ${contestantId}`);
+  // Add to ref immediately
+  interactedContestantsRef.current.add(contestantId);
   
   try {
     setLoading(true);
-    
-    // Add to interacted set and action map immediately to prevent double actions
-    setInteractedContestants(prev => new Set(prev).add(contestantId));
-    setContestantActions(prev => new Map(prev).set(contestantId, action));
-    
-    // Record action in service
     await LineupService.recordAction(sessionIdRef.current, user.uid, contestantId, action);
     
-    // Rest of your existing code remains the same...
     if (action === 'like') {
-      // Check for immediate match
-      debugLog('Action', 'Checking for immediate match');
       const isMatch = await LineupService.checkForMatch(user.uid, contestantId);
       
       if (isMatch) {
-        debugLog('Action', 'Mutual match found! Showing matches screen');
-        // Get matches and show matches screen immediately
-        const matchesList = await LineupService.getUserMatches(sessionIdRef.current, user.uid);
-        setSelectedMatches(matchesList);
-        safeSetStep('matches');
+        // Get the match details with all required properties
+        const matchDetails: MatchData = {
+          userId: contestantId,
+          displayName: currentSpotlight?.displayName || "User",
+          photoURL: currentSpotlight?.photoURL || "",
+          matchPercentage: currentSpotlight?.matchPercentage || 85,
+          timestamp: serverTimestamp()
+        };
+        
+        // Save match details
+        setSelectedMatches([matchDetails]);
+        
+        // Go to congratulations screen
+        safeSetStep('confirmation');
         setLoading(false);
         return;
       }
     }
 
-    // Move to next contestant if available
+    // ALWAYS move to next contestant after action processed
     if (upcomingSpotlights.length > 0) {
-      debugLog('Action', 'Moving to next contestant from list');
       setCurrentSpotlight(upcomingSpotlights[0]);
       setUpcomingSpotlights(prev => prev.slice(1));
     } else {
-      // Only check for elimination for pop action
       if (action === 'pop') {
-        debugLog('Action', 'Checking pop count after pop action');
         const popCount = await LineupService.getUserPopCount(sessionIdRef.current, contestantId);
-        
         if (popCount >= 20) {
-          debugLog('Action', `Contestant ${contestantId} eliminated due to pop count (${popCount})`);
-          
-          // Notify elimination
           await LineupService.eliminateUser(sessionIdRef.current, contestantId);
-          
-          // Force refresh spotlights to get new contestants
-          await refreshSpotlights();
         }
       }
-      
-      // Refresh to see if new contestants joined
-      debugLog('Action', 'No more upcoming contestants, refreshing');
       await refreshSpotlights();
     }
   } catch (error) {
-    debugLog('Action', 'Error handling action', error);
-    setError('Failed to process your action. Please try again.');
+    setError('Failed to process your action');
+    // Don't remove from interactedContestants - action still considered used
   } finally {
     setLoading(false);
   }
