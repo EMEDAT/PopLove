@@ -414,7 +414,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
         </View>
         
         {/* Save button */}
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={styles.saveButton}
           onPress={saveSettings}
           disabled={saving}
@@ -431,14 +431,14 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             <Text style={styles.saveButtonText}>Save Changes</Text>
           )}
           </LinearGradient>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         
         {/* App Version */}
-        <Text style={styles.versionText}>Version 1.0.0</Text>
+        {/* <Text style={styles.versionText}>Version 1.0.0</Text> */}
       </ScrollView>
       
       {/* Delete Account Confirmation Modal */}
-      <Modal
+      {/* <Modal
         visible={showDeleteConfirmation}
         transparent={true}
         animationType="fade"
@@ -473,7 +473,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             </View>
           </View>
         </View>
-      </Modal>
+      </Modal> */}
     </>
   );
 }
