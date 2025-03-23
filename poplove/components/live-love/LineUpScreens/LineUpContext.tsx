@@ -25,7 +25,7 @@ import { calculateMatchPercentage } from '../../../utils/matchCalculation';
 import { debugLog, formatTime, checkUserEligibility, getSpotlightRemainingTime } from './utils';
 
 // Constants for lineup
-const SPOTLIGHT_TIMER_SECONDS = 5 * 60; // 4 hours in seconds (14,400 seconds)
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds (14,400 seconds)
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 48 hours in seconds (172,800 seconds)
 const SERVER_SYNC_INTERVAL = 60 * 1000; // Sync with server every minute
 const MIN_REFRESH_INTERVAL = 30 * 1000; // Minimum time between refreshes
@@ -134,6 +134,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const interactedContestantsRef = useRef(new Set());
   const sessionStateLocksRef = useRef(new Set<string>());
   const timerExpirationInProgressRef = useRef(false);
+  const userJoinTimeRef = useRef<number>(Date.now());
 
   // Add this useEffect to set up real-time view count listener
   useEffect(() => {
@@ -786,45 +787,62 @@ useEffect(() => {
   }
   
   // Listen for rotation events
-  const rotationRef = doc(firestore, 'lineupSessions', sessionIdRef.current, 'rotationEvents', 'latest');
-  
-  const unsubscribeRotation = onSnapshot(rotationRef, async (snapshot) => {
-    if (!snapshot.exists()) return;
-    
-    const eventData = snapshot.data() as RotationEvent;
-    debugLog('Rotation', 'Rotation event detected', eventData);
-    
-    // If current user is involved in the rotation
-    if (eventData.previousContestantId === user.uid) {
-      debugLog('Rotation', 'Current user was rotated out, checking matches');
+  const rotationRef = sessionId 
+  ? doc(firestore, 'lineupSessions', sessionId, 'rotationEvents', 'latest')
+  : null;
+
+  const unsubscribeRotation = rotationRef 
+    ? onSnapshot(rotationRef, async (snapshot) => {
+      if (!snapshot.exists()) return;
       
-      // Clear timer flags for clean state
-      timerZeroReachedRef.current = false;
+      const eventData = snapshot.data() as RotationEvent;
+      const eventTimestamp = eventData.timestamp?.toDate?.() 
+        ? eventData.timestamp.toDate().getTime() 
+        : Date.now();
+        
+      // Ignore historical rotation events from before user joined
+      if (eventTimestamp < userJoinTimeRef.current - 5000) {
+        debugLog('Rotation', 'Ignoring historical rotation event from before user joined', {
+          eventTime: new Date(eventTimestamp).toISOString(),
+          joinTime: new Date(userJoinTimeRef.current).toISOString()
+        });
+        return;
+      }
       
-      // Auto-check for matches
-      await checkUserMatches();
-    } 
-    // If user is now the current contestant
-    else if (eventData.newContestantId === user.uid) {
-      debugLog('Rotation', 'Current user is now the current contestant');
+      debugLog('Rotation', 'Rotation event detected', eventData);
       
-      // Update state and move to private screen
-      setIsCurrentUser(true);
-      startSpotlightTimer();
-      safeSetStep('private');
-    }
-    // If just a general rotation, refresh spotlights
-    else if (currentSpotlight && (
-      eventData.previousContestantId === currentSpotlight.id || 
-      eventData.newContestantId !== currentSpotlight.id
-    )) {
-      debugLog('Rotation', 'Current spotlight changed, refreshing spotlights');
-      await refreshSpotlights();
-    }
-  });
-  
+      // If current user is involved in the rotation
+      if (eventData.previousContestantId === user.uid) {
+        debugLog('Rotation', 'Current user was rotated out, checking matches');
+        
+        // Clear timer flags for clean state
+        timerZeroReachedRef.current = false;
+        
+        // Auto-check for matches
+        await checkUserMatches();
+      } 
+      // If user is now the current contestant
+      else if (eventData.newContestantId === user.uid) {
+        debugLog('Rotation', 'Current user is now the current contestant');
+        
+        // Update state and move to private screen
+        setIsCurrentUser(true);
+        startSpotlightTimer();
+        safeSetStep('private');
+      }
+      // If just a general rotation, refresh spotlights
+      else if (currentSpotlight && (
+        eventData.previousContestantId === currentSpotlight.id || 
+        eventData.newContestantId !== currentSpotlight.id
+      )) {
+        debugLog('Rotation', 'Current spotlight changed, refreshing spotlights');
+        await refreshSpotlights();
+      }
+    })
+    : () => {};
+
   rotationListenerRef.current = unsubscribeRotation;
-  
+
   // Return cleanup function
   return () => {
     debugLog('Subscription', 'Cleaning up subscriptions');

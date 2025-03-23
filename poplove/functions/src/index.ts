@@ -9,7 +9,7 @@ initializeApp();
 const firestore = getFirestore();
 
 // Constants for lineup
-const SPOTLIGHT_TIMER_SECONDS = 5 * 60; // 4 hours in seconds
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 48 hours in seconds
 
 // This function runs once per day to clean up expired stories

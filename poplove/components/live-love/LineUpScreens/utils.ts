@@ -5,7 +5,7 @@ import { firestore } from '../../../lib/firebase';
 import { calculateMatchPercentage as calculateGlobalMatchPercentage } from '../../../utils/matchCalculation';
 
 // Constants for lineup
-const SPOTLIGHT_TIMER_SECONDS = 5 * 60; // 4 hours in seconds (14,400 seconds)
+const SPOTLIGHT_TIMER_SECONDS = 4 * 60 * 60; // 4 hours in seconds (14,400 seconds)
 const ELIMINATION_TIMER_SECONDS = 48 * 60 * 60; // 48 hours in seconds (172,800 seconds)
 
 // Debug logging helper
