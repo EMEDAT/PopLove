@@ -15,7 +15,7 @@ import { debugLog } from './LineUpScreens/utils';
 
 // LineUp container component
 const LineUpContainer = ({ onBack }) => {
-  const { step, loading } = useLineUp();
+  const { step, loading, selectedMatches, setStep } = useLineUp();
   
   // Handle back navigation
   const handleBack = () => {
@@ -42,8 +42,29 @@ const LineUpContainer = ({ onBack }) => {
         return <EliminatedScreen onBack={handleBack} />;
       case 'no-matches':
         return <NoMatchesScreen />;
-      case 'congratulations':
-        return <CongratulationsScreen />;
+        case 'congratulations':
+          const currentMatch = selectedMatches[0] || null;
+          const matchForProps = currentMatch ? {
+            id: currentMatch.userId,
+            displayName: currentMatch.displayName,
+            photoURL: currentMatch.photoURL,
+            ageRange: currentMatch.ageRange || "",
+            gender: currentMatch.gender || "",
+            bio: currentMatch.bio || "",
+            matchPercentage: currentMatch.matchPercentage,
+            scores: {
+              interests: currentMatch.matchPercentage || 50,
+              lifestyle: currentMatch.matchPercentage || 50,
+              age: currentMatch.matchPercentage || 50,
+              location: currentMatch.matchPercentage || 50
+            }
+          } : null;
+          
+          return <CongratulationsScreen 
+            match={matchForProps}
+            onGoToChat={() => setStep('selection')}
+            onSkip={() => setStep('selection')}
+          />;
       default:
         return <SelectionScreen onBack={handleBack} />;
     }
