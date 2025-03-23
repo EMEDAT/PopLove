@@ -335,7 +335,7 @@ export default function SpotlightPrivateScreen() {
             
             <View style={styles.statItem}>
               <Ionicons name="eye" size={30} color="#0A84FF" />
-              <Text style={styles.statValue}>{stats.viewCount}</Text>
+              <Text style={styles.statValue}>{viewCount}</Text>
               <Text style={styles.statLabel}>Views</Text>
             </View>
           </View>

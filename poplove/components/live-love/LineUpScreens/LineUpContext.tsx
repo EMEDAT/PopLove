@@ -151,6 +151,7 @@ export const LineUpProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           debugLog('Views', `Received viewCount update: ${data.viewCount}`);
           
           // Update current spotlight with new view count
+          setViewCount(data.viewCount);
           setCurrentSpotlight(prev => {
             if (!prev) return null;
             return {
