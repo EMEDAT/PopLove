@@ -95,28 +95,28 @@ export default function ProfileScreen() {
         }
       }
     },
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      icon: 'notifications-outline',
-      action: () => {
-        try {
-          const NotificationsScreen = require('../../components/profile/NotificationsScreen').default;
-          setModalContent(
-            <NotificationsScreen
-              onBack={() => {
-                setModalContent(null);
-                // Allow time for modal to close before accepting new inputs
-                setTimeout(() => setModalContent(null), 300);
-              }} 
-            />
-          );
-        } catch (error) {
-          console.error("Failed to load component:", error);
-          Alert.alert("Error", "Could not load component: " + (error as Error).message);
-        }
-      }
-    },
+    // {
+    //   id: 'notifications',
+    //   title: 'Notifications',
+    //   icon: 'notifications-outline',
+    //   action: () => {
+    //     try {
+    //       const NotificationsScreen = require('../../components/profile/NotificationsScreen').default;
+    //       setModalContent(
+    //         <NotificationsScreen
+    //           onBack={() => {
+    //             setModalContent(null);
+    //             // Allow time for modal to close before accepting new inputs
+    //             setTimeout(() => setModalContent(null), 300);
+    //           }} 
+    //         />
+    //       );
+    //     } catch (error) {
+    //       console.error("Failed to load component:", error);
+    //       Alert.alert("Error", "Could not load component: " + (error as Error).message);
+    //     }
+    //   }
+    // },
     {
       id: 'favorites',
       title: 'Favourites',
