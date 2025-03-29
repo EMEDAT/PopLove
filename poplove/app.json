@@ -1,34 +1,68 @@
 {
-    "expo": {
-      "name": "poplove",
-      "slug": "poplove",
-      "version": "1.0.0",
-      "scheme": "poplove",
-      "newArchEnabled": true,
-      "plugins": [
-        [
-            "expo-build-properties",
-            {
-            "android": {
-                "compileSdkVersion": 35,
-                "targetSdkVersion": 34,
-                "buildToolsVersion": "35.0.0",
-                "ndkVersion": "26.1.10909125"
-            },
-            "ios": {
-                "useFrameworks": "static"
-            }
-            }
-        ]
+  "expo": {
+    "name": "poplove",
+    "slug": "poplove",
+    "version": "1.0.0",
+    "scheme": "poplove",
+    "newArchEnabled": true,
+    "jsEngine": "jsc",
+    "orientation": "portrait",
+    "icon": "./assets/images/poploveicon.png",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "35.0.0",
+            "ndkVersion": "26.1.10909125"
+          },
+          "ios": {
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1",
+            "extraPods": [
+              {
+                "name": "RCT-Folly",
+                "configurations": ["Release", "Debug"],
+                "modular_headers": true
+              }
+            ]
+          }
+        }
       ],
-      "android": {
-        "package": "com.yourname.poplove",
-        "googleServicesFile": "./android/app/google-services.json"
-      },
-      "extra": {
-        "eas": {
-          "projectId": "f15a5669-821e-4a47-b075-ded96f9ee970"
+      "expo-video"
+    ],
+    "android": {
+      "jsEngine": "jsc",
+      "package": "com.yourname.poplove",
+      "googleServicesFile": "./android/app/google-services.json",
+      "icon": "./assets/images/poploveicon.png"
+    },
+    "ios": {
+      "jsEngine": "jsc",
+      "bundleIdentifier": "com.matchspherellc.poploveapp",
+      "appleTeamId": "9827BF3HWC",
+      "icon": "./assets/images/poploveicon.png",
+      "googleServicesFile": "./ios/poplove/GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["fetch"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
         }
       }
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "50ac2ad1-07af-4c50-a9c3-6950151f8ca3"
+      }
+    },
+    "owner": "gm455",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
 }

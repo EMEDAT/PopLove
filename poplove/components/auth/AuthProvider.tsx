@@ -1,6 +1,6 @@
 // components/auth/AuthProvider.tsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, UserCredential } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, firestore, serverTimestamp } from '../../lib/firebase';
 import { authService } from '../../services/auth';
@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { AppState } from 'react-native';
 import { updateAuthProfile } from '../../utils/profileAuthSync';
 import MatchSyncService from '../../services/matchSyncService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ExtendedUser extends User {
   gender?: string;
@@ -19,7 +20,7 @@ type AuthContextType = {
   error: string | null;
   hasCompletedOnboarding: boolean;
   onboardingStartTime: number | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<UserCredential | void>; // Changed return type
   signUp: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   resetAuth: () => Promise<void>;
@@ -31,6 +32,7 @@ type AuthContextType = {
 };
 
 const ONBOARDING_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const AUTH_STORAGE_KEY = 'auth_user_data';
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -61,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use refs to prevent navigation loops
   const initialNavPerformed = useRef(false);
   const userNavFired = useRef(false);
+  const authCheckComplete = useRef(false);
 
   // Add this function to track user online status
   const trackUserStatus = () => {
@@ -113,15 +116,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  // Persist auth data to AsyncStorage
+  const persistAuthData = async (userData: User | null) => {
+    if (userData) {
+      try {
+        // Store minimal auth data
+        const authData = {
+          uid: userData.uid,
+          email: userData.email,
+          displayName: userData.displayName,
+          photoURL: userData.photoURL,
+          lastLoginTime: Date.now()
+        };
+        
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
+        console.log('Auth data persisted to storage');
+      } catch (error) {
+        console.error('Error persisting auth data:', error);
+      }
+    } else {
+      try {
+        // Clear stored auth data on logout
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+        console.log('Auth data removed from storage');
+      } catch (error) {
+        console.error('Error removing auth data:', error);
+      }
+    }
+  };
+
+  // Try to restore auth from AsyncStorage
+  const tryRestoreAuth = async () => {
+    try {
+      const storedAuthData = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      
+      if (storedAuthData && !user) {
+        const authData = JSON.parse(storedAuthData);
+        console.log('Found stored auth data, checking validity');
+        
+        // Check if stored auth is recent enough (30 days)
+        const lastLoginTime = authData.lastLoginTime || 0;
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const isRecent = Date.now() - lastLoginTime < thirtyDaysMs;
+        
+        if (isRecent && !auth.currentUser) {
+          console.log('Attempting to restore auth session for:', authData.email);
+          // We can't directly restore the session, but we can trigger auto-signin
+          // by attempting to re-authenticate with stored tokens
+          
+          // Note: This is a placeholder - actual implementation depends on your auth flow
+          // You may need to redirect to the login screen with a message
+          console.log('Auth session may need manual re-authentication');
+        }
+      }
+      
+      authCheckComplete.current = true;
+    } catch (error) {
+      console.error('Error restoring auth:', error);
+      authCheckComplete.current = true;
+    }
+  };
+
   // Add this to your useEffect in AuthProvider
   useEffect(() => {
     if (user) {
       const unsubscribeStatus = trackUserStatus();
+      // Persist auth data when user changes
+      persistAuthData(user);
+      
       return () => {
         if (unsubscribeStatus) unsubscribeStatus();
       };
     }
   }, [user]);
+
+  // Initial auth restoration attempt
+  useEffect(() => {
+    tryRestoreAuth();
+  }, []);
 
   // Handle user authentication state changes
   useEffect(() => {
@@ -129,6 +201,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(authUser);
       
       if (authUser) {
+        // Persist auth data whenever we get a valid user
+        persistAuthData(authUser);
+        
         try {
           const userDoc = await getDoc(doc(firestore, 'users', authUser.uid));
           if (userDoc.exists()) {
@@ -180,9 +255,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Single navigation effect that runs only once when auth state is determined
-  // In the navigation effect
   useEffect(() => {
-    if (loading) return;
+    if (loading || !authCheckComplete.current) return;
     
     const performNavigation = async () => {
       // Always start with splash screen first time
@@ -194,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // If no user, go directly to auth
       if (!user) {
-        router.replace('/(auth)');
+        router.replace('/(auth)/signup');
         return;
       }
       
@@ -228,6 +302,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await updateDoc(doc(firestore, 'users', userCredential.uid), {
           onboardingStartTime: startTime
         });
+        
+        // Persist auth data immediately after signup
+        if (userCredential) {
+          persistAuthData(userCredential);
+        }
       }
       
       return userCredential;
@@ -238,11 +317,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<UserCredential | void> => {
     try {
       setLoading(true);
-      await authService.signInWithEmail(email, password);
+      const userCredential = await authService.signInWithEmail(email, password);
+      
+      // Persist auth data immediately after signin
+      if (userCredential && userCredential.user) {
+        persistAuthData(userCredential.user);
+      }
+      
       setError(null);
+      return userCredential;
     } catch (err: any) {
       console.error('Login Error:', err);
       setError(err.message);
@@ -276,6 +362,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Small delay to ensure update completes
       await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Clear stored auth data
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      
       // NOW sign out
       await authService.signOut();
       
@@ -289,18 +378,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? error.message 
         : typeof error === 'string' 
           ? error 
-          : 'Signup failed';
+          : 'Signout failed';
       
-      console.error('Signup Error:', errorMessage);
+      console.error('Signout Error:', errorMessage);
       setError(errorMessage);
       throw error;
     }
   };
 
-
   const resetAuth = async () => {
     try {
       await authService.resetAuth();
+      // Clear stored auth data
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       // Reset onboarding state
       setHasCompletedOnboardingState(false);
       setOnboardingStartTime(null);
@@ -348,7 +438,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
-
   const startOnboarding = () => {
     if (!user || onboardingStartTime) return;
     
@@ -362,7 +451,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-    /**
+  /**
    * Updates the user's profile and syncs the changes to Auth and matches
    */
   const updateUserProfile = async (profileData: { displayName?: string; photoURL?: string }) => {
@@ -406,6 +495,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // 4. Ensure match list summary is up-to-date
       await MatchSyncService.ensureMatchListSummary(user.uid);
+      
+      // 5. Update the stored auth data to reflect profile changes
+      await persistAuthData(user);
       
       console.log('Profile updated and synced successfully');
     } catch (error) {

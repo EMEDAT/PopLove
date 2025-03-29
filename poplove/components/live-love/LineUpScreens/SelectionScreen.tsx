@@ -8,7 +8,9 @@ import {
   Image, 
   ActivityIndicator,
   Platform,
-  Alert
+  Alert,
+  ScrollView,
+  SafeAreaView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -135,10 +137,12 @@ export default function SelectionScreen({ onBack }: SelectionScreenProps) {
   if (!eligibilityChecked) {
     logSelection('Rendering loading screen - checking eligibility');
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B6B" />
-        <Text style={styles.loadingText}>Checking eligibility...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+          <Text style={styles.loadingText}>Checking eligibility...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -151,8 +155,8 @@ export default function SelectionScreen({ onBack }: SelectionScreenProps) {
   });
   
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.safeArea}>
+      {/* Header - Fixed at the top */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => {
@@ -169,47 +173,72 @@ export default function SelectionScreen({ onBack }: SelectionScreenProps) {
         <View style={styles.placeholder} />
       </View>
       
-      {/* Category Selection */}
-      <View style={styles.categoriesContainer}>
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryCard,
-              category.selected && styles.categoryCardSelected
-            ]}
-            onPress={() => {
-              logSelection('Category selected', { 
-                categoryId: category.id, 
-                categoryName: category.name,
-                previouslySelected: category.selected
-              });
-              toggleCategory(category.id);
-            }}
-          >
-            <LinearGradient
-              colors={category.selected ? ['#FF6B6B', '#FFA07A'] : ['#F0F0F0', '#F0F0F0']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.categoryGradient}
+      {/* Scrollable Content */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Category Selection */}
+        <View style={styles.categoriesContainer}>
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryCard,
+                category.selected && styles.categoryCardSelected
+              ]}
+              onPress={() => {
+                logSelection('Category selected', { 
+                  categoryId: category.id, 
+                  categoryName: category.name,
+                  previouslySelected: category.selected
+                });
+                toggleCategory(category.id);
+              }}
             >
-              <Text style={[
-                styles.categoryText,
-                category.selected && styles.categoryTextSelected
-              ]}>
-                {category.name}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <LinearGradient
+                colors={category.selected ? ['#FF6B6B', '#FFA07A'] : ['#F0F0F0', '#F0F0F0']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.categoryGradient}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  category.selected && styles.categoryTextSelected
+                ]}>
+                  {category.name}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Error message */}
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+        
+        {/* Information section */}
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoTitle}>How Line-Up Mode Works:</Text>
+          <Text style={styles.infoText}>
+            • Join a group with similar interests{'\n'}
+            • Wait your turn to be featured{'\n'}
+            • Chat with people who like your profile{'\n'}
+            • Get matched with compatible users
+          </Text>
+          <Text style={styles.infoWarning}>
+            Note: If you receive 20 or more rejections, you'll be eliminated and unable to join for 48 hours.
+          </Text>
+        </View>
+        
+        {/* Add bottom padding for better scrolling */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
       
-      {/* Error message */}
-      {error && (
-        <Text style={styles.errorText}>{error}</Text>
-      )}
-      
-      {/* Proceed Button */}
+      {/* Proceed Button - Fixed at the bottom */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
@@ -239,29 +268,14 @@ export default function SelectionScreen({ onBack }: SelectionScreenProps) {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-      
-      {/* Information section */}
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoTitle}>How Line-Up Mode Works:</Text>
-        <Text style={styles.infoText}>
-          • Join a group with similar interests{'\n'}
-          • Wait your turn to be featured{'\n'}
-          • Chat with people who like your profile{'\n'}
-          • Get matched with compatible users
-        </Text>
-        <Text style={styles.infoWarning}>
-          Note: If you receive 20 or more rejections, you'll be eliminated and unable to join for 48 hours.
-        </Text>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFF5F5',
-    padding: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -269,15 +283,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     color: '#666',
+    fontSize: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Platform.OS === 'ios' ? 40 : 20,
-    marginBottom: 30,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFF5F5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE4E4',
   },
   headerTitle: {
     fontSize: 18,
@@ -298,12 +317,19 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
   categoriesContainer: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   categoryCard: {
     borderRadius: 12,
-    marginBottom: 15,
+    marginBottom: 16,
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
@@ -332,14 +358,18 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#FF3B30',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
+    fontSize: 15,
   },
   buttonContainer: {
-    marginBottom: 30,
+    padding: 20,
+    backgroundColor: '#FFF5F5',
+    borderTopWidth: 1,
+    borderTopColor: '#FFE4E4',
   },
   proceedButton: {
-    height: 50,
-    borderRadius: 25,
+    height: 56,
+    borderRadius: 28,
     overflow: 'hidden',
   },
   proceedButtonDisabled: {
@@ -353,7 +383,7 @@ const styles = StyleSheet.create({
   },
   proceedButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   disabledProceedButtonText: {
@@ -361,24 +391,28 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     backgroundColor: '#FFE4E4',
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 12,
     color: '#333',
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#444',
-    marginBottom: 10,
-    lineHeight: 22,
+    marginBottom: 12,
+    lineHeight: 24,
   },
   infoWarning: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#FF3B30',
     fontStyle: 'italic',
   },
+  bottomSpacer: {
+    height: 24, // Extra space at the bottom of scrollable content
+  }
 });

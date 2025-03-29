@@ -10,7 +10,8 @@ import {
   Animated,
   Easing,
   AppState,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView // Added ScrollView import
 } from 'react-native';
 import { 
   collection, 
@@ -120,31 +121,30 @@ export default function LiveLoveScreen() {
   }, [selectedMode, selectedDatingMode, isInitialLoad, initialCheckComplete, loading]);
 
   // App state listener for foreground/background detection
-// App state listener for foreground/background detection
-useEffect(() => {
-  const subscription = AppState.addEventListener('change', nextAppState => {
-    // Update state first to ensure correct sequence
-    appState.current = nextAppState;
-    
-    // CRITICAL: Protect line-up mode from background/foreground transitions
-    if (nextAppState === 'active' && selectedMode === 'line-up') {
-      preventStateReset.current = true;
-      logLiveLove('Force-protecting line-up mode state');
-      return; // Exit immediately to prevent any session checks
-    }
-    
-    // Only check session when coming back to foreground and not in protected mode
-    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-      if (!preventStateReset.current) {
-        checkUserSession();
-      } else {
-        logLiveLove('Session check prevented by lock');
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      // Update state first to ensure correct sequence
+      appState.current = nextAppState;
+      
+      // CRITICAL: Protect line-up mode from background/foreground transitions
+      if (nextAppState === 'active' && selectedMode === 'line-up') {
+        preventStateReset.current = true;
+        logLiveLove('Force-protecting line-up mode state');
+        return; // Exit immediately to prevent any session checks
       }
-    }
-  });
+      
+      // Only check session when coming back to foreground and not in protected mode
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        if (!preventStateReset.current) {
+          checkUserSession();
+        } else {
+          logLiveLove('Session check prevented by lock');
+        }
+      }
+    });
 
-  return () => subscription.remove();
-}, [selectedMode]); // Add selectedMode to dependencies
+    return () => subscription.remove();
+  }, [selectedMode]); // Add selectedMode to dependencies
 
   // Initial load session check
   useEffect(() => {
@@ -377,7 +377,12 @@ useEffect(() => {
     logLiveLove('Rendering mode selection screen');
     
     return (
-      <View style={styles.modeSelectionContainer}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
         {/* Live Indicator */}
         <View style={styles.liveIndicator}>
           <Animated.View 
@@ -399,99 +404,103 @@ useEffect(() => {
           <Text style={styles.liveText}>Live</Text>
         </View>
 
-        {/* Speed Dating Card */}
-        <TouchableOpacity 
-          style={[
-            styles.modeCard, 
-            selectedDatingMode === 'speed-dating' && styles.selectedModeCard
-          ]}
-          onPress={() => {
-            logLiveLove('User selected Speed Dating mode');
-            handleSelectMode('speed-dating');
-          }}
-          disabled={loading}
-        >
-          <View style={styles.modeIconContainer}>
-            <Image 
-              source={require('../../assets/images/main/speed-dating-icon.png')} 
-              style={styles.modeIcon}
-              resizeMode="contain"
-              onError={(e) => logLiveLove('Error loading speed dating icon', { error: e.nativeEvent })}
-            />
-          </View>
-          <View style={styles.modeTextContainer}>
-          <Text style={styles.modeTitle}>Speed Dating Mode</Text>
-          <Text style={styles.modeSubtitle}>(Instant Match 1-on-1)</Text>
-        </View>
-          {selectedDatingMode === 'speed-dating' && (
-            <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
+        <View style={styles.contentContainer}>
+          {/* Speed Dating Card */}
+          <TouchableOpacity 
+            style={[
+              styles.modeCard, 
+              selectedDatingMode === 'speed-dating' && styles.selectedModeCard
+            ]}
+            onPress={() => {
+              logLiveLove('User selected Speed Dating mode');
+              handleSelectMode('speed-dating');
+            }}
+            disabled={loading}
+          >
+            <View style={styles.modeIconContainer}>
+              <Image 
+                source={require('../../assets/images/main/speed-dating-icon.png')} 
+                style={styles.modeIcon}
+                resizeMode="contain"
+                onError={(e) => logLiveLove('Error loading speed dating icon', { error: e.nativeEvent })}
+              />
             </View>
-          )}
-        </TouchableOpacity>
-        
+            <View style={styles.modeTextContainer}>
+              <Text style={styles.modeTitle}>Speed Dating Mode</Text>
+              <Text style={styles.modeSubtitle}>(Instant Match 1-on-1)</Text>
+            </View>
+            {selectedDatingMode === 'speed-dating' && (
+              <View style={styles.checkmarkContainer}>
+                <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
+              </View>
+            )}
+          </TouchableOpacity>
+          
         {/* Line Up Card */}
         <TouchableOpacity 
-          style={[
-            styles.modeCard, 
-            selectedDatingMode === 'line-up' && styles.selectedModeCard
-          ]}
-          onPress={() => {
-            logLiveLove('User selected Line Up mode');
-            handleSelectMode('line-up');
-          }}
-          disabled={loading}
-        >
-          <View style={styles.modeIconContainer}>
-            <Image 
-              source={require('../../assets/images/main/lineup-icon.png')} 
-              style={styles.modeIcon}
-              resizeMode="contain"
-              onError={(e) => logLiveLove('Error loading lineup icon', { error: e.nativeEvent })}
-            />
-          </View>
-          <View style={styles.modeTextContainer}>
-            <Text style={styles.modeTitle}>Line Up Mode</Text>
-            <Text style={styles.modeSubtitle}>(Group Room)</Text>
-          </View>
-          {selectedDatingMode === 'line-up' && (
-            <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
+            style={[
+              styles.modeCard, 
+              selectedDatingMode === 'line-up' && styles.selectedModeCard
+            ]}
+            onPress={() => {
+              logLiveLove('User selected Line Up mode');
+              handleSelectMode('line-up');
+            }}
+            disabled={loading}
+          >
+            <View style={styles.modeIconContainer}>
+              <Image 
+                source={require('../../assets/images/main/lineup-icon.png')} 
+                style={styles.modeIcon}
+                resizeMode="contain"
+                onError={(e) => logLiveLove('Error loading lineup icon', { error: e.nativeEvent })}
+              />
             </View>
-          )}
-        </TouchableOpacity>
+            <View style={styles.modeTextContainer}>
+              <Text style={styles.modeTitle}>Line Up Mode</Text>
+              <Text style={styles.modeSubtitle}>(Group Room)</Text>
+            </View>
+            {selectedDatingMode === 'line-up' && (
+              <View style={styles.checkmarkContainer}>
+                <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
         
         {/* Proceed Button */}
-        <TouchableOpacity
-          style={[
-            styles.proceedButton,
-            (!selectedDatingMode || loading) && styles.disabledProceedButton
-          ]}
-          onPress={() => {
-            logLiveLove('Proceed button pressed', { selectedDatingMode });
-            handleProceedButton();
-          }}
-          disabled={!selectedDatingMode || loading}
-        >
-          <LinearGradient
-            colors={selectedDatingMode && !loading ? ['#EC5F61', '#F0B433'] : ['#E0E0E0', '#E0E0E0']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.proceedButton,
+              (!selectedDatingMode || loading) && styles.disabledProceedButton
+            ]}
+            onPress={() => {
+              logLiveLove('Proceed button pressed', { selectedDatingMode });
+              handleProceedButton();
+            }}
+            disabled={!selectedDatingMode || loading}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color={selectedDatingMode ? "#fff" : "#999"} />
-            ) : (
-              <Text style={[
-                styles.proceedButtonText,
-                !selectedDatingMode && styles.disabledProceedButtonText
-              ]}>
-                Proceed
-              </Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            <LinearGradient
+              colors={selectedDatingMode && !loading ? ['#EC5F61', '#F0B433'] : ['#E0E0E0', '#E0E0E0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={selectedDatingMode ? "#fff" : "#999"} />
+              ) : (
+                <Text style={[
+                  styles.proceedButtonText,
+                  !selectedDatingMode && styles.disabledProceedButtonText
+                ]}>
+                  Proceed
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     );
   };
 
@@ -547,7 +556,7 @@ useEffect(() => {
   // Loading overlay for transitions
   if (loading && selectedMode === 'selection') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.safeAreaContainer}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FF6B6B" />
           <Text style={styles.loadingText}>Checking active sessions...</Text>
@@ -557,71 +566,88 @@ useEffect(() => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {renderContent()}
+    <SafeAreaView style={styles.safeAreaContainer}>
+      <View style={styles.container}>
+        {renderContent()}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaContainer: {
+    flex: 1,
+    backgroundColor: '#FFF5F5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFF5F5',
-    paddingHorizontal: 20,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingHorizontal: 24, // Increased horizontal padding
+    paddingTop: 16,
+    paddingBottom: 40, // Extra bottom padding to ensure content isn't cut off
+    flexGrow: 1, // Ensures the content container grows to fill available space
+  },
+  contentContainer: {
+    marginTop: 70, // Space for the live indicator
+    paddingVertical: 16, // Adds vertical padding to the content
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     color: '#666',
+    fontSize: 16,
   },
   liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
     backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    top: 50,
-    left: 10,
+    paddingHorizontal: 12, // Increased padding
+    paddingVertical: 8, // Increased padding
+    borderRadius: 12,
+    top: 16, // Moved up for better positioning
+    left: 24, // Aligned with content padding
+    zIndex: 10, // Ensure it stays on top
   },
   liveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12, // Slightly larger
+    height: 12, // Slightly larger
+    borderRadius: 6,
     backgroundColor: 'red',
-    marginRight: 5,
+    marginRight: 8, // Increased spacing
   },
   liveText: {
     color: '#FF3B30',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  modeSelectionContainer: {
-    flex: 1,
-    paddingTop: 130,
+    fontSize: 16, // Slightly larger
+    fontWeight: '600', // More prominent
   },
   modeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 30,
+    borderRadius: 20, // Increased border radius
+    padding: 24, // Increased padding
+    marginBottom: 24, // Decreased vertical spacing between cards
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 }, // More pronounced shadow
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#FFE4E4',
   },
   selectedModeCard: {
-    borderWidth: 1,
+    borderWidth: 2, // Thicker border
     borderColor: '#FF6B6B',
     backgroundColor: '#FFFBFB',
   },
@@ -630,7 +656,7 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 20, // Increased spacing
   },
   modeIcon: {
     width: 90,
@@ -640,26 +666,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modeTitle: {
-    fontSize: 18,
+    fontSize: 20, // Larger font size
     fontWeight: '600',
+    marginBottom: 4, // Add space between title and subtitle
   },
   modeSubtitle: {
-    fontSize: 15,
+    fontSize: 16, // Larger font size
     color: '#666',
-    marginTop: 4,
     fontWeight: '500',
   },
   checkmarkContainer: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 16, // Increased spacing from top
+    right: 16, // Increased spacing from right
+  },
+  buttonContainer: {
+    paddingHorizontal: 8, // Add padding to the button container
+    paddingTop: 16, // Add space above the button
+    marginTop: 'auto', // Push button to the bottom of the scroll content
   },
   proceedButton: {
-    height: 50,
-    borderRadius: 25,
+    height: 56, // Taller button for better touch target
+    borderRadius: 28, // Half of height for perfect pill shape
     overflow: 'hidden',
-    marginTop: 'auto',
-    marginBottom: 20,
+    marginBottom: 24, // More space at the bottom
   },
   disabledProceedButton: {
     opacity: 0.5,
@@ -671,7 +701,7 @@ const styles = StyleSheet.create({
   },
   proceedButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18, // Larger font size
     fontWeight: '600',
   },
   disabledProceedButtonText: {

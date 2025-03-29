@@ -9,7 +9,8 @@ import {
   Modal,
   ScrollView,
   Platform,
-  Dimensions
+  Dimensions,
+  SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
@@ -19,7 +20,7 @@ import VibeCheck from './VibeCheck';
 import { SubscriptionGate } from './SubscriptionGate';
 import ProfileMediaGallery from '../profile/ProfileMediaGallery';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Simple version with minimal complexity and no TypeScript
 export function ProfileDetailsModal(props) {
@@ -65,6 +66,13 @@ export function ProfileDetailsModal(props) {
     }
   }, [initialProfile?.id]);
   
+  // Close modal handler - ensure this is working
+  const handleClose = () => {
+    if (onClose && typeof onClose === 'function') {
+      onClose();
+    }
+  };
+
   // Only render if we have a profile
   if (!profile) return null;
   
@@ -83,7 +91,6 @@ export function ProfileDetailsModal(props) {
   const photoURL = profile.photoURL;
   const displayName = profile.displayName || 'User';
   const age = profile.age || '';
-  const ageRange = profile.ageRange || '';
   const ethnicity = profile.ethnicity;
   const pronouns = profile.pronouns;
   const hasChildren = profile.hasChildren;
@@ -104,208 +111,236 @@ export function ProfileDetailsModal(props) {
   const fearPrompt = prompts.find(p => p?.question?.toLowerCase().includes('fear'));
   const datingPrompt = prompts.find(p => p?.question?.toLowerCase().includes('dating'));
 
+  // Handle action button clicks
+  const handleRejectPress = () => {
+    if (secondaryButton?.onPress && typeof secondaryButton.onPress === 'function') {
+      secondaryButton.onPress();
+    } else {
+      console.log("Pop Balloon button pressed, but no handler provided");
+      handleClose(); // Fallback to close if no handler
+    }
+  };
+
+  const handleLovePress = () => {
+    setVibeCheckVisible(true);
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={false}
       statusBarTranslucent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="chevron-back" size={24} color="#344054" />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleClose} style={styles.backButton} accessible={true} accessibilityLabel="Close profile">
+              <View style={styles.iconCircle}>
+                <Ionicons name="chevron-back" size={24} color="#344054" />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Details</Text>
+            <TouchableOpacity style={styles.moreButton}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="ellipsis-vertical" size={24} color="#344054" />
+              </View>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={true}
+            scrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Profile Image */}
+            <View style={styles.imageContainer}>
+              {photoURL ? (
+                <Image 
+                  source={{ uri: photoURL }} 
+                  style={styles.profileImage} 
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.placeholderImage}>
+                  <Ionicons name="person" size={60} color="#ccc" />
+                </View>
+              )}
+              
+              {/* Distance Indicator */}
+              {location && (
+                <View style={styles.distanceIndicator}>
+                  <BlurView intensity={60} tint="light" style={styles.blur}>
+                    <View style={styles.distanceContent}>
+                      <Ionicons name="location-outline" size={10} color="white" />
+                      <Text style={styles.distanceText}>{profile.distance || '14'}km</Text>
+                    </View>
+                  </BlurView>
+                </View>
+              )}
             </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Details</Text>
-          <TouchableOpacity style={styles.moreButton}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="ellipsis-vertical" size={24} color="#344054" />
+            
+            {/* Basic Info */}
+            <View style={styles.infoSection}>
+              <Text style={styles.displayName}>{displayName}{age ? `, ${age}` : ''}</Text>
+              
+              {location && (
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={18} color="#737373" />
+                  <Text style={styles.locationText}>{location}</Text>
+                </View>
+              )}
             </View>
-          </TouchableOpacity>
+            
+            {/* Bio Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About</Text>
+              {renderSectionContent(bio)}
+            </View>
+
+            {/* Pronouns Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Pronouns</Text>
+              {renderSectionContent(pronouns || 'Not specified')}
+            </View>
+
+            {/* Height Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Height</Text>
+              {renderSectionContent(height ? `${height} cm` : 'Not specified')}
+            </View>
+
+            {/* Ethnicity Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Ethnicity</Text>
+              {renderSectionContent(ethnicity || 'Not specified')}
+            </View>
+
+            {/* Children Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Children</Text>
+              {renderSectionContent(hasChildren || 'Not specified')}
+            </View>
+
+            {/* Profession Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Profession</Text>
+              {renderSectionContent(profile.profession || 'Not specified')}
+            </View>
+
+            {/* Strength Section */}
+            <TouchableOpacity 
+              style={styles.expandableSection}
+              onPress={() => toggleSection('strength')}
+            >
+              <View style={styles.expandableHeader}>
+                <Text style={styles.expandableTitle}>My greatest strength?</Text>
+                <Ionicons 
+                  name={expandedSection === 'strength' ? 'chevron-down' : 'chevron-forward'} 
+                  size={20} 
+                  color="#666" 
+                />
+              </View>
+              
+              {expandedSection === 'strength' && (
+                <View style={styles.expandedContent}>
+                  {renderSectionContent(strengthPrompt?.answer)}
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Fear Section */}
+            <TouchableOpacity 
+              style={styles.expandableSection}
+              onPress={() => toggleSection('fear')}
+            >
+              <View style={styles.expandableHeader}>
+                <Text style={styles.expandableTitle}>My most irrational fear?</Text>
+                <Ionicons 
+                  name={expandedSection === 'fear' ? 'chevron-down' : 'chevron-forward'} 
+                  size={20} 
+                  color="#666" 
+                />
+              </View>
+              
+              {expandedSection === 'fear' && (
+                <View style={styles.expandedContent}>
+                  {renderSectionContent(fearPrompt?.answer)}
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {/* Dating Section */}
+            <TouchableOpacity 
+              style={styles.expandableSection}
+              onPress={() => toggleSection('dating')}
+            >
+              <View style={styles.expandableHeader}>
+                <Text style={styles.expandableTitle}>Dating me is like?</Text>
+                <Ionicons 
+                  name={expandedSection === 'dating' ? 'chevron-down' : 'chevron-forward'} 
+                  size={20} 
+                  color="#666" 
+                />
+              </View>
+              
+              {expandedSection === 'dating' && (
+                <View style={styles.expandedContent}>
+                  {renderSectionContent(datingPrompt?.answer)}
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {/* Lifestyle Section */}
+            <View style={styles.sectionNext}>
+              <Text style={styles.sectionTitle}>Expectations and Lifestyle</Text>
+              {renderSectionContent(lifestyle)}
+            </View>
+            
+            {/* Interests Section */}
+            <View style={styles.sectionNext}>
+              <Text style={styles.sectionTitle}>Interests</Text>
+              {interests.length > 0 ? (
+                <View style={styles.interestContainer}>
+                  {interests.map((interest, index) => (
+                    <View key={index} style={styles.interestTag}>
+                      <Text style={styles.interestText}>{interest}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.notSpecifiedText}>Not specified</Text>
+              )}
+            </View>
+            
+            {/* Gallery Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Gallery</Text>
+              {profile.id && (
+                <ProfileMediaGallery 
+                  userId={profile.id} 
+                  profilePhoto={profile.photoURL}
+                  key={`gallery-${profile.id}`}
+                />
+              )}
+            </View>
+            
+            {/* Extra padding at bottom to ensure scrolling past buttons */}
+            <View style={{ height: 160 }} />
+          </ScrollView>
         </View>
         
-        <ScrollView style={styles.scrollView}>
-          {/* Profile Image */}
-          <View style={styles.imageContainer}>
-            {photoURL ? (
-              <Image source={{ uri: photoURL }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.placeholderImage}>
-                <Ionicons name="person" size={60} color="#ccc" />
-              </View>
-            )}
-            
-            {/* Distance Indicator */}
-            {location && (
-              <View style={styles.distanceIndicator}>
-                <BlurView intensity={60} tint="light" style={styles.blur}>
-                  <View style={styles.distanceContent}>
-                    <Ionicons name="location-outline" size={10} color="white" />
-                    <Text style={styles.distanceText}>{profile.distance}km</Text>
-                  </View>
-                </BlurView>
-              </View>
-            )}
-          </View>
-          
-          {/* Basic Info */}
-          <View style={styles.infoSection}>
-            <Text style={styles.displayName}>{displayName}{age ? `, ${age}` : ''}</Text>
-            
-            {location && (
-              <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={28} color="#737373" />
-                <Text style={styles.locationText}>{location}</Text>
-              </View>
-            )}
-          </View>
-          
-          {/* Bio Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
-            {renderSectionContent(bio)}
-          </View>
-
-                    {/* Pronouns Section */}
-                    <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pronouns</Text>
-            {renderSectionContent(pronouns || 'Not specified')}
-          </View>
-
-          {/* Height Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Height</Text>
-            {renderSectionContent(height ? `${height} cm` : 'Not specified')}
-          </View>
-
-          {/* Ethnicity Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ethnicity</Text>
-            {renderSectionContent(ethnicity || 'Not specified')}
-          </View>
-
-          {/* Children Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Children</Text>
-            {renderSectionContent(hasChildren || 'Not specified')}
-          </View>
-
-          {/* Profession Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profession</Text>
-          {renderSectionContent(profile.profession || 'Not specified')}
-        </View>
-
-          {/* Strength Section */}
-          <TouchableOpacity 
-            style={styles.expandableSection}
-            onPress={() => toggleSection('strength')}
-          >
-            <View style={styles.expandableHeader}>
-              <Text style={styles.expandableTitle}>My greatest strength?</Text>
-              <Ionicons 
-                name={expandedSection === 'strength' ? 'chevron-down' : 'chevron-forward'} 
-                size={20} 
-                color="#666" 
-              />
-            </View>
-            
-            {expandedSection === 'strength' && (
-              <View style={styles.expandedContent}>
-                {renderSectionContent(strengthPrompt?.answer)}
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Fear Section */}
-          <TouchableOpacity 
-            style={styles.expandableSection}
-            onPress={() => toggleSection('fear')}
-          >
-            <View style={styles.expandableHeader}>
-              <Text style={styles.expandableTitle}>My most irrational fear?</Text>
-              <Ionicons 
-                name={expandedSection === 'fear' ? 'chevron-down' : 'chevron-forward'} 
-                size={20} 
-                color="#666" 
-              />
-            </View>
-            
-            {expandedSection === 'fear' && (
-              <View style={styles.expandedContent}>
-                {renderSectionContent(fearPrompt?.answer)}
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          {/* Dating Section */}
-          <TouchableOpacity 
-            style={styles.expandableSection}
-            onPress={() => toggleSection('dating')}
-          >
-            <View style={styles.expandableHeader}>
-              <Text style={styles.expandableTitle}>Dating me is like?</Text>
-              <Ionicons 
-                name={expandedSection === 'dating' ? 'chevron-down' : 'chevron-forward'} 
-                size={20} 
-                color="#666" 
-              />
-            </View>
-            
-            {expandedSection === 'dating' && (
-              <View style={styles.expandedContent}>
-                {renderSectionContent(datingPrompt?.answer)}
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          {/* Lifestyle Section */}
-          <View style={styles.sectionNext}>
-            <Text style={styles.sectionTitle}>Expectations and Lifestyle</Text>
-            {renderSectionContent(lifestyle)}
-          </View>
-          
-          {/* Interests Section */}
-          <View style={styles.sectionNext}>
-            <Text style={styles.sectionTitle}>Interests</Text>
-            {interests.length > 0 ? (
-              <View style={styles.interestContainer}>
-                {interests.map((interest, index) => (
-                  <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestText}>{interest}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.notSpecifiedText}>Not specified</Text>
-            )}
-          </View>
-          
-          {/* Gallery Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Gallery</Text>
-            {profile.id && (
-              <ProfileMediaGallery 
-                userId={profile.id} 
-                profilePhoto={profile.photoURL}
-                key={`gallery-${profile.id}`} // Add this key prop
-              />
-            )}
-          </View>
-          
-          {/* Extra padding at bottom */}
-          <View style={{ height: 10 }} />
-        </ScrollView>
-        
-        {/* Action Buttons */}
+        {/* Action Buttons - Fixed at bottom */}
         <View style={styles.actionContainer}>
           <TouchableOpacity 
             style={styles.rejectButton}
-            onPress={secondaryButton?.onPress}
+            onPress={handleRejectPress}
+            accessible={true}
+            accessibilityLabel="Pop Balloon"
           >
             <Image 
               source={require('../../assets/images/main/LoveError.png')} 
@@ -315,69 +350,74 @@ export function ProfileDetailsModal(props) {
             <Text style={styles.actionText}>Pop Balloon</Text>
           </TouchableOpacity>
           
-          <SubscriptionGate 
-            requiredTier="premium" 
-            featureName="Find Love"
-            onClose={() => {}}
+          <TouchableOpacity 
+            style={styles.acceptButton}
+            onPress={handleLovePress}
+            accessible={true}
+            accessibilityLabel="Find Love"
           >
-            <TouchableOpacity 
-              style={styles.acceptButton}
-              onPress={() => {
-                // Instead of the direct action, show the vibe check
-                setVibeCheckVisible(true);
-              }}
-            >
-              <Image 
-                source={require('../../assets/images/main/LoveSuccess.png')} 
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.actionText}>Find Love</Text>
-            </TouchableOpacity>
-          </SubscriptionGate>
+            <Image 
+              source={require('../../assets/images/main/LoveSuccess.png')} 
+              style={styles.actionIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.actionText}>Find Love</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* VibeCheck Component */}
-    <VibeCheck
-      visible={vibeCheckVisible}
-      onClose={() => setVibeCheckVisible(false)}
-      profile={profile}
-    />
+      <VibeCheck
+        visible={vibeCheckVisible}
+        onClose={() => setVibeCheckVisible(false)}
+        profile={profile}
+      />
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    marginTop: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingHorizontal: 15,
-    paddingBottom: 0
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    zIndex: 10,
   },
   backButton: {
-    padding: 10,
+    padding: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
   },
-  placeholder: {
-    width: 44,
+  moreButton: {
+    padding: 8,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollViewContent: {
+    paddingBottom: 100,
   },
   imageContainer: {
     padding: 20,
     alignItems: 'center',
+    position: 'relative',
   },
   profileImage: {
     width: width - 40,
@@ -386,7 +426,7 @@ const styles = StyleSheet.create({
   },
   placeholderImage: {
     width: width - 40,
-    height: 400,
+    height: 350,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
@@ -398,7 +438,7 @@ const styles = StyleSheet.create({
   },
   displayName: {
     fontSize: 24,
-    fontWeight: 500,
+    fontWeight: '600',
     marginBottom: 5,
   },
   locationRow: {
@@ -438,6 +478,8 @@ const styles = StyleSheet.create({
   expandableSection: {
     paddingHorizontal: 20,
     paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   expandableHeader: {
     flexDirection: 'row',
@@ -473,36 +515,41 @@ const styles = StyleSheet.create({
   actionContainer: {
     flexDirection: 'row',
     position: 'absolute',
-    bottom: 50,
-    left: '40%',
-    transform: [{ translateX: -70 }], // Adjust based on actual width
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: 'space-around',
     backgroundColor: 'white',
-    borderRadius: 40,
-    paddingVertical: 8,
-    paddingHorizontal: 45,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3, // For Android shadow
+    shadowRadius: 3,
+    elevation: 5,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    zIndex: 999,
   },  
   rejectButton: {
     alignItems: 'center',
-    marginHorizontal: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   acceptButton: {
     alignItems: 'center',
-    marginHorizontal: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   actionIcon: {
-    width: 35, 
-    height: 35,
+    width: 50, 
+    height: 50,
+    marginBottom: 8,
   },
   actionText: {
-    marginTop: 2,
-    fontSize: 9,
+    fontSize: 14,
     fontWeight: '500',
+    color: '#333',
   },
   iconCircle: {
     width: 35,
@@ -513,14 +560,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  moreButton: {
-    padding: 5,
-  },
   distanceIndicator: {
     position: 'absolute',
     bottom: 30,
     left: 30,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 10,
     overflow: 'hidden',
   },

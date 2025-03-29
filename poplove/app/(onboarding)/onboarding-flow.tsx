@@ -557,7 +557,7 @@ export default function OnboardingFlow() {
 
   // If user is not authenticated, redirect to auth screen
   if (!user && !loading && !initialLoading) {
-    router.replace('/(auth)');
+    router.replace('/(auth)/signup');
     return null;
   }
 

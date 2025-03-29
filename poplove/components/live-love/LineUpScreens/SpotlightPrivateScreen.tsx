@@ -13,6 +13,7 @@ import {
   FlatList,
   AppState,
   Dimensions,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLineUp } from './LineUpContext';
@@ -57,6 +58,7 @@ export default function SpotlightPrivateScreen() {
   const appStateRef = useRef(AppState.currentState);
   const lastSyncTimeRef = useRef<number>(Date.now());
   const [viewCount, setViewCount] = useState<number>(0);
+  const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
 
   // Log component lifecycle
   useEffect(() => {
@@ -229,6 +231,29 @@ export default function SpotlightPrivateScreen() {
     }
   };
 
+  // Handle exit/cancel spotlight
+  const handleExitSpotlight = () => {
+    Alert.alert(
+      'Exit Spotlight?',
+      'Are you sure you want to exit the spotlight? Your current session will end and any potential matches will be lost.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Exit Spotlight',
+          style: 'destructive',
+          onPress: () => {
+            debugLog('PrivateScreen', 'User chose to exit spotlight');
+            // Return to selection screen
+            setStep('selection');
+          }
+        }
+      ]
+    );
+  };
+
   // Render message items
   const renderMessageItem = ({ item, index }: { item: any, index: number }) => {
     const isCurrentUser = item.senderId === user?.uid;
@@ -279,168 +304,202 @@ export default function SpotlightPrivateScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.topRow}>
-          <Text style={styles.headerTitle}>In The Spotlight</Text>
-          {showCountdown && (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.topRow}>
             <TouchableOpacity 
-              style={styles.countdownContainer}
-              onPress={() => setShowCountdown(false)}
+              style={styles.exitButton}
+              onPress={handleExitSpotlight}
             >
-              <Ionicons name="time-outline" size={16} color="#FF6B6B" />
-              <Text style={styles.countdownText}>{formatTimeLeft()}</Text>
+              <Ionicons name="close-circle" size={24} color="#FF6B6B" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>In The Spotlight</Text>
+            {showCountdown && (
               <TouchableOpacity 
+                style={styles.countdownContainer}
                 onPress={() => setShowCountdown(false)}
               >
-                <Ionicons name="close-circle" size={16} color="#FF6B6B" />
+                <Ionicons name="time-outline" size={16} color="#FF6B6B" />
+                <Text style={styles.countdownText}>{formatTimeLeft()}</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowCountdown(false)}
+                >
+                  <Ionicons name="close-circle" size={16} color="#FF6B6B" />
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        <Text style={styles.headerSubtitle}>
-          You are in the spotlight! Others can see and interact with your profile.
-        </Text>
-      </View>
-      
-      {!showChat ? (
-        <View style={styles.profileContainer}>
-          <Image 
-            source={{ uri: user?.photoURL || 'https://via.placeholder.com/150' }} 
-            style={styles.profileImage}
-            onError={(e) => debugLog('PrivateScreen', 'Error loading profile image', e.nativeEvent)}
-          />
-          
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Image 
-                source={require('../../../assets/images/main/LoveSuccess.png')} 
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.statValue}>{stats.likes}</Text>
-              <Text style={styles.statLabel}>Likes</Text>
-            </View>
-            
-            <View style={styles.statItem}>
-              <Image 
-                source={require('../../../assets/images/main/LoveError.png')} 
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.statValue}>{stats.pops}</Text>
-              <Text style={styles.statLabel}>Pops</Text>
-            </View>
-            
-            <View style={styles.statItem}>
-              <Ionicons name="eye" size={30} color="#0A84FF" />
-              <Text style={styles.statValue}>{viewCount}</Text>
-              <Text style={styles.statLabel}>Views</Text>
-            </View>
-          </View>
-          
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerLabel}>Countdown timer</Text>
-            <View style={styles.timerDigits}>
-              <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{Math.floor(spotlightTimeLeft / 3600).toString().padStart(2, '0')}</Text>
-                <Text style={styles.digitLabel}>hr</Text>
-              </View>
-              <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{Math.floor((spotlightTimeLeft % 3600) / 60).toString().padStart(2, '0')}</Text>
-                <Text style={styles.digitLabel}>min</Text>
-              </View>
-              <View style={styles.timerDigit}>
-                <Text style={styles.digit}>{(spotlightTimeLeft % 60).toString().padStart(2, '0')}</Text>
-                <Text style={styles.digitLabel}>sec</Text>
-              </View>
-            </View>
-          </View>
-          
-          <TouchableOpacity 
-            style={styles.sampleMessageContainer}
-            onPress={() => {
-              debugLog('PrivateScreen', 'Opening chat view');
-              setShowChat(true);
-            }}
-          >
-            <Image 
-              source={{ uri: user?.photoURL || 'https://via.placeholder.com/30' }} 
-              style={styles.messageSenderImage} 
-            />
-            <View style={styles.sampleMessageContent}>
-              <Text style={styles.sampleMessageText}>Tap to open the live chat...</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.chatWrapper}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatHeaderText}>Live Chat</Text>
-            <TouchableOpacity 
-              onPress={() => setShowChat(false)}
-              style={styles.closeChat}
-            >
-              <Ionicons name="close" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.messagesContainer}>
-            {messages.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="chatbubbles-outline" size={50} color="#ddd" />
-                <Text style={styles.emptyText}>No messages yet</Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={messageListRef}
-                data={messages}
-                keyExtractor={(item, index) => `${item.id || 'msg'}_${index}_${Math.random().toString(36).substring(7)}`}
-                renderItem={renderMessageItem}
-                contentContainerStyle={styles.messagesList}
-                onContentSizeChange={() => {
-                  messageListRef.current?.scrollToEnd({ animated: false });
-                }}
-              />
             )}
           </View>
           
-          <ChatInputBar onSendMessage={handleSendMessage} />
+          <Text style={styles.headerSubtitle}>
+            You are in the spotlight! Others can see and interact with your profile.
+          </Text>
         </View>
-      )}
+        
+        {!showChat ? (
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.profileContainer}>
+              <Image 
+                source={{ uri: user?.photoURL || 'https://via.placeholder.com/150' }} 
+                style={styles.profileImage}
+                onError={(e) => debugLog('PrivateScreen', 'Error loading profile image', e.nativeEvent)}
+              />
+              
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Image 
+                    source={require('../../../assets/images/main/LoveSuccess.png')} 
+                    style={styles.actionIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.statValue}>{stats.likes}</Text>
+                  <Text style={styles.statLabel}>Likes</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Image 
+                    source={require('../../../assets/images/main/LoveError.png')} 
+                    style={styles.actionIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.statValue}>{stats.pops}</Text>
+                  <Text style={styles.statLabel}>Pops</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="eye" size={30} color="#0A84FF" />
+                  <Text style={styles.statValue}>{viewCount}</Text>
+                  <Text style={styles.statLabel}>Views</Text>
+                </View>
+              </View>
+              
+              <View style={styles.timerContainer}>
+                <Text style={styles.timerLabel}>Countdown timer</Text>
+                <View style={styles.timerDigits}>
+                  <View style={styles.timerDigit}>
+                    <Text style={styles.digit}>{Math.floor(spotlightTimeLeft / 3600).toString().padStart(2, '0')}</Text>
+                    <Text style={styles.digitLabel}>hr</Text>
+                  </View>
+                  <View style={styles.timerDigit}>
+                    <Text style={styles.digit}>{Math.floor((spotlightTimeLeft % 3600) / 60).toString().padStart(2, '0')}</Text>
+                    <Text style={styles.digitLabel}>min</Text>
+                  </View>
+                  <View style={styles.timerDigit}>
+                    <Text style={styles.digit}>{(spotlightTimeLeft % 60).toString().padStart(2, '0')}</Text>
+                    <Text style={styles.digitLabel}>sec</Text>
+                  </View>
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.sampleMessageContainer}
+                onPress={() => {
+                  debugLog('PrivateScreen', 'Opening chat view');
+                  setShowChat(true);
+                }}
+              >
+                <Image 
+                  source={{ uri: user?.photoURL || 'https://via.placeholder.com/30' }} 
+                  style={styles.messageSenderImage} 
+                />
+                <View style={styles.sampleMessageContent}>
+                  <Text style={styles.sampleMessageText}>Tap to open the live chat...</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={handleExitSpotlight}
+              >
+                <Text style={styles.cancelButtonText}>Exit Spotlight</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={styles.chatWrapper}>
+            <View style={styles.chatHeader}>
+              <Text style={styles.chatHeaderText}>Live Chat</Text>
+              <TouchableOpacity 
+                onPress={() => setShowChat(false)}
+                style={styles.closeChat}
+              >
+           <Ionicons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.messagesContainer}>
+              {messages.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="chatbubbles-outline" size={50} color="#ddd" />
+                  <Text style={styles.emptyText}>No messages yet</Text>
+                </View>
+              ) : (
+                <FlatList
+                  ref={messageListRef}
+                  data={messages}
+                  keyExtractor={(item, index) => `${item.id || 'msg'}_${index}_${Math.random().toString(36).substring(7)}`}
+                  renderItem={renderMessageItem}
+                  contentContainerStyle={styles.messagesList}
+                  onContentSizeChange={() => {
+                    messageListRef.current?.scrollToEnd({ animated: false });
+                  }}
+                />
+              )}
+            </View>
+            
+            <ChatInputBar onSendMessage={handleSendMessage} />
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFF5F5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFF5F5',
-    marginLeft: -20,
-    marginRight: -20,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 40,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 10 : 30,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 20,
-    marginTop: 20,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  exitButton: {
+    padding: 8,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FF6B6B',
+    flex: 1,
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   actionIcon: {
     width: 30,
@@ -461,32 +520,35 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   profileImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     borderWidth: 3,
     borderColor: '#FF6B6B',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    width: '90%',
-    marginBottom: 30,
+    width: '100%',
+    marginBottom: 36,
+    paddingHorizontal: 16,
   },
   statItem: {
     alignItems: 'center',
+    paddingHorizontal: 12,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginVertical: 5,
+    marginVertical: 8,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
   },
   aboutMeButton: {
@@ -516,13 +578,14 @@ const styles = StyleSheet.create({
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 94,
-    marginTop: 60,
+    marginBottom: 40,
+    marginTop: 24,
+    paddingVertical: 16,
   },
   timerLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
-    marginBottom: 5,
+    marginBottom: 12,
   },
   timerDigits: {
     flexDirection: 'row',
@@ -564,26 +627,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    borderRadius: 15,
-    padding: 10,
-    marginBottom: 15,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 24,
     width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   messageSenderImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    marginRight: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
   },
   sampleMessageContent: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 12,
+    padding: 12,
   },
   sampleMessageText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
+  },
+  cancelButton: {
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    marginTop: 16,
+    marginBottom: 24,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -596,11 +684,16 @@ const styles = StyleSheet.create({
   // Chat view styles
   chatWrapper: {
     flex: 1,
-    marginHorizontal: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
     backgroundColor: '#fff',
-    borderRadius: 15,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   chatHeader: {
     flexDirection: 'row',

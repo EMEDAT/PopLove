@@ -5,7 +5,8 @@ import {
   Text, 
   StyleSheet, 
   Platform,
-  Dimensions
+  Dimensions,
+  TouchableOpacity  // Added for back button
 } from 'react-native';
 import Animated, { 
   useSharedValue, 
@@ -14,19 +15,21 @@ import Animated, {
   withTiming,
   interpolate
 } from 'react-native-reanimated';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';  // Added for back icon
 
 const { width } = Dimensions.get('window');
 
 interface SearchingScreenProps {
   timeLeft: number;
   formatTime: (seconds: number) => string;
-  onBack?: () => void; // Make optional
+  onBack?: () => void; // Optional callback for going back
 }
 
 export default function SearchingScreen({ 
   timeLeft, 
-  formatTime
+  formatTime,
+  onBack
 }: SearchingScreenProps) {
   // Animated values for circle progress and dots
   const progressValue = useSharedValue(0);
@@ -86,41 +89,53 @@ export default function SearchingScreen({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Speed Dating Mode</Text>
+      <View style={styles.header}>
+        {/* Back button */}
+        {onBack && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FF6B6B" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>Speed Dating Mode</Text>
+      </View>
       
       <View style={styles.contentContainer}>
         <View style={styles.timerContainer}>
-        <Svg width={width * 0.9} height={width * 0.9} viewBox="0 0 300 300">
-              {/* Outer thin circle */}
-              <Circle
-                cx={150}
-                cy={150}
-                r={150}
-                stroke="#FFE4E4"
-                strokeWidth={2}
-                fill="transparent"
-              />
-              
-              {/* Middle thin circle */}
-              <Circle
-                cx={150}
-                cy={150}
-                r={140}
-                stroke="#FFE4E4"
-                strokeWidth={2}
-                fill="transparent"
-              />
-              
-              {/* Inner thin circle */}
-              <Circle
-                cx={150}
-                cy={150}
-                r={130}
-                stroke="#FFE4E4"
-                strokeWidth={2}
-                fill="transparent"
-              />
-            </Svg>
+          <Svg width={width * 0.9} height={width * 0.9} viewBox="0 0 300 300">
+            {/* Outer thin circle */}
+            <Circle
+              cx={150}
+              cy={150}
+              r={150}
+              stroke="#FFE4E4"
+              strokeWidth={2}
+              fill="transparent"
+            />
+            
+            {/* Middle thin circle */}
+            <Circle
+              cx={150}
+              cy={150}
+              r={140}
+              stroke="#FFE4E4"
+              strokeWidth={2}
+              fill="transparent"
+            />
+            
+            {/* Inner thin circle */}
+            <Circle
+              cx={150}
+              cy={150}
+              r={130}
+              stroke="#FFE4E4"
+              strokeWidth={2}
+              fill="transparent"
+            />
+          </Svg>
           
           {/* Trailing dot */}
           <Animated.View 
@@ -148,6 +163,15 @@ export default function SearchingScreen({
             <View key={i} style={styles.dot} />
           ))}
         </Animated.View>
+        
+        {/* Cancel button */}
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onBack}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.cancelButtonText}>Cancel Search</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -158,25 +182,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF5F5',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
   headerTitle: {
-    textAlign: 'left',
     fontSize: 22,
     fontWeight: '500',
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
-    paddingBottom: 0,
-    marginTop: 10,
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   timerContainer: {
     width: width * 0.7,
     height: width * 0.7,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 70,
+    marginBottom: 50,
     position: 'relative',
   },
   trailingDot: {
@@ -201,6 +233,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 30,
   },
   dot: {
     width: 8,
@@ -208,5 +241,18 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FF6B6B',
     marginHorizontal: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

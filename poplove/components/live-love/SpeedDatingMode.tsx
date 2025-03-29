@@ -69,7 +69,14 @@ export default function SpeedDatingContainer({ onBack }: SpeedDatingContainerPro
   const [miniOverlayVisible, setMiniOverlayVisible] = useState(false);
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [noUsersAvailable, setNoUsersAvailable] = useState(false);
-  
+        // Inside SpeedDatingMode component
+const [noUsersOverlayVisible, setNoUsersOverlayVisible] = useState(false);
+
+const exitSpeedDatingMode = () => {
+  // This function should take the user back to the selection screen
+  onBack(); // This is the prop passed from LiveLoveScreen
+};
+
   // Timer refs
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const chatTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1165,11 +1172,13 @@ const handleContinueToPermanentChat = async () => {
       />
 
       {/* No users available overlay */}
-      <NoUsersAvailableOverlay 
-        visible={noUsersAvailable}
-        onDismiss={handleOverlayDismiss}
-        autoDismissTime={4000} // 4 seconds
-      />
+
+// Somewhere in your render function
+<NoUsersAvailableOverlay
+  visible={noUsersOverlayVisible}
+  onDismiss={() => setNoUsersOverlayVisible(false)}
+  onExitSpeedDating={exitSpeedDatingMode}
+/>
       
       {/* Loading indicator */}
       {loading && (

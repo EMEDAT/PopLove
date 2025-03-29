@@ -1,4 +1,3 @@
-// app/(onboarding)/splash.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
@@ -7,24 +6,34 @@ import {
   StyleSheet, 
   Dimensions, 
   TouchableOpacity,
-  FlatList
+  FlatList,
+  Platform,
+  ViewToken,
+  InteractionManager
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { Video } from 'expo-av';
-import { ResizeMode } from 'expo-av';
-
 
 const { width, height } = Dimensions.get('window');
 
-// Splash screens exactly as per your design
-const SPLASH_SCREENS = [
+// Define an interface for our splash screen items
+interface SplashScreenItem {
+  id: number;
+  type: string;
+  image: any;
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  dotIndex?: number;
+}
+
+// Use smaller images if possible to reduce memory usage
+const SPLASH_SCREENS: SplashScreenItem[] = [
   {
     id: 1,
     type: 'intro',
-    // Replace image with video source
-    video: require('../../assets/images/onboarding/video/SplashScreen1.mp4'),
+    image: require('../../assets/images/onboarding/SplashScreen1.jpg'),
   },
   {
     id: 2,
@@ -46,144 +55,32 @@ const SPLASH_SCREENS = [
   }
 ];
 
+// Simplified splash screen for testing
 export default function SplashScreen() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const videoRef = useRef<Video>(null);
-
-  // Auto-advance from first screen after 2 seconds
+  const [ready, setReady] = useState(false);
+  
   useEffect(() => {
-    // Don't need timer anymore - video end will trigger navigation
-  }, [activeIndex]);
+    // Simple delayed navigation
+    const timer = setTimeout(() => {
+      setReady(true);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
-  const renderScreen = ({ item, index }: { item: any, index: number }) => {
-if (item.type === 'intro') {
-  return (
-    <View style={styles.slide}>
-      <Video
-        ref={videoRef}
-        source={item.video}
-        // posterSource={require('../../assets/images/onboarding/SplashScreen1.jpg')}
-        usePoster={true}
-        posterStyle={{ width, height: '100%' }}
-        style={styles.fullImage}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay={activeIndex === 0}
-        isLooping={true}
-        isMuted={true}
-        rate={2.0}
-        useNativeControls={false}
-        onLoad={() => console.log("Video loaded")}
-        onError={(error) => console.log("Video error:", error)}
-        onPlaybackStatusUpdate={(status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            setActiveIndex(1);
-            flatListRef.current?.scrollToIndex({ index: 1, animated: true });
-          }
-        }}
-      />
-    </View>
-  );
-} else {
-      return (
-        <View style={styles.slide}>
-          <Image 
-            source={item.image}
-            style={styles.fullImage}
-            resizeMode="contain"
-          />
-          
-          <View style={styles.paginationWithinImage}>
-            <View style={[
-              styles.paginationDot,
-              item.dotIndex === 0 ? styles.activePaginationDot : styles.inactivePaginationDot
-            ]} />
-            <View style={[
-              styles.paginationDot,
-              item.dotIndex === 1 ? styles.activePaginationDot : styles.inactivePaginationDot
-            ]} />
-          </View>
-          
-          <View style={styles.featureContent}>
-            <Text style={styles.featureTitle}>{item.title}</Text>
-            <Text style={styles.featureDescription}>{item.description}</Text>
-          </View>
-          
-          <View style={styles.buttonSection}>
-            <TouchableOpacity 
-              style={styles.buttonWrapper} 
-              onPress={() => router.push('/(auth)')}
-            >
-              <LinearGradient
-                colors={['#EC5F61', '#F0B433'] }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Text style={styles.buttonText}>{item.buttonText}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            
-            <View style={styles.orContainer}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.orLine} />
-            </View>
-            
-            <View style={styles.socialButtonsRow}>
-              <TouchableOpacity style={styles.socialButton}>
-                <Image 
-                  source={require('../../assets/icons/GoogleIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Image 
-                  source={require('../../assets/icons/FacebookIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Image 
-                  source={require('../../assets/icons/AppleIcon.png')} 
-                  style={styles.socialIcon}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      );
+  useEffect(() => {
+    if (ready) {
+      router.push('/(auth)/signup');
     }
-  };
-  
-  const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setActiveIndex(viewableItems[0].index);
-    }
-  }).current;
+  }, [ready]);
   
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
-      <FlatList
-        ref={flatListRef}
-        data={SPLASH_SCREENS}
-        renderItem={renderScreen}
-        keyExtractor={item => item.id.toString()}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        viewabilityConfig={{
-          itemVisiblePercentThreshold: 50
-        }}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / width);
-          if (index === 0 && videoRef.current) {
-            videoRef.current.replayAsync();
-          }
-        }}
+      <Image 
+        source={require('../../assets/images/onboarding/SplashScreen1.jpg')}
+        style={styles.fullImage}
+        resizeMode="cover"
       />
     </View>
   );
@@ -193,6 +90,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   slide: {
     width,
@@ -235,6 +141,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 20,
+    marginBottom: 50,
   },
   buttonWrapper: {
     width: '100%',
@@ -252,40 +159,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  orContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 14,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5E5',
-  },
-  orText: {
-    marginHorizontal: 8,
-    color: '#666',
-    fontSize: 14,
-  },
-  socialButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  socialButton: {
-    width: 88,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-  },
-  socialIcon: {
-    width: 20,
-    height: 20,
-  },
   paginationDot: {
     width: 8,
     height: 8,
@@ -298,9 +171,5 @@ const styles = StyleSheet.create({
   },
   inactivePaginationDot: {
     backgroundColor: '#DDD',
-  },
-  centeredVideo: {
-    alignSelf: 'center',
-    justifyContent: 'center',
   }
 });

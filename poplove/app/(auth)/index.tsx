@@ -43,12 +43,12 @@ export default function AuthIndex() {
             style={styles.socialIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
+        {/* <TouchableOpacity style={styles.socialButton}>
           <Image 
             source={require('../../assets/icons/FacebookIcon.png')} 
             style={styles.socialIcon}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
       
       <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
