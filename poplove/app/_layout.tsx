@@ -2,19 +2,15 @@
 import React, { useEffect, useState } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text } from 'react-native';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { AuthProvider } from '../components/auth/AuthProvider';
 import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 import { initAuthChangeHandler } from '../utils/authChangeHandler';
-
 // Import Firebase to ensure it's initialized
 import '../lib/firebase';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete
-SplashScreen.preventAutoHideAsync();
 
 // Error Fallback Component
 function ErrorFallback({ error }: { error: Error }) {
@@ -33,7 +29,6 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
-  const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // Log any font loading errors
   useEffect(() => {
@@ -47,22 +42,13 @@ export default function RootLayout() {
     initAuthChangeHandler();
   }, []);
 
-  // Hide splash screen when fonts are loaded
-  useEffect(() => {
-    if (loaded) {
-      // Small delay to ensure layout is fully mounted
-      const timer = setTimeout(() => {
-        SplashScreen.hideAsync();
-        setIsLayoutReady(true);
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [loaded]);
-
-  // Show nothing while fonts are loading
+  // Show a simple loading state while fonts are loading
   if (!loaded) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
+      </View>
+    );
   }
 
   return (
