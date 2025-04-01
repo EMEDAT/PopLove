@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "781404328808",
+    "project_id": "poplove-32987",
+    "storage_bucket": "poplove-32987.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781404328808:android:9619767d5781cafec37cdd",
+        "android_client_info": {
+          "package_name": "com.yourname.poplove"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "781404328808-behg9rqhadhndtt8ousnqp9rjgsspsl5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yourname.poplove",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "781404328808-e55r08140npo9k2udu59skj22tdq5hr5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGL3zQE07myzo4XKhXYHhPfqz5HvY2z8g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "781404328808-e55r08140npo9k2udu59skj22tdq5hr5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "781404328808-3861j2t5v76hged0fc19acquam12lk9s.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.yourname.poplove"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
