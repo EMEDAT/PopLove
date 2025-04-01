@@ -240,7 +240,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   scrollContent: {
     flexGrow: 1,
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#838F6F',
   },
   tabText: {
     fontSize: 14,

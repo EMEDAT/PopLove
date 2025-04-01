@@ -619,7 +619,7 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F2F1ED',
   },
   scrollContent: {
     flexGrow: 1,
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F2F1ED',
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   countBadge: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#838F6F',
     borderRadius: 15,
     paddingHorizontal: 8,
     paddingVertical: 2,

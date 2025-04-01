@@ -107,7 +107,7 @@ export default function ChatDetail() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
   },
   loadingContainer: {
     flex: 1,

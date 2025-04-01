@@ -292,7 +292,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface WaitlistPageProps {
+  selectedPlan: string;
+  onSelectPlan: (planId: any) => void;
   onSkip: () => void;
+  onContinue: () => Promise<void>;
 }
 
 export default function WaitlistPage({ onSkip }: WaitlistPageProps) {

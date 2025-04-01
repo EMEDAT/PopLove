@@ -13,7 +13,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#EC5F61',
-        tabBarInactiveTintColor: '#141414',
+        tabBarInactiveTintColor: '#161616',
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
@@ -24,9 +24,9 @@ export default function TabsLayout() {
           height: 68 + insets.bottom,
           paddingTop: 2,
           paddingBottom: insets.bottom,
-          backgroundColor: 'white',
+          backgroundColor: '#F2F1ED',
           borderTopWidth: 0,
-          borderTopColor: 'white',
+          borderTopColor: '#F9F6F2',
           // Keep tab bar visible even when keyboard appears
         },
       }}

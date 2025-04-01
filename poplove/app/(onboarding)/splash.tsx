@@ -166,7 +166,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   activePaginationDot: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#838F6F',
     width: 16,
   },
   inactivePaginationDot: {

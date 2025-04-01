@@ -63,7 +63,7 @@ export default function MatchesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   header: {
     flexDirection: 'row',

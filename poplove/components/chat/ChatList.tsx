@@ -560,13 +560,13 @@ export function ChatList({ searchQuery = '' }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5', // Match the light pink background
+    backgroundColor: '#F2F1ED',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   loadingText: {
     marginTop: 10,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   emptyTitle: {
     fontSize: 18,
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   avatarContainer: {
     position: 'relative',

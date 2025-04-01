@@ -577,11 +577,11 @@ export default function LiveLoveScreen() {
 const styles = StyleSheet.create({
   safeAreaContainer: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   scrollView: {
     flex: 1,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   modeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F2F1ED',
     borderRadius: 20, // Increased border radius
     padding: 24, // Increased padding
     marginBottom: 24, // Decreased vertical spacing between cards

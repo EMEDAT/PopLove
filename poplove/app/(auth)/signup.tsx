@@ -217,7 +217,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
   },
   keyboardView: {
     flex: 1,
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 15,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F9F6F2',
   },
   errorText: {
     color: '#FF3B30',
