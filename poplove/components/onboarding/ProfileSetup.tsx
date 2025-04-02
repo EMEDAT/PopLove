@@ -1,4 +1,3 @@
-// components/onboarding/ProfileSetup.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -25,8 +24,8 @@ interface ProfileSetupProps {
     photoURL: string;
     bio: string;
     location: string;
-    firstName?: string;
-    lastName?: string;
+    firstName: string;
+    lastName: string;
   };
   onUpdate: (field: string, value: string) => void;
   onNext: () => void;
@@ -37,70 +36,43 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
   const [saveInProgress, setSaveInProgress] = useState(false);
   const { user } = useAuthContext();
 
-  // Update Firebase Auth profile when display name changes
   useEffect(() => {
     const updateUserProfile = async () => {
-      if (data.displayName && user && data.displayName !== user.displayName) {
+      const fullName = `${data.firstName} ${data.lastName}`.trim();
+      
+      if (fullName && user && fullName !== user.displayName) {
         try {
           setSaveInProgress(true);
           
-          // Update Firebase Auth profile
-          await updateProfile(user, { displayName: data.displayName });
+          await updateProfile(user, { displayName: fullName });
           
-          // Also update Firestore user document
           await updateDoc(doc(firestore, 'users', user.uid), {
-            displayName: data.displayName,
+            displayName: fullName,
             updatedAt: serverTimestamp()
           });
           
-          console.log("User display name updated in Firebase Auth and Firestore");
+          onUpdate('displayName', fullName);
         } catch (error) {
-          console.error("Error updating user display name:", error);
-          Alert.alert("Error", "Failed to update profile. Please try again.");
+          console.error("Profile update error:", error);
+          Alert.alert("Update Failed", "Could not update profile name.");
         } finally {
           setSaveInProgress(false);
         }
       }
     };
     
-    // Debounce the update to avoid too many writes
-    const timeoutId = setTimeout(() => {
-      if (data.displayName && user && data.displayName !== user.displayName) {
-        updateUserProfile();
-      }
-    }, 1000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [data.displayName, user]);
-
-  useEffect(() => {
-    // Combine firstName and lastName into displayName
-    const firstName = data.firstName?.trim() || '';
-    const lastName = data.lastName?.trim() || '';
-    
-    const fullName = lastName 
-      ? `${firstName} ${lastName}`.trim() 
-      : firstName;
-    
-    if (fullName && fullName !== data.displayName) {
-      onUpdate('displayName', fullName);
-    }
-  }, [data.firstName, data.lastName, data.displayName, onUpdate]);
+    updateUserProfile();
+  }, [data.firstName, data.lastName]);
 
   const handleLocationSelect = (selectedLocation: {
     country: string;
     city?: string;
     customLocation?: string;
   }) => {
-    // Format the location display
     const displayLocation = selectedLocation.customLocation || 
       `${selectedLocation.city}, ${selectedLocation.country}` || 'Select location';
     
     onUpdate('location', displayLocation);
-  };
-
-  const isFormValid = () => {
-    return data.displayName.trim() !== '' && data.location.trim() !== '';
   };
 
   return (
@@ -119,27 +91,28 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
         />
         
         <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Name</Text>
-        <View style={styles.nameInputContainer}>
+          <Text style={styles.inputLabel}>First Name</Text>
           <TextInput
-            style={[styles.input, styles.firstNameInput]}
-            placeholder="First name"
-            value={data.firstName || ''}
+            style={styles.input}
+            value={data.firstName}
             onChangeText={(text) => onUpdate('firstName', text)}
-            placeholderTextColor="#aaa"
+            autoCapitalize="words"
+            returnKeyType="next"
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Last Name (Optional)</Text>
           <TextInput
-            style={[styles.input, styles.lastNameInput]}
-            placeholder="Last name (optional)"
-            value={data.lastName || ''}
+            style={styles.input}
+            value={data.lastName}
             onChangeText={(text) => onUpdate('lastName', text)}
-            placeholderTextColor="#aaa"
+            autoCapitalize="words"
           />
           <Text style={styles.optionalDescription}>
             Last name is optional and only shared with matches
           </Text>
           <TouchableOpacity onPress={() => {
-            // TODO: Implement why modal or alert
             Alert.alert(
               'Why last name?',
               'We only share your last name with mutual matches to help create a more personal connection. Your privacy is our priority, and you can always control what information is shared.',
@@ -149,18 +122,15 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
             <Text style={styles.whyText}>Why do we ask for last name?</Text>
           </TouchableOpacity>
         </View>
-      </View>
         
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Short Bio</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Enter a description..."
             value={data.bio}
             onChangeText={(text) => onUpdate('bio', text)}
             multiline
             textAlignVertical="top"
-            placeholderTextColor="#aaa"
           />
         </View>
         
@@ -174,7 +144,7 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
               styles.locationText,
               data.location ? { color: '#000' } : {}
             ]}>
-              {data.location || 'Select location'}
+              {data.location || 'Select Location'}
             </Text>
             <Ionicons name="chevron-down" size={20} style={styles.dropdownIcon} />
           </TouchableOpacity>
@@ -199,37 +169,16 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 50, // Extra padding for keyboard
+    paddingBottom: 50,
   },
   inputGroup: {
     marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
-    color: '#333',
-    marginBottom: 8,
+    color: '#161616',
+    marginBottom: 6,
     fontWeight: '500',
-  },
-  nameInputContainer: {
-    flexDirection: 'column', // Change from row to column
-    width: '100%',
-  },
-  firstNameInput: {
-    marginBottom: 10, // Add space between inputs
-  },
-  lastNameInput: {
-    marginBottom: 5, // Space before description
-  },
-  optionalDescription: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 5,
-  },
-  whyText: {
-    fontSize: 12,
-    color: '#FF6B6B',
-    fontWeight: '600',
-    marginTop: 5,
   },
   input: {
     width: '100%',
@@ -238,7 +187,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
     borderRadius: 8,
     paddingHorizontal: 16,
-    fontSize: 16,
+    fontSize: 14,
     backgroundColor: '#F9F6F2',
     color: '#000',
   },
@@ -267,5 +216,18 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     textAlignVertical: 'top',
+  },
+  // Add these new styles
+  optionalDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  whyText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+    marginTop: 5,
   }
 });

@@ -64,7 +64,9 @@ export default function OnboardingFlow() {
     bio: '',
     location: '',
     firstName: user?.displayName ? user.displayName.split(' ')[0] : '',
-    lastName: user?.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
+    lastName: user?.displayName && user.displayName.split(' ').length > 1 
+      ? user.displayName.split(' ').slice(1).join(' ') 
+      : '',
     gender: '',
     pronouns: '',
     ageRange: '',
@@ -458,16 +460,18 @@ export default function OnboardingFlow() {
     switch (step) {
       case 'profile':
         return (
-          <ProfileSetup 
-            data={{
-              displayName: profileData.displayName,
-              photoURL: profileData.photoURL,
-              bio: profileData.bio,
-              location: profileData.location
-            }}
-            onUpdate={updateProfile}
-            onNext={handleNext}
-          />
+        <ProfileSetup 
+          data={{
+            displayName: profileData.displayName,
+            photoURL: profileData.photoURL,
+            bio: profileData.bio,
+            location: profileData.location,
+            firstName: profileData.firstName || '',
+            lastName: profileData.lastName || ''
+          }}
+          onUpdate={updateProfile}
+          onNext={handleNext}
+        />
         );
       case 'gender':
         return (

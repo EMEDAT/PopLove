@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../components/auth/AuthProvider';
+import { ImageBackground } from 'react-native';
+import { SplashImage } from '../(onboarding)/splash';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -109,13 +110,24 @@ export default function SignupScreen() {
   };
   
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
+    <ImageBackground 
+      source={SplashImage} 
+      style={{flex: 1, width: '100%', height: '100%'}}
+      resizeMode="cover"
+    >
+      <View style={{
+        position: 'absolute',
+        backgroundColor: 'rgba(255, 255, 255, 0.45)', // Adjust opacity here (0.7 = 70% white overlay)
+        width: '100%',
+        height: '100%'
+      }} />
+      <SafeAreaView style={[styles.container, {backgroundColor: 'transparent'}]}>
+        <StatusBar style="dark" />
+        
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
             {/* <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -211,13 +223,14 @@ export default function SignupScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F1ED',
+    backgroundColor: 'transparent', // Change from '#F2F1ED' to transparent
   },
   keyboardView: {
     flex: 1,
@@ -254,17 +267,17 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#161616',
     marginBottom: 30,
   },
   inputContainer: {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     marginBottom: 8,
-    color: '#333',
+    color: '#161616',
   },
   input: {
     height: 50,
@@ -272,7 +285,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
     borderRadius: 8,
     paddingHorizontal: 15,
-    fontSize: 16,
+    fontSize: 14,
     backgroundColor: '#F9F6F2',
   },
   errorText: {
@@ -306,11 +319,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   footerText: {
-    color: '#666',
-    fontSize: 15,
+    color: '#161616',
+    fontSize: 14,
   },
   loginText: {
-    color: '#FF6B6B',
+    color: '#710014',
     fontSize: 15,
     fontWeight: '600',
   },
