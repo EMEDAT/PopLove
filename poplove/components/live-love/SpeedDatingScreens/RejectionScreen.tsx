@@ -185,7 +185,7 @@ export default function RejectionScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
     marginLeft: -20,
     marginRight: -20,
   },

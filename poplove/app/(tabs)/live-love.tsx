@@ -11,6 +11,7 @@ import {
   Easing,
   AppState,
   ActivityIndicator,
+  Platform,
   ScrollView // Added ScrollView import
 } from 'react-native';
 import { 
@@ -582,6 +583,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F1ED',
+    paddingTop: Platform.OS === 'android' ? 30 : 0, // Adjusted for Android
+    
   },
   scrollView: {
     flex: 1,
@@ -649,7 +652,7 @@ const styles = StyleSheet.create({
   selectedModeCard: {
     borderWidth: 2, // Thicker border
     borderColor: '#FF6B6B',
-    backgroundColor: '#FFFBFB',
+    backgroundColor: '#F2F1ED',
   },
   modeIconContainer: {
     width: 100,
@@ -666,12 +669,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modeTitle: {
-    fontSize: 20, // Larger font size
+    fontSize: 18, // Larger font size
     fontWeight: '600',
     marginBottom: 4, // Add space between title and subtitle
   },
   modeSubtitle: {
-    fontSize: 16, // Larger font size
+    fontSize: 14, // Larger font size
     color: '#666',
     fontWeight: '500',
   },

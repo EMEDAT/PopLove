@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F9F6F2',
     color: '#000',
   },
   locationInput: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F9F6F2',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

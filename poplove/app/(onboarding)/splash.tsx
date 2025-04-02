@@ -13,16 +13,13 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-// Remove unused imports
-// import { ResizeMode } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
 // Simplified splash screens - removed the intro screen completely
 const SPLASH_SCREENS = [
-  // Removed the intro screen with id 1
   {
-    id: 0, // Keep ID as 1 for consistency
+    id: 0,
     type: 'feature',
     image: require('../../assets/images/onboarding/SplashScreen2.png'),
     title: 'Speed Dating Mode',
@@ -45,19 +42,41 @@ export default function SplashScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [showInitialSplash, setShowInitialSplash] = useState(true);
+  
+  // Always define ALL hooks at the top level, even if conditionally used
   const flatListRef = useRef<FlatList>(null);
-
-  // Simplify initialization without auto-advancing
-  useEffect(() => {
-    try {
-      console.log("SplashScreen initialized");
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Initialization error:", error);
-      setHasError(true);
-      setIsLoading(false);
+  const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActiveIndex(viewableItems[0].index);
     }
-  }, []);
+  }).current;
+
+  // Show initial splash for 2 seconds
+  useEffect(() => {
+    if (showInitialSplash) {
+      const timer = setTimeout(() => {
+        setShowInitialSplash(false);
+        setIsLoading(false);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showInitialSplash]);
+  
+  // If still showing initial splash screen
+  if (showInitialSplash) {
+    return (
+      <View style={styles.fullScreenContainer}>
+        <StatusBar style="dark" />
+        <Image 
+          source={require('../../assets/images/onboarding/Splash.jpg')}
+          style={styles.fullSplashImage}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
   
   const renderScreen = ({ item, index }: { item: any, index: number }) => {
     // If there was an error during initialization, show a simplified version
@@ -125,12 +144,6 @@ export default function SplashScreen() {
     );
   };
   
-  const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setActiveIndex(viewableItems[0].index);
-    }
-  }).current;
-  
   if (isLoading) {
     // Show a simple loading state that won't cause crashes
     return (
@@ -168,6 +181,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F1ED',
   },
+  fullScreenContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'black', // Use black background to avoid any white gaps
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -184,6 +208,11 @@ const styles = StyleSheet.create({
   fullImage: {
     width,
     height: '100%',
+  },
+  fullSplashImage: {
+    width: '100%',
+    height: '100%',
+    flex: 1, // Fill available space
   },
   paginationWithinImage: {
     position: 'absolute',

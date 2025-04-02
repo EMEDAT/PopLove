@@ -180,12 +180,12 @@ export default function SearchingScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingTop: Platform.OS === 'ios' ? 50 : 10, // Adjusted for Android
     paddingHorizontal: 16,
     marginTop: 10,
   },

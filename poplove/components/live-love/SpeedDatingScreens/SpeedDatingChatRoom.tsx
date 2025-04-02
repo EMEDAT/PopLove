@@ -329,7 +329,7 @@ export default function SpeedDatingChatRoom({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
     paddingTop: Platform.OS === 'android' ? 25 : 0,
     marginLeft: -20,
     marginRight: -20,
@@ -338,13 +338,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   chatHeaderText: {
-    color: 'white',
+    color: '#F2F1ED',
     fontWeight: 'bold',
     fontSize: 16,
   },
   chatContainer: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
   },
   chatActionButtons: {
     flexDirection: 'row',

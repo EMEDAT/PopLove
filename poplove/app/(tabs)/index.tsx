@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 10 : 5,
+    paddingTop: Platform.OS === 'android' ? 40 : 5, // Adjusted for Android
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f3f3',
@@ -827,6 +827,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 16,
     fontWeight: '500',
+    color: '#161616',
   },
   content: {
     flex: 1,
@@ -850,14 +851,14 @@ const styles = StyleSheet.create({
     height: height * 0.6
   },
   cardContainer: {
-    width: width * 0.85,  // Reduced from 0.9
-    height: height * 0.5,  // Reduced from 0.55
+    width: Platform.OS === 'android' ? width * 0.9 : width * 0.85,  // Adjusted for Android
+    height: Platform.OS === 'android' ? height * 0.6 : height * 0.5,  // Adjusted for Android
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: 'transparent',
     shadowColor: 'transparent',
     elevation: 0,
-    marginTop: 0,
+    marginTop: Platform.OS === 'android' ? -50 : 0, // Adjusted for Android
     zIndex: 2
   },
   card: {
