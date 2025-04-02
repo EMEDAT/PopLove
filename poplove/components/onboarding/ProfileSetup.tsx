@@ -25,6 +25,8 @@ interface ProfileSetupProps {
     photoURL: string;
     bio: string;
     location: string;
+    firstName?: string;
+    lastName?: string;
   };
   onUpdate: (field: string, value: string) => void;
   onNext: () => void;
@@ -71,6 +73,20 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
     return () => clearTimeout(timeoutId);
   }, [data.displayName, user]);
 
+  useEffect(() => {
+    // Combine firstName and lastName into displayName
+    const firstName = data.firstName?.trim() || '';
+    const lastName = data.lastName?.trim() || '';
+    
+    const fullName = lastName 
+      ? `${firstName} ${lastName}`.trim() 
+      : firstName;
+    
+    if (fullName && fullName !== data.displayName) {
+      onUpdate('displayName', fullName);
+    }
+  }, [data.firstName, data.lastName, data.displayName, onUpdate]);
+
   const handleLocationSelect = (selectedLocation: {
     country: string;
     city?: string;
@@ -103,15 +119,37 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
         />
         
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Name</Text>
+        <Text style={styles.inputLabel}>Name</Text>
+        <View style={styles.nameInputContainer}>
           <TextInput
-            style={styles.input}
-            placeholder="Enter full name"
-            value={data.displayName}
-            onChangeText={(text) => onUpdate('displayName', text)}
+            style={[styles.input, styles.firstNameInput]}
+            placeholder="First name"
+            value={data.firstName || ''}
+            onChangeText={(text) => onUpdate('firstName', text)}
             placeholderTextColor="#aaa"
           />
+          <TextInput
+            style={[styles.input, styles.lastNameInput]}
+            placeholder="Last name (optional)"
+            value={data.lastName || ''}
+            onChangeText={(text) => onUpdate('lastName', text)}
+            placeholderTextColor="#aaa"
+          />
+          <Text style={styles.optionalDescription}>
+            Last name is optional and only shared with matches
+          </Text>
+          <TouchableOpacity onPress={() => {
+            // TODO: Implement why modal or alert
+            Alert.alert(
+              'Why last name?',
+              'We only share your last name with mutual matches to help create a more personal connection. Your privacy is our priority, and you can always control what information is shared.',
+              [{ text: 'Understand', style: 'default' }]
+            );
+          }}>
+            <Text style={styles.whyText}>Why do we ask for last name?</Text>
+          </TouchableOpacity>
         </View>
+      </View>
         
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Short Bio</Text>
@@ -171,6 +209,27 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
     fontWeight: '500',
+  },
+  nameInputContainer: {
+    flexDirection: 'column', // Change from row to column
+    width: '100%',
+  },
+  firstNameInput: {
+    marginBottom: 10, // Add space between inputs
+  },
+  lastNameInput: {
+    marginBottom: 5, // Space before description
+  },
+  optionalDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+  },
+  whyText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+    marginTop: 5,
   },
   input: {
     width: '100%',

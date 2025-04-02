@@ -63,6 +63,8 @@ export default function OnboardingFlow() {
     photoURL: user?.photoURL || '',
     bio: '',
     location: '',
+    firstName: user?.displayName ? user.displayName.split(' ')[0] : '',
+    lastName: user?.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
     gender: '',
     pronouns: '',
     ageRange: '',

@@ -106,7 +106,7 @@ export default function SplashScreen() {
         <Image 
           source={item.image}
           style={styles.fullImage}
-          resizeMode="contain"
+          resizeMode="cover" // Use 'cover' to fill the screen without stretching
         />
         
         <View style={styles.paginationWithinImage}>
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: 'black', // Use black background to avoid any white gaps
+    backgroundColor: '#F2F1ED', // Use black background to avoid any white gaps
     position: 'absolute',
     top: 0,
     left: 0,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 20,
-    marginBottom: 50,
+    marginBottom: Platform.OS === 'ios' ? 50 : 10, // Adjusted for Android
   },
   buttonWrapper: {
     width: '100%',
@@ -279,3 +279,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#DDD',
   }
 });
+
+export const SplashImage = require('../../assets/images/onboarding/Splash.jpg');
