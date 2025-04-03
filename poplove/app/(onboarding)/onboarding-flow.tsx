@@ -57,6 +57,7 @@ export default function OnboardingFlow() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingProgress, setSavingProgress] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   
   // Profile data
   const [profileData, setProfileData] = useState({
@@ -72,6 +73,7 @@ export default function OnboardingFlow() {
     pronouns: '',
     ageRange: '',
     age: '',
+    ageConfirmed: false,
     birthDate: null as Date | null, // Add this line
     height: '',
     ethnicity: '',
@@ -202,6 +204,7 @@ export default function OnboardingFlow() {
     pronouns: string;
     ageRange: string;
     age: string;
+    ageConfirmed?: boolean;
     height: string;
     ethnicity: string;
     hasChildren: string;
@@ -382,8 +385,11 @@ export default function OnboardingFlow() {
                profileData.bio.trim() !== '';
       case 'gender':
         return !!profileData.gender;
-      case 'age':
-        return !!profileData.ageRange && !!profileData.age;
+      case 'dateOfBirth':
+        return !!profileData.birthDate && 
+                !!profileData.age && 
+                !!profileData.ageRange && 
+                profileData.ageConfirmed === true;
       case 'pronouns':
         return !!profileData.pronouns;
       case 'height':
@@ -423,11 +429,12 @@ export default function OnboardingFlow() {
       case 'gender':
         title = 'Gender';
         break;
-      case 'age':
+      case 'dateOfBirth':
         title = 'Age';
         break;
       case 'pronouns':
         title = 'Pronouns';
+        break;
       case 'height':
         title = 'Height';
         break;
@@ -500,13 +507,19 @@ export default function OnboardingFlow() {
             <DateOfBirthSelection
               selectedDate={profileData.birthDate || null}
               onSelectDate={(date) => {
-                const newAge = calculateAge(date);
-                updateProfile('birthDate', date);
+                // Ensure date is a Date object
+                const selectedDateObj = date instanceof Date ? date : new Date(date);
+                const newAge = calculateAge(selectedDateObj);
+                updateProfile('birthDate', selectedDateObj);
                 updateProfile('age', newAge.toString());
               }}
               age={profileData.age}
               ageRange={profileData.ageRange}
               onSelectAgeRange={(range) => updateProfile('ageRange', range)}
+              onAgeConfirm={(confirmed) => {
+                // Add a new field to track age confirmation
+                updateProfile('ageConfirmed', confirmed);
+              }}
             />
           );
       case 'age':

@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface DateOfBirthSelectionProps {
-  selectedDate: Date | null;
+    selectedDate: Date | { seconds: number, nanoseconds: number } | null;
   onSelectDate: (date: Date) => void;
   age: string;
   ageRange: string;
@@ -72,16 +72,22 @@ export default function DateOfBirthSelection({
   // Update age when date changes
   useEffect(() => {
     if (selectedDate) {
-      const newAge = calculateAge(selectedDate);
+      // Convert Timestamp to Date if needed
+      const birthDate = selectedDate instanceof Date 
+      ? selectedDate 
+      : typeof selectedDate === 'object' && 'seconds' in selectedDate
+        ? new Date(selectedDate.seconds * 1000)
+        : new Date(selectedDate);
+      
+      const newAge = calculateAge(birthDate);
       setCalculatedAge(newAge);
       
-      // Auto-select matching range if none selected
+      // Rest of the existing logic
       if (!ageRange) {
         const matchingRange = getMatchingAgeRange(newAge);
         onSelectAgeRange(matchingRange);
       }
       
-      // Show confirmation modal
       setShowConfirmModal(true);
     }
   }, [selectedDate]);
@@ -105,12 +111,24 @@ export default function DateOfBirthSelection({
   };
 
   const displayDate = selectedDate 
-    ? selectedDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric', 
-        year: 'numeric' 
-      })
-    : 'Select your birth date';
+  ? (selectedDate instanceof Date 
+      ? selectedDate.toLocaleDateString('en-US', { 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        })
+      : typeof selectedDate === 'object' && 'seconds' in selectedDate
+        ? new Date(selectedDate.seconds * 1000).toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+        : new Date(selectedDate).toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          }))
+  : 'Select your birth date';
 
   return (
     <View style={styles.container}>
@@ -132,15 +150,23 @@ export default function DateOfBirthSelection({
       
       {showPicker && (
         <DateTimePicker
-          testID="dateTimePicker"
-          value={selectedDate || maxDate}
-          mode="date"
-          display="default"
-          onChange={onChange}
-          maximumDate={maxDate}
-          minimumDate={minDate}
+            testID="dateTimePicker"
+            value={
+            selectedDate 
+                ? (selectedDate instanceof Date 
+                    ? selectedDate 
+                    : typeof selectedDate === 'object' && 'seconds' in selectedDate
+                    ? new Date(selectedDate.seconds * 1000)
+                    : maxDate)
+                : maxDate
+            }
+            mode="date"
+            display="default"
+            onChange={onChange}
+            maximumDate={maxDate}
+            minimumDate={minDate}
         />
-      )}
+        )}
 
         {/* Confirmation Modal */}
         <Modal
