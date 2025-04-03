@@ -116,7 +116,7 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
             Alert.alert(
               'Why last name?',
               'We only share your last name with mutual matches to help create a more personal connection. Your privacy is our priority, and you can always control what information is shared.',
-              [{ text: 'Understand', style: 'default' }]
+              [{ text: 'I Understand', style: 'default' }]
             );
           }}>
             <Text style={styles.whyText}>Why do we ask for last name?</Text>
