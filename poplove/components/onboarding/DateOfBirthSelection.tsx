@@ -1,11 +1,11 @@
-// components/onboarding/DateOfBirthSelection.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
-  Platform 
+  Platform,
+  Modal
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +17,7 @@ interface DateOfBirthSelectionProps {
   age: string;
   ageRange: string;
   onSelectAgeRange: (range: string) => void;
+  onAgeConfirm?: (confirmed: boolean) => void;
 }
 
 export default function DateOfBirthSelection({ 
@@ -24,10 +25,12 @@ export default function DateOfBirthSelection({
   onSelectDate,
   age,
   ageRange,
-  onSelectAgeRange
+  onSelectAgeRange,
+  onAgeConfirm
 }: DateOfBirthSelectionProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [calculatedAge, setCalculatedAge] = useState<number | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   const ageRanges = [
     '18 to 24',
@@ -77,6 +80,9 @@ export default function DateOfBirthSelection({
         const matchingRange = getMatchingAgeRange(newAge);
         onSelectAgeRange(matchingRange);
       }
+      
+      // Show confirmation modal
+      setShowConfirmModal(true);
     }
   }, [selectedDate]);
   
@@ -91,6 +97,11 @@ export default function DateOfBirthSelection({
 
   const showDatepicker = () => {
     setShowPicker(true);
+  };
+
+  const handleConfirmAge = () => {
+    setShowConfirmModal(false);
+    onAgeConfirm && onAgeConfirm(true);
   };
 
   const displayDate = selectedDate 
@@ -119,12 +130,6 @@ export default function DateOfBirthSelection({
         <Ionicons name="calendar-outline" size={24} color="#666" />
       </TouchableOpacity>
       
-      {calculatedAge !== null && (
-        <View style={styles.ageDisplay}>
-          <Text style={styles.ageText}>You are {calculatedAge} years old</Text>
-        </View>
-      )}
-      
       {showPicker && (
         <DateTimePicker
           testID="dateTimePicker"
@@ -136,11 +141,36 @@ export default function DateOfBirthSelection({
           minimumDate={minDate}
         />
       )}
-      
-      {calculatedAge !== null && (
-        <>
-        </>
-      )}
+
+        {/* Confirmation Modal */}
+        <Modal
+            visible={showConfirmModal}
+            transparent={true}
+            animationType="slide"
+            >
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                <Text style={styles.ageText}>You're {calculatedAge}</Text>
+                <Text style={styles.birthdateText}>Born {displayDate}</Text>
+                <Text style={styles.subtitleText}>
+                    Confirm your age is correct. Let's keep our community authentic.
+                </Text>
+                <TouchableOpacity 
+                    style={styles.confirmButton}
+                    onPress={handleConfirmAge}
+                >
+                    <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.confirmButtonGradient}
+                    >
+                    <Text style={styles.confirmButtonText}>Confirm</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+                </View>
+            </View>
+            </Modal>
     </View>
   );
 }
@@ -178,51 +208,61 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#aaa',
   },
-  ageDisplay: {
-    marginTop: 20,
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 8,
-    backgroundColor: '#FFF5F5',
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
   },
-  ageText: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#FF6B6B',
-  },
-  rangeTitle: {
-    fontSize: 18,
-    fontWeight: '500',
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
     marginBottom: 15,
   },
-  optionsContainer: {
-    width: '100%',
-    gap: 13,
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
   },
-  optionButton: {
+  ageText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 10,
+  },
+  birthdateText: {
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 15,
+  },
+  subtitleText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  confirmButton: {
     width: '100%',
     height: 50,
-    borderRadius: 28,
+    borderRadius: 25,
     overflow: 'hidden',
   },
-  gradientButton: {
-    width: '100%',
-    height: '100%',
+  confirmButtonGradient: {
+    flex: 1,
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 20,
+    alignItems: 'center',
   },
-  optionText: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#333',
-  },
-  selectedOptionText: {
+  confirmButtonText: {
     color: 'white',
-  },
-  suggestedOptionText: {
-    color: '#FF6B6B',
+    fontSize: 16,
     fontWeight: '600',
   }
 });
