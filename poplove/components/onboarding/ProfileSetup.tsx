@@ -98,16 +98,21 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
             onChangeText={(text) => onUpdate('firstName', text)}
             autoCapitalize="words"
             returnKeyType="next"
+            placeholder="Enter your first name"  // Added this placeholder
+            placeholderTextColor="#aaa"         // Added this for better visibility
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Last Name (Optional)</Text>
+          <Text style={styles.inputLabel}>Last Name</Text>
           <TextInput
             style={styles.input}
             value={data.lastName}
             onChangeText={(text) => onUpdate('lastName', text)}
             autoCapitalize="words"
+            placeholder="Enter your last name (optional)"  // Added this placeholder
+            placeholderTextColor="#aaa"                    // Added this for better visibility
+          
           />
           <Text style={styles.optionalDescription}>
             Last name is optional and only shared with matches
@@ -131,6 +136,8 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
             onChangeText={(text) => onUpdate('bio', text)}
             multiline
             textAlignVertical="top"
+            placeholder="Tell us a bit about yourself..."  // Added this placeholder
+            placeholderTextColor="#aaa"                    // Added this for better visibility
           />
         </View>
         

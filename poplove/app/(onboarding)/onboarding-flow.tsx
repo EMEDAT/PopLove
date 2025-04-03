@@ -19,7 +19,7 @@ import { firestore, serverTimestamp } from '../../lib/firebase';
 // Import the onboarding components
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
-import AgeSelection from '../../components/onboarding/AgeSelection';
+import DateOfBirthSelection from '../../components/onboarding/DateOfBirthSelection';
 import PronounsSelection from '../../components/onboarding/PronounsSelection';
 import HeightSelection from '../../components/onboarding/HeightSelection';
 import EthnicitySelection from '../../components/onboarding/EthnicitySelection';
@@ -37,7 +37,7 @@ const STEPS = [
   'profile',
   'gender',
   'pronouns',
-  'age',
+  'dateOfBirth',
   'height',
   'ethnicity',
   'children',
@@ -361,13 +361,23 @@ export default function OnboardingFlow() {
     }
   };
 
+  const calculateAge = (birthdate: Date): number => {
+    const today = new Date();
+    let age = today.getFullYear() - birthdate.getFullYear();
+    const m = today.getMonth() - birthdate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthdate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const isCurrentStepValid = () => {
     const step = STEPS[currentStep];
     
     switch (step) {
       case 'profile':
-        return profileData.displayName.trim() !== '' && 
-               profileData.location.trim() !== '';
+        return profileData.firstName.trim() !== '' && 
+               profileData.bio.trim() !== '';
       case 'gender':
         return !!profileData.gender;
       case 'age':
@@ -483,6 +493,20 @@ export default function OnboardingFlow() {
             }}
           />
         );
+        case 'dateOfBirth':
+          return (
+            <DateOfBirthSelection
+              selectedDate={profileData.birthDate || null}
+              onSelectDate={(date) => {
+                const newAge = calculateAge(date);
+                updateProfile('birthDate', date);
+                updateProfile('age', newAge.toString());
+              }}
+              age={profileData.age}
+              ageRange={profileData.ageRange}
+              onSelectAgeRange={(range) => updateProfile('ageRange', range)}
+            />
+          );
       case 'age':
         return (
           <AgeSelection 
