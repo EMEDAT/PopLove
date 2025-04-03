@@ -182,7 +182,12 @@ export default function OnboardingFlow() {
   }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
-    setProfileData(prev => ({ ...prev, [field]: value }));
+    if (field === 'pronouns' && Array.isArray(value)) {
+      // Store pronouns properly
+      setProfileData(prev => ({ ...prev, pronouns: value }));
+    } else {
+      setProfileData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const updatePrompt = (index: number, answer: string) => {
@@ -377,6 +382,13 @@ export default function OnboardingFlow() {
     return age;
   };
 
+  if (STEPS[currentStep] === 'dateOfBirth') {
+    if (!profileData.age || parseInt(profileData.age) < 18) {
+      Alert.alert('Age Restriction', 'You must be at least 18 years old to use this app');
+      return;
+    }
+  }
+
   const isCurrentStepValid = () => {
     const step = STEPS[currentStep];
     
@@ -386,13 +398,13 @@ export default function OnboardingFlow() {
                profileData.bio.trim() !== '';
       case 'gender':
         return !!profileData.gender;
-      case 'dateOfBirth':
-        return !!profileData.birthDate && 
-                !!profileData.age && 
-                !!profileData.ageRange && 
-                profileData.ageConfirmed === true;
+        case 'dateOfBirth':
+          return !!profileData.birthDate && 
+                  !!profileData.age && 
+                  parseInt(profileData.age) >= 18 && 
+                  !!profileData.ageRange;
       case 'pronouns':
-        return !!profileData.pronouns;
+        return profileData.pronouns.length > 0;
       case 'height':
         return !!profileData.height;
       case 'ethnicity':
