@@ -19,6 +19,7 @@ import { firestore, serverTimestamp } from '../../lib/firebase';
 // Import the onboarding components
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
+import AgeSelection from '../../components/onboarding/AgeSelection';
 import DateOfBirthSelection from '../../components/onboarding/DateOfBirthSelection';
 import PronounsSelection from '../../components/onboarding/PronounsSelection';
 import HeightSelection from '../../components/onboarding/HeightSelection';
@@ -71,6 +72,7 @@ export default function OnboardingFlow() {
     pronouns: '',
     ageRange: '',
     age: '',
+    birthDate: null as Date | null, // Add this line
     height: '',
     ethnicity: '',
     hasChildren: '',
