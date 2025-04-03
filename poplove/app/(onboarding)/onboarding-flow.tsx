@@ -70,8 +70,7 @@ export default function OnboardingFlow() {
       ? user.displayName.split(' ').slice(1).join(' ') 
       : '',
     gender: '',
-    pronouns: [] as string[],
-    pronounsVisible: true,
+    pronouns: '',
     ageRange: '',
     age: '',
     ageConfirmed: false,
@@ -182,12 +181,7 @@ export default function OnboardingFlow() {
   }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
-    if (field === 'pronouns' && Array.isArray(value)) {
-      // Store pronouns properly
-      setProfileData(prev => ({ ...prev, pronouns: value }));
-    } else {
-      setProfileData(prev => ({ ...prev, [field]: value }));
-    }
+    setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
   const updatePrompt = (index: number, answer: string) => {
@@ -382,13 +376,6 @@ export default function OnboardingFlow() {
     return age;
   };
 
-  if (STEPS[currentStep] === 'dateOfBirth') {
-    if (!profileData.age || parseInt(profileData.age) < 18) {
-      Alert.alert('Age Restriction', 'You must be at least 18 years old to use this app');
-      return;
-    }
-  }
-
   const isCurrentStepValid = () => {
     const step = STEPS[currentStep];
     
@@ -398,13 +385,13 @@ export default function OnboardingFlow() {
                profileData.bio.trim() !== '';
       case 'gender':
         return !!profileData.gender;
-        case 'dateOfBirth':
-          return !!profileData.birthDate && 
-                  !!profileData.age && 
-                  parseInt(profileData.age) >= 18 && 
-                  !!profileData.ageRange;
+      case 'dateOfBirth':
+        return !!profileData.birthDate && 
+                !!profileData.age && 
+                !!profileData.ageRange && 
+                profileData.ageConfirmed === true;
       case 'pronouns':
-        return profileData.pronouns.length > 0;
+        return !!profileData.pronouns;
       case 'height':
         return !!profileData.height;
       case 'ethnicity':
@@ -549,8 +536,6 @@ export default function OnboardingFlow() {
             <PronounsSelection 
               selectedPronouns={profileData.pronouns}
               onSelectPronouns={(pronouns) => updateProfile('pronouns', pronouns)}
-              visibleOnProfile={profileData.pronounsVisible || false}
-              onToggleVisibility={(visible) => updateProfile('pronounsVisible', visible)}
             />
           );
         case 'height':
