@@ -139,36 +139,6 @@ export default function DateOfBirthSelection({
       
       {calculatedAge !== null && (
         <>
-          <Text style={styles.rangeTitle}>Confirm your age range:</Text>
-          <View style={styles.optionsContainer}>
-            {ageRanges.map((range) => {
-              const isMatchingRange = getMatchingAgeRange(calculatedAge) === range;
-              
-              return (
-                <TouchableOpacity
-                  key={range}
-                  onPress={() => onSelectAgeRange(range)}
-                  style={styles.optionButton}
-                >
-                  <LinearGradient
-                    colors={ageRange === range ? ['#EC5F61', '#F0B433'] : 
-                           isMatchingRange ? ['#FFD1D1', '#FFE3CC'] : ['#E6E9ED', '#E6E9ED']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientButton}
-                  >
-                    <Text style={[
-                      styles.optionText,
-                      ageRange === range && styles.selectedOptionText,
-                      isMatchingRange && !ageRange && styles.suggestedOptionText
-                    ]}>
-                      {range} {isMatchingRange && !ageRange && "✓"}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </>
       )}
     </View>
