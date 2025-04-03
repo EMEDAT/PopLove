@@ -1,4 +1,3 @@
-// components/onboarding/PronounsSelection.tsx
 import React, { useState } from 'react';
 import { 
   View, 
@@ -6,9 +5,11 @@ import {
   StyleSheet, 
   TouchableOpacity,
   Switch,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+
+const { height } = Dimensions.get('window');
 
 interface PronounsSelectionProps {
   selectedPronouns: string[];
@@ -23,7 +24,6 @@ export default function PronounsSelection({
   visibleOnProfile = true,
   onToggleVisibility
 }: PronounsSelectionProps) {
-  // Local state for visibility if not provided
   const [localVisibility, setLocalVisibility] = useState(visibleOnProfile);
   
   const pronounsOptions = [
@@ -32,10 +32,6 @@ export default function PronounsSelection({
     'hers',
     'he',
     'him',
-    'his',
-    'they',
-    'them',
-    'theirs'
   ];
 
   const togglePronoun = (pronoun: string) => {
@@ -58,48 +54,52 @@ export default function PronounsSelection({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What are your pronouns?</Text>
-      <Text style={styles.subtitle}>Select up to 4</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>What are your pronouns?</Text>
+        <Text style={styles.subtitle}>Select up to 4</Text>
+      </View>
       
-      <View style={styles.listContainer}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {pronounsOptions.map((option, index) => (
-          <View key={option} style={styles.optionWrapper}>
+          <View key={option}>
             <TouchableOpacity
               onPress={() => togglePronoun(option)}
               style={styles.optionRow}
+              activeOpacity={0.7}
             >
               <Text style={styles.optionText}>{option}</Text>
-              <View style={[
-                styles.checkbox,
-                selectedPronouns.includes(option) && styles.checkboxSelected
-              ]}>
+              <TouchableOpacity 
+                style={[
+                  styles.checkbox,
+                  selectedPronouns.includes(option) && styles.checkboxSelected
+                ]}
+                onPress={() => togglePronoun(option)}
+              >
                 {selectedPronouns.includes(option) && (
-                  <Ionicons name="checkmark" size={16} color="white" />
+                  <Text style={styles.checkmark}>✓</Text>
                 )}
-              </View>
+              </TouchableOpacity>
             </TouchableOpacity>
             {index < pronounsOptions.length - 1 && <View style={styles.divider} />}
           </View>
         ))}
-      </View>
-      
-      <View style={styles.footer}>
-        <View style={styles.visibilityContainer}>
-          <View style={styles.visibilityRow}>
-            <Text style={styles.visibilityText}>Visible on profile</Text>
-            <Switch
-              value={localVisibility}
-              onValueChange={handleVisibilityToggle}
-              trackColor={{ false: '#E5E5E5', true: '#8A2BE2' }}
-              thumbColor={'white'}
-            />
-          </View>
+        
+        <View style={styles.divider} />
+        
+        <View style={styles.visibilityRow}>
+          <Text style={styles.visibilityText}>Visible on profile</Text>
+          <Switch
+            value={localVisibility}
+            onValueChange={handleVisibilityToggle}
+            trackColor={{ false: '#E5E5E5', true: '#710014' }}
+            thumbColor={'white'}
+          />
         </View>
         
         <TouchableOpacity style={styles.feedbackLink}>
           <Text style={styles.feedbackText}>Feedback on pronouns?</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -107,39 +107,40 @@ export default function PronounsSelection({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F2F1ED',
+  },
+  header: {
     padding: 20,
-    justifyContent: 'space-between', // Pushes content to top and bottom
+    paddingBottom: 15,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#161616',
+    paddingRight: 20,
   },
   subtitle: {
     fontSize: 16,
     color: '#888',
-    marginBottom: 24,
+    marginBottom: 10,
   },
-  listContainer: {
+  scrollView: {
     flex: 1,
-    width: '100%',
+    height: height * 0.6, // Set to show only a portion of the list initially
   },
-  optionWrapper: {
-    width: '100%',
+  scrollContent: {
+    paddingHorizontal: 20,
   },
   optionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 15,
   },
   optionText: {
     fontSize: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    width: '100%',
+    color: '#000',
   },
   checkbox: {
     width: 24,
@@ -147,32 +148,37 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    backgroundColor: 'white',
+    backgroundColor: '#FFFAFA',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#8A2BE2',
+    backgroundColor: '#F9F6F2',
     borderColor: '#8A2BE2',
   },
-  footer: {
-    marginTop: 20,
+  checkmark: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
-  visibilityContainer: {
-    marginBottom: 20,
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    width: '100%',
   },
   visibilityRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 70,
   },
   visibilityText: {
     fontSize: 16,
     fontWeight: '500',
+    color: '#000',
   },
   feedbackLink: {
-    marginTop: 10,
-    marginBottom: 20,
+    paddingVertical: 15,
   },
   feedbackText: {
     fontSize: 16,
