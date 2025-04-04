@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { Video, ResizeMode } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +44,8 @@ export default function SplashScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showInitialSplash, setShowInitialSplash] = useState(true);
+  const [videoCompleted, setVideoCompleted] = useState(false);
+  const videoRef = useRef(null);
   
   // Always define ALL hooks at the top level, even if conditionally used
   const flatListRef = useRef<FlatList>(null);
@@ -52,28 +55,55 @@ export default function SplashScreen() {
     }
   }).current;
 
-  // Show initial splash for 2 seconds
+  // Show initial splash for video duration + 1 second buffer
   useEffect(() => {
     if (showInitialSplash) {
       const timer = setTimeout(() => {
-        setShowInitialSplash(false);
-        setIsLoading(false);
-      }, 3000);
+        if (videoCompleted) {
+          setShowInitialSplash(false);
+          setIsLoading(false);
+        }
+      }, 1000); // Buffer time after video completes
       
       return () => clearTimeout(timer);
     }
-  }, [showInitialSplash]);
+  }, [showInitialSplash, videoCompleted]);
+  
+  // Handle video playback status
+  const onPlaybackStatusUpdate = (status: any) => {
+    if (status.didJustFinish) {
+      setVideoCompleted(true);
+    }
+  };
+
+  // Skip the video and go to main screens
+  const handleSkipVideo = () => {
+    setShowInitialSplash(false);
+    setIsLoading(false);
+  };
   
   // If still showing initial splash screen
   if (showInitialSplash) {
     return (
       <View style={styles.fullScreenContainer}>
         <StatusBar style="dark" />
-        <Image 
-          source={require('../../assets/images/onboarding/Splash.jpg')}
-          style={styles.fullSplashImage}
-          resizeMode="cover"
+        <Video
+          ref={videoRef}
+          source={require('../../assets/videos/Poplove Intro.mp4')}
+          style={styles.fullSplashVideo}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping={false}
+          onPlaybackStatusUpdate={onPlaybackStatusUpdate}
         />
+        
+        {/* Skip button */}
+        <TouchableOpacity 
+          style={styles.skipButton}
+          onPress={handleSkipVideo}
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -185,7 +215,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#F2F1ED', // Use black background to avoid any white gaps
+    backgroundColor: '#000', // Black background for video
     position: 'absolute',
     top: 0,
     left: 0,
@@ -209,7 +239,7 @@ const styles = StyleSheet.create({
     width,
     height: '100%',
   },
-  fullSplashImage: {
+  fullSplashVideo: {
     width: '100%',
     height: '100%',
     flex: 1, // Fill available space
@@ -277,7 +307,23 @@ const styles = StyleSheet.create({
   },
   inactivePaginationDot: {
     backgroundColor: '#DDD',
+  },
+  skipButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 40,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  skipButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   }
 });
 
+// Export the splash image for login/signup background
 export const SplashImage = require('../../assets/images/onboarding/Splash.jpg');
