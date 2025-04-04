@@ -71,6 +71,7 @@ export default function OnboardingFlow() {
       : '',
     gender: '',
     pronouns: '',
+    pronounsVisible: true,
     ageRange: '',
     age: '',
     ageConfirmed: false,
@@ -202,6 +203,7 @@ export default function OnboardingFlow() {
     location: string;
     gender: string;
     pronouns: string;
+    pronounsVisible?: boolean; 
     ageRange: string;
     age: string;
     ageConfirmed?: boolean;
@@ -306,6 +308,7 @@ export default function OnboardingFlow() {
             location: profileData.location,
             gender: profileData.gender, 
             pronouns: profileData.pronouns,
+            pronounsVisible: profileData.pronounsVisible !== false,
             age: profileData.age,
             ageRange: profileData.ageRange,
             height: profileData.height,
@@ -536,6 +539,8 @@ export default function OnboardingFlow() {
             <PronounsSelection 
               selectedPronouns={profileData.pronouns}
               onSelectPronouns={(pronouns) => updateProfile('pronouns', pronouns)}
+              visibleOnProfile={profileData.pronounsVisible !== false}
+              onToggleVisibility={(visible) => updateProfile('pronounsVisible', visible)}
             />
           );
         case 'height':
