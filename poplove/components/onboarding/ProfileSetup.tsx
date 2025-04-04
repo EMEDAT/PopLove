@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 14,
-    backgroundColor: '#F9F6F2',
+    backgroundColor: '#FFFAFA',
     color: '#000',
   },
   locationInput: {
