@@ -39,14 +39,14 @@ const STEPS = [
   'profile',
   'gender',
   'pronouns',
-  'dateOfBirth',
+  'dateOfBirth', // or 'age' depending on what you're using
+  'location',    // This should come right after dateOfBirth/age
   'height',
   'ethnicity',
   'children',
   'interests',
   'prompts',
   'lifestyle',
-  'location', // Add this new step
   'subscription',
   'welcome'
 ];
