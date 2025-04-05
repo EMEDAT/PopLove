@@ -22,14 +22,17 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.02;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-// Define simplified location interface
+// Define location interface with Firestore-compatible fields
 interface LocationData {
-  // Basic location info
-  address: string;
-  
-  // Coordinates (for mapping)
   latitude: number;
   longitude: number;
+  address: string;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  formattedAddress?: string;
+  useExactAddress?: boolean;
 }
 
 interface LocationSelectionProps {
@@ -47,8 +50,8 @@ export default function LocationSelection({
   
   // State management
   const [region, setRegion] = useState<Region>({
-    latitude: 40.7128, // Default to New York
-    longitude: -74.006,
+    latitude: 5.033, // Default to Uyo, Nigeria
+    longitude: 7.9,
     latitudeDelta: LATITUDE_DELTA,
     longitudeDelta: LONGITUDE_DELTA,
   });
@@ -57,14 +60,16 @@ export default function LocationSelection({
     longitude: number;
   } | null>(null);
   
-  // Location text state
-  const [manualLocationText, setManualLocationText] = useState('');
+  // Location text states
+  const [exactAddress, setExactAddress] = useState('');
+  const [cityCountryAddress, setCityCountryAddress] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
   // UI states
   const [loading, setLoading] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [useExactAddress, setUseExactAddress] = useState(true);
   
   // Initialize with existing data if available
   useEffect(() => {
@@ -81,8 +86,36 @@ export default function LocationSelection({
         longitudeDelta: LONGITUDE_DELTA,
       });
       
-      // Initialize the manual location text from selected location
-      setManualLocationText(selectedLocation.address || '');
+      // Initialize address states
+      if (selectedLocation.address) {
+        setExactAddress(selectedLocation.address);
+      }
+      
+      // Create city/country format
+      let cityCountry = '';
+      if (selectedLocation.city) {
+        cityCountry = selectedLocation.city;
+      }
+      if (selectedLocation.state) {
+        if (cityCountry) cityCountry += ', ';
+        cityCountry += selectedLocation.state;
+      }
+      if (selectedLocation.country) {
+        if (cityCountry) cityCountry += ', ';
+        cityCountry += selectedLocation.country;
+      }
+      
+      if (cityCountry) {
+        setCityCountryAddress(cityCountry);
+      } else if (selectedLocation.address) {
+        // Fallback if no city/country
+        setCityCountryAddress(selectedLocation.address);
+      }
+      
+      // Set toggle state
+      if (selectedLocation.useExactAddress !== undefined) {
+        setUseExactAddress(selectedLocation.useExactAddress);
+      }
     }
     
     // Request location permissions
@@ -108,88 +141,151 @@ export default function LocationSelection({
   const getCurrentLocation = async () => {
     setLoading(true);
     try {
+      // Request high accuracy location
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced, // Lower accuracy to avoid errors
+        accuracy: Location.Accuracy.High,
+        mayShowUserSettingsDialog: true
       });
       
       const { latitude, longitude } = location.coords;
       
-      // Update region and marker position
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: LATITUDE_DELTA,
-        longitudeDelta: LONGITUDE_DELTA,
-      });
-      
+      // Update marker position first
       setMarkerPosition({
         latitude,
         longitude,
       });
       
-      // Try to get address information, but handle errors gracefully
-      try {
-        const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
+      // Then smoothly animate to the region instead of jumping
+      mapRef.current?.animateToRegion({
+        latitude,
+        longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      }, 500); // Animation duration in ms
+      
+      // Provide a small delay before setting the region state to prevent flicker
+      setTimeout(() => {
+        setRegion({
           latitude,
           longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        });
+      }, 600);
+      
+      // Try to get address information with better options
+      try {
+        // Try to get better address with Google's reverse geocoding
+        const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
+          latitude, 
+          longitude
         });
         
         if (reverseGeocodedAddress && reverseGeocodedAddress.length > 0) {
-          const location = reverseGeocodedAddress[0];
+          const locationData = reverseGeocodedAddress[0];
           
-          // Construct location string
-          let locationString = '';
+          // Filter out Plus Codes (like 2W2P+WVC)
+          const isPlusCode = (str) => /^[A-Z0-9]{4,6}\+[A-Z0-9]{2,3}$/i.test(str);
           
-          if (location.name) {
-            locationString += location.name;
+          // Build exact address, removing plus codes
+          let fullAddress = '';
+          if (locationData.name && !isPlusCode(locationData.name)) {
+            fullAddress += locationData.name;
           }
           
-          if (location.city) {
-            if (locationString) locationString += ', ';
-            locationString += location.city;
+          if (locationData.street) {
+            if (fullAddress) fullAddress += ', ';
+            fullAddress += locationData.street;
           }
           
-          if (location.region) {
-            if (locationString) locationString += ', ';
-            locationString += location.region;
+          if (locationData.city) {
+            if (fullAddress) fullAddress += ', ';
+            fullAddress += locationData.city;
           }
           
-          if (location.country) {
-            if (locationString) locationString += ', ';
-            locationString += location.country;
+          if (locationData.region) {
+            if (fullAddress) fullAddress += ', ';
+            fullAddress += locationData.region;
           }
           
-          // Set the manual location text and update parent
-          setManualLocationText(locationString);
+          if (locationData.country) {
+            if (fullAddress) fullAddress += ', ';
+            fullAddress += locationData.country;
+          }
           
-          // Update the selected location with simplified data structure
-          onLocationSelect({
-            latitude,
-            longitude,
-            address: locationString
-          });
+          // If we still don't have a good address, use the default format
+          if (!fullAddress || fullAddress.includes("Unnamed Road") || isPlusCode(fullAddress)) {
+            const defaultAddress = "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
+            console.log("Using default address instead of:", fullAddress);
+            setExactAddress(defaultAddress);
+          } else {
+            setExactAddress(fullAddress);
+          }
+          
+          // Build city, country format
+          let cityCountry = '';
+          if (locationData.city) {
+            cityCountry = locationData.city;
+          }
+          if (locationData.region) {
+            if (cityCountry) cityCountry += ', ';
+            cityCountry += locationData.region;
+          }
+          if (locationData.country) {
+            if (cityCountry) cityCountry += ', ';
+            cityCountry += locationData.country;
+          }
+          
+          // Set city/country or default to "Uyo, Akwa Ibom, Nigeria" if not available
+          if (!cityCountry) {
+            cityCountry = "Uyo, Akwa Ibom, Nigeria";
+          }
+          setCityCountryAddress(cityCountry);
+          
+          // Update the selected location with the prepared addresses
+          const addressToUse = fullAddress || "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
+          updateLocationData(
+            latitude, 
+            longitude, 
+            addressToUse, 
+            locationData.district || null, 
+            locationData.city || "Uyo", 
+            locationData.region || "Akwa Ibom", 
+            locationData.country || "Nigeria"
+          );
         } else {
-          // Fallback to coordinates
-          const coordsString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-          setManualLocationText('');
-          onLocationSelect({
-            latitude,
-            longitude,
-            address: ''  // Empty string to prompt user to enter an address
-          });
+          // Use default address for Uyo
+          const defaultAddress = "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
+          setExactAddress(defaultAddress);
+          setCityCountryAddress("Uyo, Akwa Ibom, Nigeria");
+          
+          // Call with default values for Uyo
+          updateLocationData(
+            latitude, longitude, 
+            defaultAddress, 
+            null, 
+            "Uyo", 
+            "Akwa Ibom", 
+            "Nigeria"
+          );
         }
       } catch (geocodeError) {
         console.error('Error reverse geocoding:', geocodeError);
         
-        // If reverse geocoding fails, just use coordinates and let user edit manually
-        setManualLocationText('');
+        // Use default address for Uyo
+        const defaultAddress = "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
+        setExactAddress(defaultAddress);
+        setCityCountryAddress("Uyo, Akwa Ibom, Nigeria");
         
-        // Update the location with coordinates only
-        onLocationSelect({
-          latitude,
-          longitude,
-          address: ''  // Empty string to prompt user to enter an address
-        });
+        // Call with default values
+        updateLocationData(
+          latitude, longitude, 
+          defaultAddress, 
+          null, 
+          "Uyo", 
+          "Akwa Ibom", 
+          "Nigeria"
+        );
       }
       
     } catch (error) {
@@ -225,15 +321,61 @@ export default function LocationSelection({
           longitude,
         });
         
-        // Just use the search query as the location
-        setManualLocationText(searchQuery);
-        
-        // Update the selected location with simplified data
-        onLocationSelect({
-          latitude,
-          longitude,
-          address: searchQuery
-        });
+        // Try to reverse geocode to get full address details
+        try {
+          const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
+            latitude,
+            longitude,
+          });
+          
+          if (reverseGeocodedAddress && reverseGeocodedAddress.length > 0) {
+            const locationData = reverseGeocodedAddress[0];
+            
+            // Use the search query for the exact address
+            setExactAddress(searchQuery);
+            
+            // Build city, country format
+            let cityCountry = '';
+            if (locationData.city) {
+              cityCountry = locationData.city;
+            }
+            if (locationData.region) {
+              if (cityCountry) cityCountry += ', ';
+              cityCountry += locationData.region;
+            }
+            if (locationData.country) {
+              if (cityCountry) cityCountry += ', ';
+              cityCountry += locationData.country;
+            }
+            
+            setCityCountryAddress(cityCountry || searchQuery);
+            
+            // Update the selected location
+            updateLocationData(
+              latitude, 
+              longitude, 
+              searchQuery, 
+              locationData.district || null, 
+              locationData.city || null, 
+              locationData.region || null, 
+              locationData.country || null
+            );
+          } else {
+            // Use search query for both exact and city/country
+            setExactAddress(searchQuery);
+            setCityCountryAddress(searchQuery);
+            
+            // Call with null values for geodata
+            updateLocationData(latitude, longitude, searchQuery, null, null, null, null);
+          }
+        } catch (reverseError) {
+          // Use search query for both exact and city/country
+          setExactAddress(searchQuery);
+          setCityCountryAddress(searchQuery);
+          
+          // Call with null values for geodata
+          updateLocationData(latitude, longitude, searchQuery, null, null, null, null);
+        }
         
         // Animate to the new region
         mapRef.current?.animateToRegion({
@@ -259,12 +401,131 @@ export default function LocationSelection({
     
     setMarkerPosition(coordinate);
     
-    // Update location with current manual text and new coordinates
-    onLocationSelect({
-      latitude: coordinate.latitude,
-      longitude: coordinate.longitude,
-      address: manualLocationText
-    });
+    try {
+      const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+      
+      if (reverseGeocodedAddress && reverseGeocodedAddress.length > 0) {
+        const locationData = reverseGeocodedAddress[0];
+        
+        // Build exact address
+        let fullAddress = '';
+        if (locationData.name) {
+          fullAddress += locationData.name;
+        }
+        if (locationData.street) {
+          if (fullAddress) fullAddress += ', ';
+          fullAddress += locationData.street;
+        }
+        if (locationData.city) {
+          if (fullAddress) fullAddress += ', ';
+          fullAddress += locationData.city;
+        }
+        if (locationData.region) {
+          if (fullAddress) fullAddress += ', ';
+          fullAddress += locationData.region;
+        }
+        if (locationData.country) {
+          if (fullAddress) fullAddress += ', ';
+          fullAddress += locationData.country;
+        }
+        
+        // For a map tap, don't override user's manual entry if it exists
+        if (!exactAddress) {
+          setExactAddress(fullAddress);
+        }
+        
+        // Build city, country format
+        let cityCountry = '';
+        if (locationData.city) {
+          cityCountry = locationData.city;
+        }
+        if (locationData.region) {
+          if (cityCountry) cityCountry += ', ';
+          cityCountry += locationData.region;
+        }
+        if (locationData.country) {
+          if (cityCountry) cityCountry += ', ';
+          cityCountry += locationData.country;
+        }
+        
+        if (!cityCountryAddress) {
+          setCityCountryAddress(cityCountry);
+        }
+        
+        // Update the selected location
+        updateLocationData(
+          coordinate.latitude, 
+          coordinate.longitude, 
+          exactAddress || fullAddress, 
+          locationData.district || null, 
+          locationData.city || null, 
+          locationData.region || null, 
+          locationData.country || null
+        );
+      } else {
+        // If reverse geocoding fails, just use coordinates
+        if (!exactAddress) {
+          const coordsString = `${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`;
+          setExactAddress(coordsString);
+        }
+        
+        // Keep the cityCountryAddress as is
+        
+        // Update with existing address text
+        updateLocationData(
+          coordinate.latitude, 
+          coordinate.longitude, 
+          exactAddress, 
+          null, 
+          null, 
+          null, 
+          null
+        );
+      }
+    } catch (error) {
+      console.error('Error reverse geocoding map tap:', error);
+      
+      // If error, maintain current address text
+      updateLocationData(
+        coordinate.latitude, 
+        coordinate.longitude, 
+        exactAddress, 
+        null, 
+        null, 
+        null, 
+        null
+      );
+    }
+  };
+
+  // Central function to update location data with full Firestore-compatible structure
+  const updateLocationData = (
+    latitude: number, 
+    longitude: number, 
+    address: string, 
+    neighborhood: string | null, 
+    city: string | null, 
+    state: string | null, 
+    country: string | null
+  ) => {
+    // Create a Firestore-compatible location object
+    const locationData: LocationData = {
+      latitude,
+      longitude,
+      address: address || '',
+      neighborhood: neighborhood || null,
+      city: city || null,
+      state: state || null,
+      country: country || null,
+      formattedAddress: useExactAddress ? (address || '') : (cityCountryAddress || ''),
+      useExactAddress: useExactAddress
+    };
+    
+    // Call the parent component's callback
+    onLocationSelect(locationData);
   };
 
   // Zoom controls
@@ -288,28 +549,44 @@ export default function LocationSelection({
     mapRef.current?.animateToRegion(newRegion);
   };
 
-  // Handle manual location changes
-  const handleLocationTextChange = (text: string) => {
-    setManualLocationText(text);
+  // Handle manual address edit
+  const handleExactAddressChange = (text: string) => {
+    setExactAddress(text);
     
-    // Update the selected location with the manual text
+    // Update the location data with the new address
     if (markerPosition) {
-      onLocationSelect({
-        latitude: markerPosition.latitude,
-        longitude: markerPosition.longitude,
-        address: text
-      });
+      updateLocationData(
+        markerPosition.latitude, 
+        markerPosition.longitude, 
+        text,
+        selectedLocation?.neighborhood || null,
+        selectedLocation?.city || null,
+        selectedLocation?.state || null,
+        selectedLocation?.country || null
+      );
     }
   };
 
-  // Check if we have enough information to proceed
-  const hasValidLocation = () => {
-    return (
-      markerPosition &&
-      manualLocationText &&
-      manualLocationText.trim() !== ''
-    );
+  // Handle toggle change
+  const handleToggleExactAddress = (value: boolean) => {
+    setUseExactAddress(value);
+    
+    // Update the location data with the new toggle state
+    if (markerPosition) {
+      updateLocationData(
+        markerPosition.latitude, 
+        markerPosition.longitude, 
+        exactAddress,
+        selectedLocation?.neighborhood || null,
+        selectedLocation?.city || null,
+        selectedLocation?.state || null,
+        selectedLocation?.country || null
+      );
+    }
   };
+
+  // Determine display address based on toggle
+  const displayAddress = useExactAddress ? exactAddress : cityCountryAddress;
 
   return (
     <ScrollView 
@@ -321,7 +598,7 @@ export default function LocationSelection({
       <View style={styles.header}>
         <Text style={styles.headerText}>Where do you live?</Text>
         <Text style={styles.subText}>
-          Enter your address to help us find matches nearby
+          This helps us match you with people nearby
         </Text>
       </View>
 
@@ -332,7 +609,7 @@ export default function LocationSelection({
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search for your location"
+            placeholder="Search your city or address"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={searchAddress}
@@ -384,7 +661,7 @@ export default function LocationSelection({
               <Marker
                 coordinate={markerPosition}
                 title="Selected Location"
-                description={manualLocationText}
+                description={displayAddress}
                 pinColor="#FF6B6B"
               />
             )}
@@ -420,7 +697,7 @@ export default function LocationSelection({
         </View>
       )}
 
-      {/* Location Display & Edit */}
+      {/* Address Display & Edit */}
       <View style={styles.addressContainer}>
         <View style={styles.addressHeader}>
           <Text style={styles.addressLabel}>Your address:</Text>
@@ -428,8 +705,8 @@ export default function LocationSelection({
         
         <TextInput
           style={styles.addressInput}
-          value={manualLocationText}
-          onChangeText={handleLocationTextChange}
+          value={exactAddress}
+          onChangeText={handleExactAddressChange}
           placeholder="Enter your address (e.g. 16 Nung Akpa Ime, Uyo)"
           placeholderTextColor="#999"
         />
@@ -439,19 +716,34 @@ export default function LocationSelection({
         )}
       </View>
       
-      {/* Helper Text */}
-      <View style={styles.infoContainer}>
-        <Ionicons name="information-circle-outline" size={20} color="#555" />
-        <Text style={styles.infoText}>
-          Please enter your complete address including street, number, and city. You can edit it manually to ensure accuracy.
-        </Text>
+      {/* Display toggle */}
+      <View style={styles.toggleContainer}>
+        <View style={styles.toggleTextContainer}>
+          <Text style={styles.toggleTitle}>Show exact address</Text>
+          <Text style={styles.toggleSubtitle}>
+            When off, only your city and country will be shown
+          </Text>
+        </View>
+        <Switch
+          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+          thumbColor={useExactAddress ? '#fff' : '#fff'}
+          ios_backgroundColor="#E5E5E5"
+          onValueChange={handleToggleExactAddress}
+          value={useExactAddress}
+        />
+      </View>
+      
+      {/* Address Preview */}
+      <View style={styles.previewContainer}>
+        <Text style={styles.previewLabel}>How others will see your location:</Text>
+        <Text style={styles.previewAddress}>{displayAddress}</Text>
       </View>
       
       {/* Bottom Information */}
       <View style={styles.infoContainer}>
         <Ionicons name="shield-checkmark" size={20} color="#555" />
         <Text style={styles.infoText}>
-          Your exact address won't be shown to other users. We use it only for matching and distance calculations.
+          Your location helps find matches nearby. You can choose how much detail to share.
         </Text>
       </View>
     </ScrollView>
@@ -623,13 +915,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 15,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  toggleTextContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  toggleSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  previewContainer: {
+    backgroundColor: '#FFFAFA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  previewAddress: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
   infoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 10,
-    marginBottom: 15,
+    marginBottom: 20,
   },
   infoText: {
     flex: 1,
