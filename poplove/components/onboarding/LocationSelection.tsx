@@ -141,10 +141,25 @@ export default function LocationSelection({
   const getCurrentLocation = async () => {
     setLoading(true);
     try {
-      // Request high accuracy location
+      // Check for permissions first
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        if (newStatus !== 'granted') {
+          throw new Error('Location permission not granted');
+        }
+      }
+
+      // Attempt to get current location with more relaxed accuracy requirements
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
         mayShowUserSettingsDialog: true
+      }).catch(async (error) => {
+        console.log('Error with high accuracy, trying lower accuracy:', error);
+        // Fall back to a lower accuracy if high accuracy fails
+        return await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low
+        });
       });
       
       const { latitude, longitude } = location.coords;
@@ -173,9 +188,8 @@ export default function LocationSelection({
         });
       }, 600);
       
-      // Try to get address information with better options
+      // Try to get address information
       try {
-        // Try to get better address with Google's reverse geocoding
         const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
           latitude, 
           longitude
@@ -185,7 +199,10 @@ export default function LocationSelection({
           const locationData = reverseGeocodedAddress[0];
           
           // Filter out Plus Codes (like 2W2P+WVC)
-          const isPlusCode = (str) => /^[A-Z0-9]{4,6}\+[A-Z0-9]{2,3}$/i.test(str);
+          const isPlusCode = (str) => {
+            if (!str) return false;
+            return /^[A-Z0-9]{4,6}\+[A-Z0-9]{2,3}$/i.test(str);
+          };
           
           // Build exact address, removing plus codes
           let fullAddress = '';
@@ -242,13 +259,13 @@ export default function LocationSelection({
           }
           setCityCountryAddress(cityCountry);
           
-          // Update the selected location with the prepared addresses
+          // Update the selected location
           const addressToUse = fullAddress || "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
           updateLocationData(
             latitude, 
             longitude, 
             addressToUse, 
-            locationData.district || null, 
+            null, // Placeholder for neighborhood (not used)
             locationData.city || "Uyo", 
             locationData.region || "Akwa Ibom", 
             locationData.country || "Nigeria"
@@ -263,7 +280,7 @@ export default function LocationSelection({
           updateLocationData(
             latitude, longitude, 
             defaultAddress, 
-            null, 
+            null, // Placeholder for neighborhood (not used) 
             "Uyo", 
             "Akwa Ibom", 
             "Nigeria"
@@ -291,6 +308,47 @@ export default function LocationSelection({
     } catch (error) {
       console.error('Error getting current location:', error);
       setLocationError('Failed to get your current location. Please enter location manually.');
+      
+      // Even if we can't get the current location, set a default location for Uyo
+      // This ensures next button can still be activated
+      const defaultLat = 5.033;
+      const defaultLng = 7.9;
+      
+      setMarkerPosition({
+        latitude: defaultLat,
+        longitude: defaultLng,
+      });
+      
+      mapRef.current?.animateToRegion({
+        latitude: defaultLat,
+        longitude: defaultLng,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      }, 500);
+      
+      setTimeout(() => {
+        setRegion({
+          latitude: defaultLat,
+          longitude: defaultLng,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        });
+      }, 600);
+      
+      // Set default values
+      const defaultAddress = "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
+      setExactAddress(defaultAddress);
+      setCityCountryAddress("Uyo, Akwa Ibom, Nigeria");
+      
+      // Update with default values
+      updateLocationData(
+        defaultLat, defaultLng, 
+        defaultAddress, 
+        null, // Placeholder for neighborhood (not used)
+        "Uyo", 
+        "Akwa Ibom", 
+        "Nigeria"
+      );
     } finally {
       setLoading(false);
     }
