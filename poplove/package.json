@@ -46,7 +46,7 @@
     "expo-image-picker": "~16.0.6",
     "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.5",
-    "expo-location": "^18.0.7",
+    "expo-location": "~18.0.10",
     "expo-router": "~4.0.17",
     "expo-splash-screen": "~0.29.22",
     "expo-status-bar": "~2.0.1",
@@ -73,7 +73,8 @@
     "rn-range-slider": "^2.2.2",
     "undefined": "firebase/auth/react-native",
     "unique-string": "^3.0.0",
-    "expo-av": "~15.0.2"
+    "expo-av": "~15.0.2",
+    "react-native-maps": "1.18.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

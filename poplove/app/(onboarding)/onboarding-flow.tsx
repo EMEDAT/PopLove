@@ -32,6 +32,7 @@ import SubscriptionPlan from '../../components/onboarding/SubscriptionPlan';
 import Welcome from '../../components/onboarding/Welcome';
 import ProgressBar from '../../components/onboarding/ProgressBar';
 import OnboardingNavigation from '../../components/onboarding/OnboardingNavigation';
+import LocationSelectionModal from '../../components/onboarding/LocationSelectionModal';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
@@ -45,6 +46,7 @@ const STEPS = [
   'interests',
   'prompts',
   'lifestyle',
+  'location', // Add this new step
   'subscription',
   'welcome'
 ];
@@ -505,6 +507,15 @@ export default function OnboardingFlow() {
             }}
           />
         );
+        case 'pronouns':
+          return (
+            <PronounsSelection 
+              selectedPronouns={profileData.pronouns}
+              onSelectPronouns={(pronouns) => updateProfile('pronouns', pronouns)}
+              visibleOnProfile={profileData.pronounsVisible !== false}
+              onToggleVisibility={(visible) => updateProfile('pronounsVisible', visible)}
+            />
+          );
         case 'dateOfBirth':
           return (
             <DateOfBirthSelection
@@ -534,13 +545,14 @@ export default function OnboardingFlow() {
             onAgeChange={(age) => updateProfile('age', age)}
           />
         );
-        case 'pronouns':
+        case 'location':
           return (
-            <PronounsSelection 
-              selectedPronouns={profileData.pronouns}
-              onSelectPronouns={(pronouns) => updateProfile('pronouns', pronouns)}
-              visibleOnProfile={profileData.pronounsVisible !== false}
-              onToggleVisibility={(visible) => updateProfile('pronounsVisible', visible)}
+            <LocationSelectionModal 
+              initialLocation={profileData.location}
+              onSelectLocation={(selectedLocation) => {
+                updateProfile('location', selectedLocation);
+              }}
+              fullScreen={true}
             />
           );
         case 'height':
