@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ImageUpload } from './ImageUpload';
-import { LocationSelectionModal } from './LocationSelectionModal';
 import { useAuthContext } from '../auth/AuthProvider';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore, serverTimestamp } from '../../lib/firebase';
@@ -32,7 +31,6 @@ interface ProfileSetupProps {
 }
 
 export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupProps) {
-  const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [saveInProgress, setSaveInProgress] = useState(false);
   const { user } = useAuthContext();
 
@@ -63,17 +61,6 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
     
     updateUserProfile();
   }, [data.firstName, data.lastName]);
-
-  const handleLocationSelect = (selectedLocation: {
-    country: string;
-    city?: string;
-    customLocation?: string;
-  }) => {
-    const displayLocation = selectedLocation.customLocation || 
-      `${selectedLocation.city}, ${selectedLocation.country}` || 'Select location';
-    
-    onUpdate('location', displayLocation);
-  };
 
   return (
     <KeyboardAvoidingView
@@ -140,28 +127,6 @@ export default function ProfileSetup({ data, onUpdate, onNext }: ProfileSetupPro
             placeholderTextColor="#aaa"                    // Added this for better visibility
           />
         </View>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Location</Text>
-          <TouchableOpacity 
-            style={styles.locationInput}
-            onPress={() => setLocationModalVisible(true)}
-          >
-            <Text style={[
-              styles.locationText,
-              data.location ? { color: '#000' } : {}
-            ]}>
-              {data.location || 'Select Location'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} style={styles.dropdownIcon} />
-          </TouchableOpacity>
-        </View>
-
-        <LocationSelectionModal
-          visible={locationModalVisible}
-          onClose={() => setLocationModalVisible(false)}
-          onSelectLocation={handleLocationSelect}
-        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -197,26 +162,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#FFFAFA',
     color: '#000',
-  },
-  locationInput: {
-    width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#F9F6F2',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  locationText: {
-    fontSize: 16,
-    color: '#aaa',
-  },
-  dropdownIcon: {
-    color: '#aaa',
   },
   textArea: {
     height: 130,
