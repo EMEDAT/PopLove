@@ -11,39 +11,30 @@ import {
   Dimensions,
   Platform,
   ScrollView,
-  Keyboard
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.02;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
+// Define simplified location interface
+interface LocationData {
+  // Basic location info
+  address: string;
+  
+  // Coordinates (for mapping)
+  latitude: number;
+  longitude: number;
+}
+
 interface LocationSelectionProps {
-  selectedLocation: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    formattedAddress?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-  } | null;
-  onLocationSelect: (location: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    formattedAddress?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-  }) => void;
+  selectedLocation: LocationData | null;
+  onLocationSelect: (location: LocationData) => void;
 }
 
 export default function LocationSelection({
@@ -65,60 +56,60 @@ export default function LocationSelection({
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [rawAddress, setRawAddress] = useState('');
-  const [formattedAddress, setFormattedAddress] = useState('');
-  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  
+  // Location text state
+  const [manualLocationText, setManualLocationText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // UI states
   const [loading, setLoading] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(15); // Used for neighborhood detection
-
-  // Request location permissions and get current location
+  
+  // Initialize with existing data if available
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        setLocationPermission(status === 'granted');
-        
-        if (status === 'granted') {
-          await getCurrentLocation();
-        } else {
-          setLocationError('Location permission not granted');
-          // Set default location if permission not granted
-          if (selectedLocation) {
-            setMarkerPosition({
-              latitude: selectedLocation.latitude,
-              longitude: selectedLocation.longitude,
-            });
-            setRegion({
-              latitude: selectedLocation.latitude,
-              longitude: selectedLocation.longitude,
-              latitudeDelta: LATITUDE_DELTA,
-              longitudeDelta: LONGITUDE_DELTA,
-            });
-            setRawAddress(selectedLocation.address);
-            setFormattedAddress(selectedLocation.formattedAddress || formatAddressFromRaw(selectedLocation.address));
-          }
-        }
-      } catch (error) {
-        console.error('Error getting location:', error);
-        setLocationError('Failed to get your location');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    if (selectedLocation) {
+      setMarkerPosition({
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+      });
+      
+      setRegion({
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      });
+      
+      // Initialize the manual location text from selected location
+      setManualLocationText(selectedLocation.address || '');
+    }
+    
+    // Request location permissions
+    requestLocationPermission();
   }, []);
+  
+  // Request location permission
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+      
+      if (status === 'granted' && !selectedLocation) {
+        getCurrentLocation();
+      }
+    } catch (error) {
+      console.log('Error requesting location permission:', error);
+      setLocationError('Failed to request location permission');
+    }
+  };
 
   // Get current location
   const getCurrentLocation = async () => {
     setLoading(true);
     try {
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
+        accuracy: Location.Accuracy.Balanced, // Lower accuracy to avoid errors
       });
       
       const { latitude, longitude } = location.coords;
@@ -136,134 +127,84 @@ export default function LocationSelection({
         longitude,
       });
       
-      // Reverse geocode to get address details
-      const addressDetails = await reverseGeocode(latitude, longitude);
-      setRawAddress(addressDetails.address);
-      setFormattedAddress(formatAddressFromRaw(addressDetails.address));
-      
-      // Populate the selected location
-      onLocationSelect({
-        latitude,
-        longitude,
-        address: addressDetails.address,
-        formattedAddress: formatAddressFromRaw(addressDetails.address),
-        neighborhood: addressDetails.neighborhood,
-        city: addressDetails.city,
-        state: addressDetails.state,
-        country: addressDetails.country,
-      });
+      // Try to get address information, but handle errors gracefully
+      try {
+        const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+        
+        if (reverseGeocodedAddress && reverseGeocodedAddress.length > 0) {
+          const location = reverseGeocodedAddress[0];
+          
+          // Construct location string
+          let locationString = '';
+          
+          if (location.name) {
+            locationString += location.name;
+          }
+          
+          if (location.city) {
+            if (locationString) locationString += ', ';
+            locationString += location.city;
+          }
+          
+          if (location.region) {
+            if (locationString) locationString += ', ';
+            locationString += location.region;
+          }
+          
+          if (location.country) {
+            if (locationString) locationString += ', ';
+            locationString += location.country;
+          }
+          
+          // Set the manual location text and update parent
+          setManualLocationText(locationString);
+          
+          // Update the selected location with simplified data structure
+          onLocationSelect({
+            latitude,
+            longitude,
+            address: locationString
+          });
+        } else {
+          // Fallback to coordinates
+          const coordsString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          setManualLocationText('');
+          onLocationSelect({
+            latitude,
+            longitude,
+            address: ''  // Empty string to prompt user to enter an address
+          });
+        }
+      } catch (geocodeError) {
+        console.error('Error reverse geocoding:', geocodeError);
+        
+        // If reverse geocoding fails, just use coordinates and let user edit manually
+        setManualLocationText('');
+        
+        // Update the location with coordinates only
+        onLocationSelect({
+          latitude,
+          longitude,
+          address: ''  // Empty string to prompt user to enter an address
+        });
+      }
       
     } catch (error) {
       console.error('Error getting current location:', error);
-      setLocationError('Failed to get your current location');
-      
-      // Fall back to default or selected location
-      if (selectedLocation) {
-        setMarkerPosition({
-          latitude: selectedLocation.latitude,
-          longitude: selectedLocation.longitude,
-        });
-        setRegion({
-          latitude: selectedLocation.latitude,
-          longitude: selectedLocation.longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        });
-        setRawAddress(selectedLocation.address);
-        setFormattedAddress(selectedLocation.formattedAddress || formatAddressFromRaw(selectedLocation.address));
-      }
+      setLocationError('Failed to get your current location. Please enter location manually.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Parse and format address to remove coordinates and unnecessary details
-  const formatAddressFromRaw = (address: string): string => {
-    // Remove coordinate patterns like "2W4W+79X, "
-    const withoutCoordinates = address.replace(/\b[A-Z0-9]{4}\+[A-Z0-9]{3}\b,?\s*/g, '');
-    
-    // Remove "Unnamed Road", "Unknown Location", etc.
-    const withoutUnnamed = withoutCoordinates
-      .replace(/unnamed road,?\s*/gi, '')
-      .replace(/unknown location,?\s*/gi, '');
-    
-    // Split by commas to get components
-    const components = withoutUnnamed.split(',').map(c => c.trim()).filter(Boolean);
-    
-    // If we have at least city, state/region, country
-    if (components.length >= 3) {
-      return components.slice(-3).join(', ');
-    }
-    
-    // If we have at least city, country
-    if (components.length >= 2) {
-      return components.slice(-2).join(', ');
-    }
-    
-    // Return whatever we have left
-    return withoutUnnamed;
-  };
-
-  // Reverse geocode to get address from coordinates
-  const reverseGeocode = async (latitude: number, longitude: number) => {
-    try {
-      const reverseGeocodedAddress = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-      
-      if (reverseGeocodedAddress && reverseGeocodedAddress.length > 0) {
-        const location = reverseGeocodedAddress[0];
-        const address = formatAddress(location);
-        
-        return {
-          address,
-          neighborhood: location.district || location.subregion || '',
-          city: location.city || '',
-          state: location.region || '',
-          country: location.country || '',
-        };
-      }
-      
-      return {
-        address: 'Unknown location',
-        neighborhood: '',
-        city: '',
-        state: '',
-        country: '',
-      };
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-      return {
-        address: 'Error getting address',
-        neighborhood: '',
-        city: '',
-        state: '',
-        country: '',
-      };
-    }
-  };
-
-  // Format address from location object
-  const formatAddress = (location: Location.LocationGeocodedAddress) => {
-    const parts = [
-      location.name,
-      location.street,
-      location.district,
-      location.city,
-      location.region,
-      location.country,
-    ].filter(Boolean);
-    
-    return parts.join(', ');
-  };
-
-  // Forward geocode to get coordinates from address
+  // Forward geocode (search by address)
   const searchAddress = async () => {
     if (!searchQuery.trim()) return;
     
     setLoading(true);
-    setShowSearchResults(false);
     
     try {
       const geocodedLocations = await Location.geocodeAsync(searchQuery);
@@ -284,21 +225,14 @@ export default function LocationSelection({
           longitude,
         });
         
-        // Reverse geocode to get address details
-        const addressDetails = await reverseGeocode(latitude, longitude);
-        setRawAddress(addressDetails.address);
-        setFormattedAddress(formatAddressFromRaw(addressDetails.address));
+        // Just use the search query as the location
+        setManualLocationText(searchQuery);
         
-        // Update selected location
+        // Update the selected location with simplified data
         onLocationSelect({
           latitude,
           longitude,
-          address: addressDetails.address,
-          formattedAddress: formatAddressFromRaw(addressDetails.address),
-          neighborhood: addressDetails.neighborhood,
-          city: addressDetails.city,
-          state: addressDetails.state,
-          country: addressDetails.country,
+          address: searchQuery
         });
         
         // Animate to the new region
@@ -313,7 +247,7 @@ export default function LocationSelection({
       }
     } catch (error) {
       console.error('Error searching address:', error);
-      Alert.alert('Error', 'Failed to search location');
+      Alert.alert('Error', 'Failed to search location. Please try again or enter manually.');
     } finally {
       setLoading(false);
     }
@@ -325,46 +259,12 @@ export default function LocationSelection({
     
     setMarkerPosition(coordinate);
     
-    // Reverse geocode to get address
-    const addressDetails = await reverseGeocode(
-      coordinate.latitude,
-      coordinate.longitude
-    );
-    
-    setRawAddress(addressDetails.address);
-    const processed = formatAddressFromRaw(addressDetails.address);
-    setFormattedAddress(processed);
-    
-    // Update selected location
+    // Update location with current manual text and new coordinates
     onLocationSelect({
       latitude: coordinate.latitude,
       longitude: coordinate.longitude,
-      address: addressDetails.address,
-      formattedAddress: processed,
-      neighborhood: addressDetails.neighborhood,
-      city: addressDetails.city,
-      state: addressDetails.state,
-      country: addressDetails.country,
+      address: manualLocationText
     });
-  };
-
-  // Handle region change (when user moves or zooms the map)
-  const handleRegionChange = (newRegion: Region) => {
-    setRegion(newRegion);
-    
-    // Adjust zoomLevel based on latitudeDelta
-    // Lower latitudeDelta = higher zoom
-    if (newRegion.latitudeDelta < 0.01) {
-      setZoomLevel(18); // Very close (neighborhood)
-    } else if (newRegion.latitudeDelta < 0.05) {
-      setZoomLevel(15); // Close (town/district)
-    } else if (newRegion.latitudeDelta < 0.1) {
-      setZoomLevel(12); // Medium (city)
-    } else if (newRegion.latitudeDelta < 1) {
-      setZoomLevel(8); // Far (region)
-    } else {
-      setZoomLevel(5); // Very far (country)
-    }
   };
 
   // Zoom controls
@@ -388,31 +288,16 @@ export default function LocationSelection({
     mapRef.current?.animateToRegion(newRegion);
   };
 
-  // Handle manual location edit
-  const handleEditLocation = () => {
-    setIsEditingAddress(true);
-  };
-
-  // Save edited location
-  const handleSaveLocation = () => {
-    setIsEditingAddress(false);
+  // Handle manual location changes
+  const handleLocationTextChange = (text: string) => {
+    setManualLocationText(text);
     
-    if (!formattedAddress.trim()) {
-      // Don't allow empty address
-      setFormattedAddress(formatAddressFromRaw(rawAddress));
-      return;
-    }
-    
-    // Update location with manual edit
+    // Update the selected location with the manual text
     if (markerPosition) {
       onLocationSelect({
         latitude: markerPosition.latitude,
         longitude: markerPosition.longitude,
-        address: rawAddress,
-        formattedAddress: formattedAddress,
-        city: selectedLocation?.city || '',
-        state: selectedLocation?.state || '',
-        country: selectedLocation?.country || ''
+        address: text
       });
     }
   };
@@ -421,9 +306,8 @@ export default function LocationSelection({
   const hasValidLocation = () => {
     return (
       markerPosition &&
-      formattedAddress &&
-      formattedAddress.trim() !== 'Unknown location' &&
-      formattedAddress.trim() !== 'Error getting address'
+      manualLocationText &&
+      manualLocationText.trim() !== ''
     );
   };
 
@@ -437,7 +321,7 @@ export default function LocationSelection({
       <View style={styles.header}>
         <Text style={styles.headerText}>Where do you live?</Text>
         <Text style={styles.subText}>
-          Only the neighborhood name will appear on your profile.
+          Enter your address to help us find matches nearby
         </Text>
       </View>
 
@@ -448,15 +332,13 @@ export default function LocationSelection({
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Enter your city, neighborhood, or area"
+            placeholder="Search for your location"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={searchAddress}
             returnKeyType="search"
             clearButtonMode="while-editing"
             autoCorrect={false}
-            onFocus={() => setShowSearchResults(true)}
-            onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
@@ -492,7 +374,7 @@ export default function LocationSelection({
             provider={PROVIDER_GOOGLE}
             style={styles.map}
             region={region}
-            onRegionChangeComplete={handleRegionChange}
+            onRegionChangeComplete={setRegion}
             onPress={handleMapPress}
             showsUserLocation={locationPermission}
             showsMyLocationButton={false}
@@ -502,7 +384,7 @@ export default function LocationSelection({
               <Marker
                 coordinate={markerPosition}
                 title="Selected Location"
-                description={formattedAddress}
+                description={manualLocationText}
                 pinColor="#FF6B6B"
               />
             )}
@@ -526,7 +408,7 @@ export default function LocationSelection({
             <Ionicons name="locate" size={24} color="#333" />
           </TouchableOpacity>
           
-          {/* Zoom Info Overlay */}
+          {/* Info Overlay */}
           <View style={styles.zoomInfoContainer}>
             <View style={styles.zoomInfoContent}>
               <Ionicons name="information-circle" size={20} color="#fff" />
@@ -538,51 +420,38 @@ export default function LocationSelection({
         </View>
       )}
 
-      {/* Address Display & Edit */}
+      {/* Location Display & Edit */}
       <View style={styles.addressContainer}>
-        {formattedAddress ? (
-          <>
-            <View style={styles.addressHeader}>
-              <Text style={styles.addressLabel}>Your location:</Text>
-              {!isEditingAddress ? (
-                <TouchableOpacity onPress={handleEditLocation}>
-                  <Text style={styles.editButton}>Edit</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={handleSaveLocation}>
-                  <Text style={styles.saveButton}>Save</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            {isEditingAddress ? (
-              <TextInput
-                style={styles.addressInput}
-                value={formattedAddress}
-                onChangeText={setFormattedAddress}
-                autoFocus={true}
-                onBlur={handleSaveLocation}
-                onSubmitEditing={handleSaveLocation}
-              />
-            ) : (
-              <Text style={styles.addressText}>{formattedAddress}</Text>
-            )}
-          </>
-        ) : locationError ? (
+        <View style={styles.addressHeader}>
+          <Text style={styles.addressLabel}>Your address:</Text>
+        </View>
+        
+        <TextInput
+          style={styles.addressInput}
+          value={manualLocationText}
+          onChangeText={handleLocationTextChange}
+          placeholder="Enter your address (e.g. 16 Nung Akpa Ime, Uyo)"
+          placeholderTextColor="#999"
+        />
+        
+        {locationError && (
           <Text style={styles.errorText}>{locationError}</Text>
-        ) : (
-          <Text style={styles.promptText}>
-            Tap on the map to select your location
-          </Text>
         )}
+      </View>
+      
+      {/* Helper Text */}
+      <View style={styles.infoContainer}>
+        <Ionicons name="information-circle-outline" size={20} color="#555" />
+        <Text style={styles.infoText}>
+          Please enter your complete address including street, number, and city. You can edit it manually to ensure accuracy.
+        </Text>
       </View>
       
       {/* Bottom Information */}
       <View style={styles.infoContainer}>
         <Ionicons name="shield-checkmark" size={20} color="#555" />
         <Text style={styles.infoText}>
-          We use your location to help you find matches nearby.
-          Only your neighborhood will be shown on your profile.
+          Your exact address won't be shown to other users. We use it only for matching and distance calculations.
         </Text>
       </View>
     </ScrollView>
@@ -733,27 +602,11 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B6B',
   },
   addressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
   addressLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  editButton: {
-    color: '#FF6B6B',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  saveButton: {
-    color: '#4CAF50',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  addressText: {
     fontSize: 16,
+    fontWeight: '500',
     color: '#333',
   },
   addressInput: {
@@ -762,16 +615,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 4,
-    padding: 8,
+    padding: 10,
+    backgroundColor: '#FAFAFA',
   },
   errorText: {
     color: '#FF3B30',
     fontSize: 14,
-  },
-  promptText: {
-    color: '#666',
-    fontStyle: 'italic',
-    fontSize: 14,
+    marginTop: 5,
   },
   infoContainer: {
     flexDirection: 'row',
@@ -779,6 +629,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 10,
+    marginBottom: 15,
   },
   infoText: {
     flex: 1,
