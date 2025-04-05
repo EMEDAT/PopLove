@@ -31,13 +31,29 @@
           }
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow PopLove to use your location to find matches near you."
+        }
+      ]
     ],
     "android": {
       "jsEngine": "jsc",
       "package": "com.yourname.poplove",
       "googleServicesFile": "./android/app/google-services.json",
-      "icon": "./assets/images/poploveicon.png"
+      "icon": "./assets/images/poploveicon.png",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE"
+      ]
     },
     "ios": {
       "jsEngine": "jsc",
@@ -45,11 +61,16 @@
       "appleTeamId": "9827BF3HWC",
       "icon": "./assets/images/poploveicon.png",
       "googleServicesFile": "./ios/poplove/GoogleService-Info.plist",
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+      },
       "infoPlist": {
         "UIBackgroundModes": ["fetch"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSLocationWhenInUseUsageDescription": "Allow PopLove to use your location to find matches near you.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow PopLove to use your location to find matches near you."
       }
     },
     "extra": {

@@ -32,7 +32,7 @@ import SubscriptionPlan from '../../components/onboarding/SubscriptionPlan';
 import Welcome from '../../components/onboarding/Welcome';
 import ProgressBar from '../../components/onboarding/ProgressBar';
 import OnboardingNavigation from '../../components/onboarding/OnboardingNavigation';
-import { LocationSelectionModal } from '../../components/onboarding/LocationSelectionModal';
+import LocationSelection from '../../components/onboarding/LocationSelection';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
@@ -89,7 +89,15 @@ export default function OnboardingFlow() {
       { question: 'My most irrational fear?', answer: '' },
       { question: 'Dating me is like?', answer: '' }
     ],
-    subscriptionPlan: 'basic'
+    subscriptionPlan: 'basic',
+    locationCoordinates: null as {
+      latitude: number;
+      longitude: number;
+      address: string;
+      neighborhood?: string;
+      city?: string;
+      country?: string;
+    } | null,
   });
 
   // Load saved onboarding progress
@@ -217,7 +225,15 @@ export default function OnboardingFlow() {
     dealBreaker: boolean;
     prompts: Array<{question: string; answer: string}>;
     subscriptionPlan: string;
-    [key: string]: any; // For any other fields
+    [key: string]: any;
+    locationCoordinates?: {
+      latitude: number;
+      longitude: number;
+      address: string;
+      neighborhood?: string;
+      city?: string;
+      country?: string;
+    };
   }
 
   const handleNext = async () => {
@@ -547,14 +563,19 @@ export default function OnboardingFlow() {
         );
         case 'location':
           return (
-            <LocationSelectionModal 
-              visible={true} // or use state to control this
-              onClose={() => {/* handle closing behavior */}}
-              initialLocation={profileData.location}
-              onSelectLocation={(selectedLocation) => {
-                updateProfile('location', selectedLocation);
+            <LocationSelection
+              selectedLocation={profileData.locationCoordinates || null}
+              onLocationSelect={(location) => {
+                updateProfile('locationCoordinates', {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  address: location.address,
+                  neighborhood: location.neighborhood,
+                  city: location.city,
+                  country: location.country,
+                });
+                updateProfile('location', location.neighborhood || location.city || location.address);
               }}
-              fullScreen={true}
             />
           );
         case 'height':
