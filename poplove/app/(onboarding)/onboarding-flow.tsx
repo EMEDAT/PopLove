@@ -32,7 +32,7 @@ import SubscriptionPlan from '../../components/onboarding/SubscriptionPlan';
 import Welcome from '../../components/onboarding/Welcome';
 import ProgressBar from '../../components/onboarding/ProgressBar';
 import OnboardingNavigation from '../../components/onboarding/OnboardingNavigation';
-import LocationSelectionModal from '../../components/onboarding/LocationSelectionModal';
+import { LocationSelectionModal } from '../../components/onboarding/LocationSelectionModal';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
@@ -548,6 +548,8 @@ export default function OnboardingFlow() {
         case 'location':
           return (
             <LocationSelectionModal 
+              visible={true} // or use state to control this
+              onClose={() => {/* handle closing behavior */}}
               initialLocation={profileData.location}
               onSelectLocation={(selectedLocation) => {
                 updateProfile('location', selectedLocation);

@@ -29,6 +29,8 @@ interface LocationSelectionModalProps {
     city?: string;
     customLocation?: string;
   }) => void;
+  initialLocation?: string; // Add this
+  fullScreen?: boolean; // Add this
 }
 
 export function LocationSelectionModal({ 
