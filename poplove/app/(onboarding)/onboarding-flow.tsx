@@ -468,10 +468,13 @@ export default function OnboardingFlow() {
     
     let title = '';
     
-    switch (step) {
-      case 'profile':
-        title = 'Set up your Profile';
-        break;
+    if (step === 'gender' && profileData.showingSexualitySubpage) {
+      title = 'Sexuality';
+    } else {
+      switch (step) {
+        case 'profile':
+          title = 'Set up your Profile';
+          break;
       case 'gender':
         title = 'Gender';
         break;
@@ -503,12 +506,13 @@ export default function OnboardingFlow() {
         title = 'Prompts';
         break;
     }
+  }
     
     return (
       <View style={styles.header}>
-        {currentStep > 0 && (
+        {(currentStep > 0 || profileData.showingSexualitySubpage) && (
           <TouchableOpacity 
-            onPress={handleBack}
+            onPress={profileData.showingSexualitySubpage ? () => updateProfile('showingSexualitySubpage', false) : handleBack}
             style={styles.backButton}
           >
             <Ionicons name="chevron-back" size={24} color="#000" />

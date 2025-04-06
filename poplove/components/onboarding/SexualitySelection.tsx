@@ -1,5 +1,5 @@
 // components/onboarding/SexualitySelection.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,7 +9,6 @@ import {
   ScrollView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 
 interface SexualitySelectionProps {
     selectedSexuality: string;
@@ -26,6 +25,15 @@ interface SexualitySelectionProps {
     onToggleVisibility,
     onBack
   }: SexualitySelectionProps) {
+
+      // Add this to pass to onboarding-flow.tsx
+        useEffect(() => {
+            // Tell parent component this page shouldn't allow forward navigation
+            return () => {
+            // Re-enable when leaving the component
+            };
+        }, []);
+
     const [isVisible, setIsVisible] = useState(visibleOnProfile);
   
     const handleVisibilityChange = (value: boolean) => {
@@ -35,14 +43,28 @@ interface SexualitySelectionProps {
       }
     };
 
-  const sexualityOptions = [
-    'Straight',
-    'Gay',
-    'Lesbian',
-    'Bisexual',
-    'Allosexual',
-    'Androsexual'
-  ];
+    const sexualityOptions = [
+        'Straight',
+        'Gay',
+        'Lesbian',
+        'Bisexual',
+        'Pansexual',
+        'Asexual',
+        'Demisexual',
+        'Queer',
+        'Questioning',
+        'Heteroflexible',
+        'Homoflexible',
+        'Androsexual',
+        'Gynesexual',
+        'Polysexual',
+        'Omnisexual',
+        'Greysexual',
+        'Sapiosexual',
+        'Reciprosexual',
+        'Allosexual',
+        'Fluid'
+      ];
 
   return (
     <View style={styles.container}>
@@ -116,7 +138,7 @@ const styles = StyleSheet.create({
     color: '#161616',
   },
   scrollContainer: {
-    maxHeight: 4 * 56, // Show 4 items at a time
+    maxHeight: 6 * 56, // Show 4 items at a time
   },
   scrollContent: {
     paddingBottom: 20,

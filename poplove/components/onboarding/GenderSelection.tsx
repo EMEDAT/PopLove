@@ -4,7 +4,8 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
@@ -193,6 +194,18 @@ export default function GenderSelection({
           <Ionicons name="eye-outline" size={20} color="#333" />
           <Text style={styles.visibilityText}>Always visible on profile</Text>
         </TouchableOpacity>
+
+        <View style={styles.infoTextContainer}>
+          <Text style={styles.infoText}>
+            <Text style={styles.linkText} onPress={() => Alert.alert(
+                  "Gender Recommendations",
+                  "We use gender to help match you with people based on your preferences. This information is used in our matching algorithm but always respects your privacy settings."
+                )}>
+              Learn more
+            </Text>
+            <Text> about how we use gender to recommend people </Text>
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -280,8 +293,8 @@ const styles = StyleSheet.create({
   visibilityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 40,
-    paddingVertical: 10,
+    marginTop: 30,
+    paddingVertical: 5,
     borderTopWidth: 1,
     borderColor: '#eee',
   },
@@ -290,4 +303,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderColor: '#eee',
+  },
+  infoTextContainer: {
+    marginTop: 10,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  linkText: {
+    color: '#8E44AD',
+    textDecorationLine: 'none',
+  }
 });
