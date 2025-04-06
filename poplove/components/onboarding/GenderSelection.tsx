@@ -20,6 +20,7 @@ interface GenderSelectionProps {
   onSelectSexuality?: (sexuality: string) => void;
   sexualityVisible?: boolean;
   onToggleSexualityVisibility?: (visible: boolean) => void;
+  onShowSexuality?: () => void;  // Added this line
 }
 
 export default function GenderSelection({ 

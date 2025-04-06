@@ -19,6 +19,7 @@ import { firestore, serverTimestamp } from '../../lib/firebase';
 // Import the onboarding components
 import ProfileSetup from '../../components/onboarding/ProfileSetup'; 
 import GenderSelection from '../../components/onboarding/GenderSelection';
+import SexualitySelection from '../../components/onboarding/SexualitySelection';
 import AgeSelection from '../../components/onboarding/AgeSelection';
 import DateOfBirthSelection from '../../components/onboarding/DateOfBirthSelection';
 import PronounsSelection from '../../components/onboarding/PronounsSelection';

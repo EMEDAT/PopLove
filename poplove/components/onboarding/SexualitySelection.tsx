@@ -12,28 +12,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface SexualitySelectionProps {
-  selectedSexuality: string;
-  onSelectSexuality: (sexuality: string) => void;
-  visibleOnProfile?: boolean;
-  onToggleVisibility?: (visible: boolean) => void;
-  onBack: () => void;
-}
+    selectedSexuality: string;
+    onSelectSexuality: (sexuality: string) => void;
+    visibleOnProfile?: boolean;
+    onToggleVisibility?: (visible: boolean) => void;
+    onBack: () => void;
+  }
 
-export default function SexualitySelection({ 
-  selectedSexuality,
-  onSelectSexuality,
-  visibleOnProfile = true,
-  onToggleVisibility,
-  onBack
-}: SexualitySelectionProps) {
-  const [isVisible, setIsVisible] = useState(visibleOnProfile);
-
-  const handleVisibilityChange = (value: boolean) => {
-    setIsVisible(value);
-    if (onToggleVisibility) {
-      onToggleVisibility(value);
-    }
-  };
+  export default function SexualitySelection({ 
+    selectedSexuality,
+    onSelectSexuality,
+    visibleOnProfile = true,
+    onToggleVisibility,
+    onBack
+  }: SexualitySelectionProps) {
+    const [isVisible, setIsVisible] = useState(visibleOnProfile);
+  
+    const handleVisibilityChange = (value: boolean) => {
+      setIsVisible(value);
+      if (onToggleVisibility) {
+        onToggleVisibility(value);
+      }
+    };
 
   const sexualityOptions = [
     'Straight',
@@ -46,12 +46,7 @@ export default function SexualitySelection({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>What's your sexuality?</Text>
-      </View>
+      <Text style={styles.headerTitle}>What's your sexuality?</Text>
       
       <ScrollView 
         style={styles.scrollContainer}
