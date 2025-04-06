@@ -160,6 +160,7 @@ export default function PronounsSelection({
           value={isVisible}
           onValueChange={handleVisibilityChange}
           trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
         />
       </View>
       
