@@ -1,25 +1,37 @@
 // components/onboarding/GenderSelection.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity,
-  Alert
+  TouchableOpacity
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { Ionicons } from '@expo/vector-icons';
+import SexualitySelection from './SexualitySelection';
 
 interface GenderSelectionProps {
   selectedGender: string;
   onSelectGender: (gender: string) => void;
+  sexuality?: string;
+  onSelectSexuality?: (sexuality: string) => void;
+  sexualityVisible?: boolean;
+  onToggleSexualityVisibility?: (visible: boolean) => void;
 }
 
-export default function GenderSelection({ selectedGender, onSelectGender }: GenderSelectionProps) {
+export default function GenderSelection({ 
+  selectedGender, 
+  onSelectGender,
+  sexuality = '',
+  onSelectSexuality = () => {},
+  sexualityVisible = true,
+  onToggleSexualityVisibility = () => {}
+}: GenderSelectionProps) {
   const { user } = useAuthContext();
+  const [showSexualityPage, setShowSexualityPage] = useState(false);
   
   const handleSelectGender = (gender: string) => {
     console.log(`Gender selected: ${gender}`);
@@ -38,95 +50,148 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
     onSelectGender(gender);
   };
 
+  const navigateToSexuality = () => {
+    setShowSexualityPage(true);
+  };
+
+  const handleBackFromSexuality = () => {
+    setShowSexualityPage(false);
+  };
+
+  // If sexuality page is shown, render it
+  if (showSexualityPage) {
+    return (
+      <SexualitySelection
+        selectedSexuality={sexuality}
+        onSelectSexuality={onSelectSexuality}
+        visibleOnProfile={sexualityVisible}
+        onToggleVisibility={onToggleSexualityVisibility}
+        onBack={handleBackFromSexuality}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Which gender best describes you?</Text>
       <Text style={styles.subtitle}>
-      We match daters using 3 broad gender groups.
-      You can add more about your gender later.
+        We match daters using 3 broad gender groups.
+        You can add more about your gender later.
       </Text>
       
       <View style={styles.optionsContainer}>
-        <TouchableOpacity
-          onPress={() => handleSelectGender('male')}
-          style={[
-            styles.optionButton,
-            selectedGender === 'male' && styles.selectedOptionButton
-          ]}
-          testID="male-option"
-        >
-          <Text style={styles.optionText}>Male</Text>
-          <View style={[
-            styles.radioCircle,
-            selectedGender === 'male' && styles.selectedRadioCircle
-          ]}>
-            {selectedGender === 'male' && (
-              <LinearGradient
-                colors={['#EC5F61', '#F0B433']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientDot}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity
+            onPress={() => handleSelectGender('male')}
+            style={[
+              styles.optionButton,
+              selectedGender === 'male' && styles.selectedOptionButton
+            ]}
+            testID="male-option"
+          >
+            <Text style={styles.optionText}>Man</Text>
+            <View style={[
+              styles.radioCircle,
+              selectedGender === 'male' && styles.selectedRadioCircle
+            ]}>
+              {selectedGender === 'male' && (
+                <LinearGradient
+                  colors={['#EC5F61', '#F0B433']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientDot}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+          {selectedGender === 'male' && (
+            <TouchableOpacity
+              onPress={navigateToSexuality}
+              style={styles.identityButton}
+              testID="identity-option-male"
+            >
+              <Text style={styles.identityText}>Add your gender identity <Text style={styles.arrowIcon}>›</Text></Text>
+            </TouchableOpacity>
+          )}
+        </View>
         
-        <TouchableOpacity
-          onPress={() => handleSelectGender('female')}
-          style={[
-            styles.optionButton,
-            selectedGender === 'female' && styles.selectedOptionButton
-          ]}
-          testID="female-option"
-        >
-          <Text style={styles.optionText}>Female</Text>
-          <View style={[
-            styles.radioCircle,
-            selectedGender === 'female' && styles.selectedRadioCircle
-          ]}>
-            {selectedGender === 'female' && (
-              <LinearGradient
-                colors={['#EC5F61', '#F0B433']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientDot}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity
+            onPress={() => handleSelectGender('female')}
+            style={[
+              styles.optionButton,
+              selectedGender === 'female' && styles.selectedOptionButton
+            ]}
+            testID="female-option"
+          >
+            <Text style={styles.optionText}>Woman</Text>
+            <View style={[
+              styles.radioCircle,
+              selectedGender === 'female' && styles.selectedRadioCircle
+            ]}>
+              {selectedGender === 'female' && (
+                <LinearGradient
+                  colors={['#EC5F61', '#F0B433']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientDot}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+          {selectedGender === 'female' && (
+            <TouchableOpacity
+              onPress={navigateToSexuality}
+              style={styles.identityButton}
+              testID="identity-option-female"
+            >
+              <Text style={styles.identityText}>Add your gender identity <Text style={styles.arrowIcon}>›</Text></Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <TouchableOpacity
-          onPress={() => handleSelectGender('non-binary')}
-          style={[
-            styles.optionButton,
-            selectedGender === 'non-binary' && styles.selectedOptionButton
-          ]}
-          testID="non-binary-option"
-        >
-          <Text style={styles.optionText}>Non-binary</Text>
-          <View style={[
-            styles.radioCircle,
-            selectedGender === 'non-binary' && styles.selectedRadioCircle
-          ]}>
-            {selectedGender === 'non-binary' && (
-              <LinearGradient
-                colors={['#EC5F61', '#F0B433']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientDot}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity
+            onPress={() => handleSelectGender('non-binary')}
+            style={[
+              styles.optionButton,
+              selectedGender === 'non-binary' && styles.selectedOptionButton
+            ]}
+            testID="non-binary-option"
+          >
+            <Text style={styles.optionText}>Nonbinary</Text>
+            <View style={[
+              styles.radioCircle,
+              selectedGender === 'non-binary' && styles.selectedRadioCircle
+            ]}>
+              {selectedGender === 'non-binary' && (
+                <LinearGradient
+                  colors={['#EC5F61', '#F0B433']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientDot}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+          {selectedGender === 'non-binary' && (
+            <TouchableOpacity
+              onPress={navigateToSexuality}
+              style={styles.identityButton}
+              testID="identity-option-nonbinary"
+            >
+              <Text style={styles.identityText}>Add your gender identity <Text style={styles.arrowIcon}>›</Text></Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <TouchableOpacity 
-  style={styles.visibilityRow}
-  activeOpacity={0.7}
->
-  <Ionicons name="eye-outline" size={20} color="#333" />
-  <Text style={styles.visibilityText}>Always visible on profile</Text>
-</TouchableOpacity>
-
+          style={styles.visibilityRow}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="eye-outline" size={20} color="#333" />
+          <Text style={styles.visibilityText}>Always visible on profile</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -192,10 +257,29 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
+  identityButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FF6B6B',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    marginTop: -20,
+  },
+  identityText: {
+    fontSize: 14,
+    color: '#8E44AD',
+    fontWeight: '500',
+  },
+  arrowIcon: {
+    fontSize: 18,
+  },
   visibilityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 100,
+    marginTop: 40,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderColor: '#eee',

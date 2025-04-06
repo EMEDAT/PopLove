@@ -72,12 +72,15 @@ export default function OnboardingFlow() {
       ? user.displayName.split(' ').slice(1).join(' ') 
       : '',
     gender: '',
+    sexuality: '',          
+    sexualityVisible: true, 
+    showingSexualitySubpage: false,
     pronouns: '',
     pronounsVisible: true,
     ageRange: '',
     age: '',
     ageConfirmed: false,
-    birthDate: null as Date | null, // Add this line
+    birthDate: null as Date | null, 
     height: '',
     ethnicity: '',
     ethnicityVisible: true, 
@@ -410,6 +413,10 @@ export default function OnboardingFlow() {
 
   const isCurrentStepValid = () => {
     const step = STEPS[currentStep];
+
+    if (step === 'gender' && profileData.showingSexualitySubpage) {
+      return false;
+    }
     
     switch (step) {
       case 'profile':
@@ -533,16 +540,34 @@ export default function OnboardingFlow() {
           onNext={handleNext}
         />
         );
-      case 'gender':
-        return (
-          <GenderSelection 
-            selectedGender={profileData.gender}
-            onSelectGender={(gender) => {
-              console.log('Gender selected:', gender);
-              updateProfile('gender', gender);
-            }}
-          />
-        );
+        case 'gender':
+          if (profileData.showingSexualitySubpage) {
+            // Render sexuality selection as a subpage
+            return (
+              <SexualitySelection 
+                selectedSexuality={profileData.sexuality}
+                onSelectSexuality={(sexuality) => updateProfile('sexuality', sexuality)}
+                visibleOnProfile={profileData.sexualityVisible}
+                onToggleVisibility={(visible) => updateProfile('sexualityVisible', visible)}
+                onBack={() => updateProfile('showingSexualitySubpage', false)}
+              />
+            );
+          }
+          
+          return (
+            <GenderSelection 
+              selectedGender={profileData.gender}
+              onSelectGender={(gender) => {
+                console.log('Gender selected:', gender);
+                updateProfile('gender', gender);
+              }}
+              sexuality={profileData.sexuality}
+              onSelectSexuality={(sexuality) => updateProfile('sexuality', sexuality)}
+              sexualityVisible={profileData.sexualityVisible}
+              onToggleSexualityVisibility={(visible) => updateProfile('sexualityVisible', visible)}
+              onShowSexuality={() => updateProfile('showingSexualitySubpage', true)}
+            />
+          );
         case 'pronouns':
           return (
             <PronounsSelection 
