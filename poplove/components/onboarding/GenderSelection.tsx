@@ -4,12 +4,14 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
+import { Ionicons } from '@expo/vector-icons';
 
 interface GenderSelectionProps {
   selectedGender: string;
@@ -40,8 +42,8 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
     <View style={styles.container}>
       <Text style={styles.title}>Which gender best describes you?</Text>
       <Text style={styles.subtitle}>
-        We match daters using gender groups.
-        You can add more about your gender later.
+      We match daters using 3 broad gender groups.
+      You can add more about your gender later.
       </Text>
       
       <View style={styles.optionsContainer}>
@@ -92,6 +94,39 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
             )}
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => handleSelectGender('non-binary')}
+          style={[
+            styles.optionButton,
+            selectedGender === 'non-binary' && styles.selectedOptionButton
+          ]}
+          testID="non-binary-option"
+        >
+          <Text style={styles.optionText}>Non-binary</Text>
+          <View style={[
+            styles.radioCircle,
+            selectedGender === 'non-binary' && styles.selectedRadioCircle
+          ]}>
+            {selectedGender === 'non-binary' && (
+              <LinearGradient
+                colors={['#EC5F61', '#F0B433']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientDot}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+  style={styles.visibilityRow}
+  activeOpacity={0.7}
+>
+  <Ionicons name="eye-outline" size={20} color="#333" />
+  <Text style={styles.visibilityText}>Always visible on profile</Text>
+</TouchableOpacity>
+
       </View>
     </View>
   );
@@ -156,5 +191,18 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-  }
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 100,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderColor: '#eee',
+  },
+  visibilityText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#333',
+  },
 });

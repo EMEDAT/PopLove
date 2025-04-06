@@ -611,7 +611,7 @@ export default function OnboardingFlow() {
                 selectedEthnicity={profileData.ethnicity}
                 onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
                 visibleOnProfile={profileData.ethnicityVisible}
-                onVisibilityChange={(visible) => updateProfile('ethnicityVisible', visible)}
+                onToggleVisibility={(visible) => updateProfile('ethnicityVisible', visible)}
               />
             );
         case 'children':

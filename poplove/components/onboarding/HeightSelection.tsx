@@ -480,6 +480,7 @@ const styles = StyleSheet.create({
   visibilityRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 30,
   },
   visibilityText: {
     marginLeft: 8,
@@ -513,6 +514,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000',
     borderRadius: 20,
+    marginBottom: 100,
     overflow: 'hidden',
   },
   unitToggleButton: {
