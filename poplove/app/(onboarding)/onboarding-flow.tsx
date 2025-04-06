@@ -91,6 +91,7 @@ export default function OnboardingFlow() {
     ethnicityVisible: true, 
     hasChildren: '',
     lifestyle: [] as string[],
+    lifestyleVisible: true,  
     interests: [] as string[],
     dealBreaker: false,
     prompts: [
@@ -354,6 +355,7 @@ export default function OnboardingFlow() {
             ethnicity: profileData.ethnicity,
             hasChildren: profileData.hasChildren,
             lifestyle: profileData.lifestyle,
+            lifestyleVisible: profileData.lifestyleVisible !== false,
             interests: profileData.interests,
             dealBreaker: Boolean(profileData.dealBreaker),
             prompts: profileData.prompts,
@@ -676,6 +678,8 @@ export default function OnboardingFlow() {
           <ExpectationsLifestyle 
             selectedLifestyle={profileData.lifestyle}
             onUpdateLifestyle={(lifestyle) => updateProfile('lifestyle', lifestyle)}
+            visibleOnProfile={profileData.lifestyleVisible}
+            onToggleVisibility={(visible) => updateProfile('lifestyleVisible', visible)}
           />
         );
       case 'interests':
