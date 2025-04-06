@@ -159,7 +159,7 @@ export default function PronounsSelection({
         <Switch 
           value={isVisible}
           onValueChange={handleVisibilityChange}
-          trackColor={{ false: '#E5E5E5', true: '#710014' }}
+          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
         />
       </View>
       

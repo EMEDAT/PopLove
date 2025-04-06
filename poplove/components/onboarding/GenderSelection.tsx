@@ -1,11 +1,10 @@
-// Updated components/onboarding/GenderSelection.tsx 
+// components/onboarding/GenderSelection.tsx
 import React from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity,
-  Alert
+  TouchableOpacity
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
@@ -16,8 +15,10 @@ interface GenderSelectionProps {
   selectedGender: string;
   onSelectGender: (gender: string) => void;
 }
+
 export default function GenderSelection({ selectedGender, onSelectGender }: GenderSelectionProps) {
   const { user } = useAuthContext();
+  
   const handleSelectGender = (gender: string) => {
     console.log(`Gender selected: ${gender}`);
     
@@ -37,47 +38,59 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select your Gender</Text>
+      <Text style={styles.title}>Which gender best describes you?</Text>
+      <Text style={styles.subtitle}>
+        We match daters using gender groups.
+        You can add more about your gender later.
+      </Text>
       
       <View style={styles.optionsContainer}>
         <TouchableOpacity
           onPress={() => handleSelectGender('male')}
-          style={styles.optionButton}
+          style={[
+            styles.optionButton,
+            selectedGender === 'male' && styles.selectedOptionButton
+          ]}
           testID="male-option"
         >
-          <LinearGradient
-            colors={selectedGender === 'male' ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            <Text style={[
-              styles.optionText,
-              selectedGender === 'male' && styles.selectedOptionText
-            ]}>
-              Male
-            </Text>
-          </LinearGradient>
+          <Text style={styles.optionText}>Male</Text>
+          <View style={[
+            styles.radioCircle,
+            selectedGender === 'male' && styles.selectedRadioCircle
+          ]}>
+            {selectedGender === 'male' && (
+              <LinearGradient
+                colors={['#EC5F61', '#F0B433']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientDot}
+              />
+            )}
+          </View>
         </TouchableOpacity>
         
         <TouchableOpacity
           onPress={() => handleSelectGender('female')}
-          style={styles.optionButton}
+          style={[
+            styles.optionButton,
+            selectedGender === 'female' && styles.selectedOptionButton
+          ]}
           testID="female-option"
         >
-          <LinearGradient
-            colors={selectedGender === 'female' ? ['#EC5F61', '#F0B433'] : ['#E5E5E5', '#E5E5E5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            <Text style={[
-              styles.optionText,
-              selectedGender === 'female' && styles.selectedOptionText
-            ]}>
-              Female
-            </Text>
-          </LinearGradient>
+          <Text style={styles.optionText}>Female</Text>
+          <View style={[
+            styles.radioCircle,
+            selectedGender === 'female' && styles.selectedRadioCircle
+          ]}>
+            {selectedGender === 'female' && (
+              <LinearGradient
+                colors={['#EC5F61', '#F0B433']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientDot}
+              />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -87,38 +100,61 @@ export default function GenderSelection({ selectedGender, onSelectGender }: Gend
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     backgroundColor: '#F2F1ED',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginTop: 20,
-    marginBottom: 30,
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#161616',
+    lineHeight: 36,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#595959',
+    marginBottom: 40,
+    lineHeight: 22,
   },
   optionsContainer: {
     width: '100%',
     gap: 16,
   },
   optionButton: {
-    width: '100%',
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFAFA',
   },
-  gradientButton: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 20,
+  selectedOptionButton: {
+    borderColor: '#FF6B6B',
+    backgroundColor: '#FFF5F5',
   },
   optionText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '500',
-    color: '#333',
+    color: '#333333',
   },
-  selectedOptionText: {
-    color: 'white',
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#D0D0D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedRadioCircle: {
+    borderColor: '#FF6B6B',
+  },
+  gradientDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   }
 });

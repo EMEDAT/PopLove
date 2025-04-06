@@ -269,8 +269,7 @@ export default function LocationSelection({
           updateLocationData(
             latitude, 
             longitude, 
-            addressToUse, 
-            null, // Placeholder for neighborhood (not used)
+            addressToUse,
             locationData.city || "Uyo", 
             locationData.region || "Akwa Ibom", 
             locationData.country || "Nigeria"
@@ -284,8 +283,7 @@ export default function LocationSelection({
           // Call with default values for Uyo
           updateLocationData(
             latitude, longitude, 
-            defaultAddress, 
-            null, // Placeholder for neighborhood (not used) 
+            defaultAddress,
             "Uyo", 
             "Akwa Ibom", 
             "Nigeria"
@@ -302,8 +300,7 @@ export default function LocationSelection({
         // Call with default values
         updateLocationData(
           latitude, longitude, 
-          defaultAddress, 
-          null, 
+          defaultAddress,
           "Uyo", 
           "Akwa Ibom", 
           "Nigeria"
@@ -335,8 +332,7 @@ export default function LocationSelection({
       // Update with default values
       updateLocationData(
         defaultLat, defaultLng, 
-        defaultAddress, 
-        null, // Placeholder for neighborhood (not used)
+        defaultAddress,
         "Uyo", 
         "Akwa Ibom", 
         "Nigeria"
@@ -401,7 +397,6 @@ export default function LocationSelection({
               latitude, 
               longitude, 
               searchQuery, 
-              locationData.district || null, 
               locationData.city || null, 
               locationData.region || null, 
               locationData.country || null
@@ -412,7 +407,7 @@ export default function LocationSelection({
             setCityCountryAddress(searchQuery);
             
             // Call with null values for geodata
-            updateLocationData(latitude, longitude, searchQuery, null, null, null, null);
+            updateLocationData(latitude, longitude, searchQuery, null, null, null);
           }
         } catch (reverseError) {
           // Use search query for both exact and city/country
@@ -420,7 +415,7 @@ export default function LocationSelection({
           setCityCountryAddress(searchQuery);
           
           // Call with null values for geodata
-          updateLocationData(latitude, longitude, searchQuery, null, null, null, null);
+          updateLocationData(latitude, longitude, searchQuery, null, null, null);
         }
       } else {
         Alert.alert('Location not found', 'Please try a different search term');
@@ -498,7 +493,6 @@ export default function LocationSelection({
           coordinate.latitude, 
           coordinate.longitude, 
           exactAddress || fullAddress, 
-          locationData.district || null, 
           locationData.city || null, 
           locationData.region || null, 
           locationData.country || null
@@ -519,7 +513,6 @@ export default function LocationSelection({
           exactAddress, 
           null, 
           null, 
-          null, 
           null
         );
       }
@@ -531,7 +524,6 @@ export default function LocationSelection({
         coordinate.latitude, 
         coordinate.longitude, 
         exactAddress, 
-        null, 
         null, 
         null, 
         null
@@ -563,7 +555,7 @@ export default function LocationSelection({
     // Call the parent component's callback
     onLocationSelect(locationData);
   };
-  
+
   // Zoom controls
   const zoomIn = () => {
     if (isAnimatingRef.current || !mapRef.current) return;
@@ -615,7 +607,6 @@ export default function LocationSelection({
         markerPosition.latitude, 
         markerPosition.longitude, 
         text,
-        selectedLocation?.neighborhood || null,
         selectedLocation?.city || null,
         selectedLocation?.state || null,
         selectedLocation?.country || null
@@ -633,7 +624,6 @@ export default function LocationSelection({
         markerPosition.latitude, 
         markerPosition.longitude, 
         exactAddress,
-        selectedLocation?.neighborhood || null,
         selectedLocation?.city || null,
         selectedLocation?.state || null,
         selectedLocation?.country || null

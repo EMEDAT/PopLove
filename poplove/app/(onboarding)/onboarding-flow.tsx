@@ -94,9 +94,11 @@ export default function OnboardingFlow() {
       latitude: number;
       longitude: number;
       address: string;
-      city?: string;
-      state?: string;
-      country?: string;
+      city: string | null;
+      state: string | null;
+      country: string | null;
+      formattedAddress?: string;
+      useExactAddress?: boolean;
     } | null,
   });
 
@@ -241,6 +243,11 @@ export default function OnboardingFlow() {
       // Validate current step before advancing
       if (STEPS[currentStep] === 'age' && !profileData.age) {
         Alert.alert('Missing Information', 'Please enter your age to continue');
+        return;
+      }
+
+      if (STEPS[currentStep] === 'location' && !profileData.locationCoordinates) {
+        Alert.alert('Missing Information', 'Please select your location to continue');
         return;
       }
       
@@ -411,6 +418,12 @@ export default function OnboardingFlow() {
                 !!profileData.age && 
                 !!profileData.ageRange && 
                 profileData.ageConfirmed === true;
+      case 'location':
+        // Check if we have valid location data
+        return profileData.locationCoordinates !== null && 
+                profileData.locationCoordinates.latitude !== undefined &&
+                profileData.locationCoordinates.longitude !== undefined &&
+                profileData.locationCoordinates.address !== '';
       case 'pronouns':
         return !!profileData.pronouns;
       case 'height':
@@ -452,6 +465,9 @@ export default function OnboardingFlow() {
         break;
       case 'dateOfBirth':
         title = 'Age';
+        break;
+      case 'location':
+        title = 'Location';  
         break;
       case 'pronouns':
         title = 'Pronouns';
