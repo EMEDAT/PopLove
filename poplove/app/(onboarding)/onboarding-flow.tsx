@@ -94,8 +94,8 @@ export default function OnboardingFlow() {
       latitude: number;
       longitude: number;
       address: string;
-      neighborhood?: string;
       city?: string;
+      state?: string;
       country?: string;
     } | null,
   });
@@ -563,20 +563,20 @@ export default function OnboardingFlow() {
         );
         case 'location':
           return (
-            <LocationSelection
-              selectedLocation={profileData.locationCoordinates || null}
-              onLocationSelect={(location) => {
-                updateProfile('locationCoordinates', {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  address: location.address,
-                  neighborhood: location.neighborhood,
-                  city: location.city,
-                  country: location.country,
-                });
-                updateProfile('location', location.neighborhood || location.city || location.address);
-              }}
-            />
+          <LocationSelection
+            selectedLocation={profileData.locationCoordinates}
+            onLocationSelect={(location) => {
+              updateProfile('locationCoordinates', {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                address: location.address,
+                city: location.city,
+                state: location.state,
+                country: location.country,
+              });
+              updateProfile('location', location.city || location.address);
+            }}
+          />
           );
         case 'height':
           return (

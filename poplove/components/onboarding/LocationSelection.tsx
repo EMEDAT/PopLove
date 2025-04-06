@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 
 const { width, height } = Dimensions.get('window');
@@ -26,7 +27,6 @@ interface LocationData {
   latitude: number;
   longitude: number;
   address: string;
-  neighborhood: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -544,7 +544,6 @@ export default function LocationSelection({
     latitude: number, 
     longitude: number, 
     address: string, 
-    neighborhood: string | null, 
     city: string | null, 
     state: string | null, 
     country: string | null
@@ -554,7 +553,6 @@ export default function LocationSelection({
       latitude,
       longitude,
       address: address || '',
-      neighborhood: neighborhood || null,
       city: city || null,
       state: state || null,
       country: country || null,
@@ -565,7 +563,7 @@ export default function LocationSelection({
     // Call the parent component's callback
     onLocationSelect(locationData);
   };
-
+  
   // Zoom controls
   const zoomIn = () => {
     if (isAnimatingRef.current || !mapRef.current) return;
@@ -693,11 +691,18 @@ export default function LocationSelection({
           onPress={searchAddress}
           disabled={loading || !searchQuery.trim()}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.searchButtonText}>Search</Text>
-          )}
+          <LinearGradient
+            colors={['#EC5F61', '#F0B433']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.searchButtonGradient}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.searchButtonText}>Search</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -875,12 +880,15 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   searchButton: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
     borderRadius: 8,
     minWidth: 80,
+    overflow: 'hidden', // This is important for the gradient to be contained
+  },
+  searchButtonGradient: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   searchButtonText: {
     color: 'white',
