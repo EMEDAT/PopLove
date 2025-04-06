@@ -1,10 +1,10 @@
-// components/onboarding/EthnicitySelection.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
+  Switch,
   ScrollView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,106 +12,203 @@ import { LinearGradient } from 'expo-linear-gradient';
 interface EthnicitySelectionProps {
   selectedEthnicity: string;
   onSelectEthnicity: (ethnicity: string) => void;
+  onVisibilityChange?: (isVisible: boolean) => void;
 }
 
-export default function EthnicitySelection({ selectedEthnicity, onSelectEthnicity }: EthnicitySelectionProps) {
-  // Ethnicity options
+export default function EthnicitySelection({ 
+  selectedEthnicity, 
+  onSelectEthnicity,
+  onVisibilityChange 
+}: EthnicitySelectionProps) {
+
+  const [isVisible, setIsVisible] = useState(true);
+
   const ethnicityOptions = [
-    'Asian',
-    'Black/African',
-    'Caucasian/White',
+    'African American',
+    'African',
+    'Black/African Descent',
+    'Afro-Latino',
+    'East Asian',
+    'Chinese',
+    'Japanese',
+    'Korean',
+    'Taiwanese',
+    'Vietnamese',
+    'Filipino',
+    'Southeast Asian',
     'Hispanic/Latino',
+    'Mexican',
+    'Puerto Rican',
+    'Cuban',
+    'Dominican',
+    'Central American',
+    'South American',
     'Middle Eastern',
+    'Arab',
+    'Persian',
+    'Turkish',
+    'Kurdish',
+    'Armenian',
+    'Israeli',
     'Native American',
+    'Indigenous',
+    'First Nations',
     'Pacific Islander',
+    'Hawaiian',
+    'Samoan',
+    'Tongan',
+    'Māori',
+    'South Asian',
+    'Indian',
+    'Pakistani',
+    'Bangladeshi',
+    'Sri Lankan',
+    'Nepali',
+    'Biracial',
     'Multiracial',
-    'Other',
-    'Prefer not to say'
+    'Mixed Race',
   ];
 
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>What's your ethnicity?</Text>
-      <Text style={styles.subtitle}>This helps us provide better matches</Text>
+    // Handle visibility toggle
+    const handleVisibilityToggle = () => {
+      const newVisibility = !isVisible;
+      setIsVisible(newVisibility);
       
-      <View style={styles.optionsContainer}>
+      // Call the callback if provided
+      if (onVisibilityChange) {
+        onVisibilityChange(newVisibility);
+      }
+    };  
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>What's your ethnicity?</Text>
+      
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
         {ethnicityOptions.map((ethnicity) => (
-          <TouchableOpacity
-            key={ethnicity}
-            onPress={() => onSelectEthnicity(ethnicity)}
-            style={styles.optionButton}
-          >
-            <LinearGradient
-              colors={selectedEthnicity === ethnicity ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
+          <View key={ethnicity}>
+            <TouchableOpacity 
+              style={styles.row} 
+              onPress={() => onSelectEthnicity(ethnicity)}
+              activeOpacity={0.7}
             >
-              <Text style={[
-                styles.optionText,
-                selectedEthnicity === ethnicity && styles.selectedOptionText
-              ]}>
-                {ethnicity}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.text}>{ethnicity}</Text>
+              {selectedEthnicity === ethnicity ? (
+                <View style={styles.checkboxContainer}>
+                  <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientCheckbox}
+                  >
+                    <Text style={styles.checkmark}>✓</Text>
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={styles.checkbox} />
+              )}
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </View>
         ))}
+      </ScrollView>
+      
+      <View style={styles.optionRow}>
+        <Text style={styles.optionText}>Visible on profile</Text>
+        <Switch 
+          value={isVisible}
+          onValueChange={handleVisibilityToggle}
+          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
+        />
       </View>
       
-      {/* <Text style={styles.privacyNote}>
-        You can control who sees this information in your privacy settings
-      </Text> */}
-    </ScrollView>
+      <TouchableOpacity style={styles.feedback}>
+        <Text style={styles.feedbackText}>Feedback on ethnicity?</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
+  container: { 
+    flex: 1, 
+    padding: 20 
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 8,
+  scrollContainer: {
+    maxHeight: 7 * 56, // 5 items * height of each row
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 24,
+  scrollContent: {
+    paddingBottom: 20,
   },
-  optionsContainer: {
-    width: '100%',
-    gap: 13,
-    marginBottom: 30,
+  title: { 
+    fontSize: 26, 
+    fontWeight: '600', 
+    color: '#161616',
+    marginBottom: 8 
   },
-  optionButton: {
-    width: '100%',
-    height: 50,
-    borderRadius: 28,
+  row: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    height: 56,
+  },
+  text: { 
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
+  },
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  gradientButton: {
+  gradientCheckbox: {
     width: '100%',
     height: '100%',
+    borderRadius: 4,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 20,
+  },
+  checkbox: {
+    width: 24, 
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#F9F6F2',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0'
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    height: 56
   },
   optionText: {
-    fontSize: 18,
+    fontSize: 16
+  },
+  feedback: {
+    marginTop: 0
+  },
+  feedbackText: {
+    color: '#FF6B6B',
+    fontSize: 14,
     fontWeight: '500',
-    color: '#333',
-  },
-  selectedOptionText: {
-    color: 'white',
-  },
-//   privacyNote: {
-//     marginTop: 24,
-//     marginBottom: 20,
-//     fontSize: 14,
-//     color: '#888',
-//     fontStyle: 'italic',
-//     textAlign: 'center',
-//   }
+  }
 });

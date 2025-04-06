@@ -761,7 +761,7 @@ export default function LocationSelection({
           {/* Info Overlay */}
           <View style={styles.zoomInfoContainer}>
             <View style={styles.zoomInfoContent}>
-              <Ionicons name="information-circle" size={20} color="#fff" />
+              <Ionicons name="information-circle" size={16} color="#fff" />
               <Text style={styles.zoomInfoText}>
                 Tap the map to select your location
               </Text>
@@ -833,12 +833,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   headerText: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     marginBottom: 4,
+    color: '#161616',
   },
   subText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
   searchContainer: {
@@ -863,7 +864,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    fontSize: 16,
+    fontSize: 13,
     color: '#333',
   },
   clearButton: {
@@ -885,7 +886,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mapContainer: {
-    height: 300,
+    height: 310,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 15,
@@ -946,22 +947,22 @@ const styles = StyleSheet.create({
   zoomInfoContainer: {
     position: 'absolute',
     left: 0,
-    right: 0,
-    bottom: 60,
+    right: 40,
+    bottom: 40,
     alignItems: 'center',
   },
   zoomInfoContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   zoomInfoText: {
     color: 'white',
     marginLeft: 6,
-    fontSize: 14,
+    fontSize: 12,
   },
   addressContainer: {
     backgroundColor: 'white',
@@ -975,17 +976,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addressLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: '#333',
   },
   addressInput: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 4,
-    padding: 10,
+    padding: 8,
     backgroundColor: '#FAFAFA',
   },
   errorText: {

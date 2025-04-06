@@ -38,6 +38,7 @@ export default function HeightSelection({ height, onHeightChange }: HeightSelect
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [measurementUnit, setMeasurementUnit] = useState<'CM' | 'FT'>('FT');
   const [isScrolling, setIsScrolling] = useState(false);
+  const [currentHeightValue, setCurrentHeightValue] = useState<number | null>(null);
   
   // Generate height options from 4'0" to 7'0" (or 122cm to 213cm)
   const generateHeightOptions = (unit: 'FT' | 'CM'): HeightOption[] => {
@@ -104,17 +105,16 @@ export default function HeightSelection({ height, onHeightChange }: HeightSelect
     const initialIndex = getDefaultIndex();
     setSelectedIndex(initialIndex);
     
-    // Use shorter timeout for initial scroll - faster startup
-    const timer = setTimeout(() => {
+    // Use a microtask to ensure DOM is ready
+    requestAnimationFrame(() => {
       if (scrollViewRef.current) {
+        // Ensure scroll to exact position with no animation
         scrollViewRef.current.scrollTo({
           y: initialIndex * ITEM_HEIGHT,
           animated: false
         });
       }
-    }, 100);
-    
-    return () => clearTimeout(timer);
+    });
   }, []);
   
   // Adding gradient masks for wheel effect
@@ -142,6 +142,7 @@ export default function HeightSelection({ height, onHeightChange }: HeightSelect
     const option = heightOptions[selectedIndex];
     if (option) {
       onHeightChange(option.value.toString());
+      setCurrentHeightValue(option.value);
     }
   }, [selectedIndex, isScrolling]);
   
@@ -212,8 +213,30 @@ export default function HeightSelection({ height, onHeightChange }: HeightSelect
   
   // Toggle between CM and FT
   const toggleMeasurementUnit = () => {
-    if (isScrolling) return; // Prevent changing units during scroll
-    setMeasurementUnit(prev => prev === 'CM' ? 'FT' : 'CM');
+    // Remove the isScrolling check to allow quick toggling
+    // Toggle between CM and FT
+    const newUnit = measurementUnit === 'CM' ? 'FT' : 'CM';
+    setMeasurementUnit(newUnit);
+    
+    // Ensure the measurement options are updated
+    const newOptions = generateHeightOptions(newUnit);
+    setHeightOptions(newOptions);
+    
+    // Find the closest equivalent height in the new unit
+    const currentValue = heightOptions[selectedIndex]?.value;
+    
+    if (currentValue) {
+      const newIndex = newOptions.findIndex(opt => opt.value === currentValue);
+      
+      if (newIndex !== -1) {
+        setSelectedIndex(newIndex);
+        
+        // Scroll to the new position
+        requestAnimationFrame(() => {
+          scrollToPosition(newIndex, true);
+        });
+      }
+    }
   };
   
   return (
@@ -310,22 +333,32 @@ export default function HeightSelection({ height, onHeightChange }: HeightSelect
           <Text style={styles.visibilityText}>Always visible on profile</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity
-          style={styles.unitToggle}
-          onPress={toggleMeasurementUnit}
-          activeOpacity={0.7}
-          disabled={isScrolling}
-        >
-          <Text style={[
-            styles.unitText,
-            measurementUnit === 'FT' && styles.activeUnitText
-          ]}>FT</Text>
-          <Text style={styles.unitDivider}>|</Text>
-          <Text style={[
-            styles.unitText,
-            measurementUnit === 'CM' && styles.activeUnitText
-          ]}>CM</Text>
-        </TouchableOpacity>
+        <View style={styles.unitToggleWrapper}>
+          <TouchableOpacity
+            style={[
+              styles.unitToggleButton, 
+              measurementUnit === 'FT' && styles.activeUnitToggle
+            ]}
+            onPress={toggleMeasurementUnit}
+          >
+            <Text style={[
+              styles.unitToggleText, 
+              measurementUnit === 'FT' && styles.activeUnitToggleText
+            ]}>FT</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.unitToggleButton, 
+              measurementUnit === 'CM' && styles.activeUnitToggle
+            ]}
+            onPress={toggleMeasurementUnit}
+          >
+            <Text style={[
+              styles.unitToggleText, 
+              measurementUnit === 'CM' && styles.activeUnitToggleText
+            ]}>CM</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -342,7 +375,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 40,
     color: '#000000',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   pickerContainer: {
     marginBottom: 40,
@@ -388,7 +421,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: ITEM_HEIGHT * 0.4,
+    height: ITEM_HEIGHT * 0.3,
     backgroundColor: '#F2F1ED',
     opacity: 0.7, // More transparent to see numbers better
     zIndex: 4,
@@ -404,7 +437,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: ITEM_HEIGHT * 0.4,
+    height: ITEM_HEIGHT * 0.3,
     backgroundColor: '#F2F1ED',
     opacity: 0.7, // More transparent to see numbers better
     zIndex: 4,
@@ -473,5 +506,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#CCCCCC',
     paddingHorizontal: 2,
+  },
+  unitToggleWrapper: {
+    flexDirection: 'row',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#000',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  unitToggleButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+  },
+  activeUnitToggle: {
+    backgroundColor: '#000',
+  },
+  unitToggleText: {
+    color: '#000',
+    fontWeight: '400',
+  },
+  activeUnitToggleText: {
+    color: 'white',
+    fontWeight: '500',
   },
 });

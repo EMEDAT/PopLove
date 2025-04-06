@@ -601,13 +601,13 @@ export default function OnboardingFlow() {
               onHeightChange={(height) => updateProfile('height', height)}
             />
           );
-        case 'ethnicity':
-          return (
-            <EthnicitySelection
-              selectedEthnicity={profileData.ethnicity}
-              onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
-            />
-          );
+          case 'ethnicity':
+            return (
+              <EthnicitySelection
+                selectedEthnicity={profileData.ethnicity}
+                onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
+              />
+            );
         case 'children':
           return (
             <ChildrenSelection

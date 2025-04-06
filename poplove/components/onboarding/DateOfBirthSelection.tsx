@@ -207,12 +207,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#161616',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     marginBottom: 30,
   },

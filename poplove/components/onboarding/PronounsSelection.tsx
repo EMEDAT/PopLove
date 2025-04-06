@@ -177,9 +177,10 @@ const styles = StyleSheet.create({
     padding: 20 
   },
   title: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    marginBottom: 8 
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#161616',
   },
   subtitle: { 
     fontSize: 16, 
@@ -193,7 +194,9 @@ const styles = StyleSheet.create({
     height: 56,
   },
   text: { 
-    fontSize: 16 
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
   },
   checkboxContainer: {
     width: 24,
@@ -235,7 +238,9 @@ const styles = StyleSheet.create({
     height: 56
   },
   optionText: {
-    fontSize: 16
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
   },
   feedback: {
     marginTop: 0
