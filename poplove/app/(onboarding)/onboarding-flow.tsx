@@ -34,11 +34,14 @@ import Welcome from '../../components/onboarding/Welcome';
 import ProgressBar from '../../components/onboarding/ProgressBar';
 import OnboardingNavigation from '../../components/onboarding/OnboardingNavigation';
 import LocationSelection from '../../components/onboarding/LocationSelection';
+import DatingPreferenceSelection from '../../components/onboarding/DatingPreferenceSelection';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
   'profile',
   'gender',
+  'datingPreference',
+  'lifestyle',
   'pronouns',
   'dateOfBirth', // or 'age' depending on what you're using
   'location',    // This should come right after dateOfBirth/age
@@ -47,7 +50,6 @@ const STEPS = [
   'children',
   'interests',
   'prompts',
-  'lifestyle',
   'subscription',
   'welcome'
 ];
@@ -76,6 +78,8 @@ export default function OnboardingFlow() {
     sexuality: '',          
     sexualityVisible: true, 
     showingSexualitySubpage: false,
+    datingPreferences: [] as string[],
+    datingPreferencesVisible: true,
     pronouns: '',
     pronounsVisible: true,
     ageRange: '',
@@ -340,6 +344,8 @@ export default function OnboardingFlow() {
             bio: profileData.bio,
             location: profileData.location,
             gender: profileData.gender, 
+            datingPreferences: profileData.datingPreferences,
+            datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
             pronouns: profileData.pronouns,
             pronounsVisible: profileData.pronounsVisible !== false,
             age: profileData.age,
@@ -425,6 +431,8 @@ export default function OnboardingFlow() {
                profileData.bio.trim() !== '';
       case 'gender':
         return !!profileData.gender;
+      case 'datingPreference':
+        return profileData.datingPreferences.length > 0;
       case 'dateOfBirth':
         return !!profileData.birthDate && 
                 !!profileData.age && 
@@ -477,6 +485,9 @@ export default function OnboardingFlow() {
           break;
       case 'gender':
         title = 'Gender';
+        break;
+      case 'datingPreference':
+        title = 'Dating Preference';
         break;
       case 'dateOfBirth':
         title = 'Age';
@@ -573,6 +584,15 @@ export default function OnboardingFlow() {
               onShowSexuality={() => updateProfile('showingSexualitySubpage', true)}
             />
           );
+          case 'datingPreference':
+            return (
+              <DatingPreferenceSelection 
+                selectedPreferences={profileData.datingPreferences}
+                onSelectPreferences={(preferences) => updateProfile('datingPreferences', preferences)}
+                visibleOnProfile={profileData.datingPreferencesVisible}
+                onToggleVisibility={(visible) => updateProfile('datingPreferencesVisible', visible)}
+              />
+            );
         case 'pronouns':
           return (
             <PronounsSelection 
