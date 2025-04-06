@@ -13,15 +13,17 @@ interface EthnicitySelectionProps {
   selectedEthnicity: string;
   onSelectEthnicity: (ethnicity: string) => void;
   onVisibilityChange?: (isVisible: boolean) => void;
+  visibleOnProfile?: boolean; // Add this line
 }
 
 export default function EthnicitySelection({ 
   selectedEthnicity, 
   onSelectEthnicity,
+  visibleOnProfile = true, // Default to true if not provided
   onVisibilityChange 
 }: EthnicitySelectionProps) {
 
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(visibleOnProfile);
 
   const ethnicityOptions = [
     'African American',
@@ -74,11 +76,9 @@ export default function EthnicitySelection({
       const newVisibility = !isVisible;
       setIsVisible(newVisibility);
       
-      // Call the callback if provided
-      if (onVisibilityChange) {
-        onVisibilityChange(newVisibility);
-      }
-    };  
+      // Call the prop callback if provided
+      onVisibilityChange?.(newVisibility);
+    };
 
   return (
     <View style={styles.container}>
@@ -117,14 +117,14 @@ export default function EthnicitySelection({
       </ScrollView>
       
       <View style={styles.optionRow}>
-        <Text style={styles.optionText}>Visible on profile</Text>
-        <Switch 
-          value={isVisible}
-          onValueChange={handleVisibilityToggle}
-          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
-          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
-        />
-      </View>
+      <Text style={styles.optionText}>Visible on profile</Text>
+      <Switch 
+        value={isVisible}
+        onValueChange={handleVisibilityToggle}
+        trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+        thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
+      />
+    </View>
       
       <TouchableOpacity style={styles.feedback}>
         <Text style={styles.feedbackText}>Feedback on ethnicity?</Text>

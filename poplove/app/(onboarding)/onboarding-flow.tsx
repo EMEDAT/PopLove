@@ -80,6 +80,7 @@ export default function OnboardingFlow() {
     birthDate: null as Date | null, // Add this line
     height: '',
     ethnicity: '',
+    ethnicityVisible: true, 
     hasChildren: '',
     lifestyle: [] as string[],
     interests: [] as string[],
@@ -194,7 +195,10 @@ export default function OnboardingFlow() {
   }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
-    setProfileData(prev => ({ ...prev, [field]: value }));
+    setProfileData(prev => ({ 
+      ...prev, 
+      [field]: value 
+    }));
   };
 
   const updatePrompt = (index: number, answer: string) => {
@@ -603,9 +607,11 @@ export default function OnboardingFlow() {
           );
           case 'ethnicity':
             return (
-              <EthnicitySelection
+              <EthnicitySelection 
                 selectedEthnicity={profileData.ethnicity}
                 onSelectEthnicity={(ethnicity) => updateProfile('ethnicity', ethnicity)}
+                visibleOnProfile={profileData.ethnicityVisible}
+                onVisibilityChange={(visible) => updateProfile('ethnicityVisible', visible)}
               />
             );
         case 'children':
