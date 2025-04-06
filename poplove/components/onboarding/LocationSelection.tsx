@@ -46,6 +46,7 @@ export default function LocationSelection({
   // Refs
   const mapRef = useRef<MapView | null>(null);
   const searchInputRef = useRef<TextInput | null>(null);
+  const isAnimatingRef = useRef(false);
   
   // State management
   const [region, setRegion] = useState<Region>({
@@ -136,6 +137,26 @@ export default function LocationSelection({
     }
   };
 
+  // Animate map to a new region WITHOUT updating state to prevent flickering
+  const animateMapToRegion = (coords: { latitude: number; longitude: number }) => {
+    if (isAnimatingRef.current || !mapRef.current) return;
+    
+    isAnimatingRef.current = true;
+    
+    // Only animate the map, don't update the state directly
+    mapRef.current.animateToRegion({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA,
+    }, 500);
+    
+    // Reset flag after animation is likely complete
+    setTimeout(() => {
+      isAnimatingRef.current = false;
+    }, 600);
+  };
+
   // Get current location
   const getCurrentLocation = async () => {
     setLoading(true);
@@ -163,29 +184,14 @@ export default function LocationSelection({
       
       const { latitude, longitude } = location.coords;
       
-      // Update marker position first
+      // Update marker position
       setMarkerPosition({
         latitude,
         longitude,
       });
       
-      // Then smoothly animate to the region instead of jumping
-      mapRef.current?.animateToRegion({
-        latitude,
-        longitude,
-        latitudeDelta: LATITUDE_DELTA,
-        longitudeDelta: LONGITUDE_DELTA,
-      }, 500); // Animation duration in ms
-      
-      // Provide a small delay before setting the region state to prevent flicker
-      setTimeout(() => {
-        setRegion({
-          latitude,
-          longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        });
-      }, 600);
+      // Animate map without state update to prevent flickering
+      animateMapToRegion({ latitude, longitude });
       
       // Try to get address information
       try {
@@ -318,21 +324,8 @@ export default function LocationSelection({
         longitude: defaultLng,
       });
       
-      mapRef.current?.animateToRegion({
-        latitude: defaultLat,
-        longitude: defaultLng,
-        latitudeDelta: LATITUDE_DELTA,
-        longitudeDelta: LONGITUDE_DELTA,
-      }, 500);
-      
-      setTimeout(() => {
-        setRegion({
-          latitude: defaultLat,
-          longitude: defaultLng,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        });
-      }, 600);
+      // Animate map without state update to prevent flickering
+      animateMapToRegion({ latitude: defaultLat, longitude: defaultLng });
       
       // Set default values
       const defaultAddress = "16 Nung Akpa Ime Street, Uyo, Akwa Ibom, Nigeria";
@@ -365,18 +358,14 @@ export default function LocationSelection({
       if (geocodedLocations && geocodedLocations.length > 0) {
         const { latitude, longitude } = geocodedLocations[0];
         
-        // Update region and marker position
-        setRegion({
-          latitude,
-          longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        });
-        
+        // Update marker position first
         setMarkerPosition({
           latitude,
           longitude,
         });
+        
+        // Animate map without updating region state to prevent flickering
+        animateMapToRegion({ latitude, longitude });
         
         // Try to reverse geocode to get full address details
         try {
@@ -433,14 +422,6 @@ export default function LocationSelection({
           // Call with null values for geodata
           updateLocationData(latitude, longitude, searchQuery, null, null, null, null);
         }
-        
-        // Animate to the new region
-        mapRef.current?.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        });
       } else {
         Alert.alert('Location not found', 'Please try a different search term');
       }
@@ -587,23 +568,43 @@ export default function LocationSelection({
 
   // Zoom controls
   const zoomIn = () => {
+    if (isAnimatingRef.current || !mapRef.current) return;
+    
+    isAnimatingRef.current = true;
+    
     const newRegion = {
       ...region,
       latitudeDelta: region.latitudeDelta / 2,
       longitudeDelta: region.longitudeDelta / 2,
     };
     
-    mapRef.current?.animateToRegion(newRegion);
+    mapRef.current.animateToRegion(newRegion, 300);
+    
+    // Update region state after animation completes
+    setTimeout(() => {
+      setRegion(newRegion);
+      isAnimatingRef.current = false;
+    }, 350);
   };
 
   const zoomOut = () => {
+    if (isAnimatingRef.current || !mapRef.current) return;
+    
+    isAnimatingRef.current = true;
+    
     const newRegion = {
       ...region,
       latitudeDelta: region.latitudeDelta * 2,
       longitudeDelta: region.longitudeDelta * 2,
     };
     
-    mapRef.current?.animateToRegion(newRegion);
+    mapRef.current.animateToRegion(newRegion, 300);
+    
+    // Update region state after animation completes
+    setTimeout(() => {
+      setRegion(newRegion);
+      isAnimatingRef.current = false;
+    }, 350);
   };
 
   // Handle manual address edit
@@ -690,8 +691,13 @@ export default function LocationSelection({
         <TouchableOpacity 
           style={styles.searchButton} 
           onPress={searchAddress}
+          disabled={loading || !searchQuery.trim()}
         >
-          <Text style={styles.searchButtonText}>Search</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Text style={styles.searchButtonText}>Search</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -707,12 +713,18 @@ export default function LocationSelection({
             ref={mapRef}
             provider={PROVIDER_GOOGLE}
             style={styles.map}
-            region={region}
-            onRegionChangeComplete={setRegion}
+            initialRegion={region}
+            onRegionChangeComplete={(newRegion) => {
+              // Only update region state when not animating to prevent flickering
+              if (!isAnimatingRef.current) {
+                setRegion(newRegion);
+              }
+            }}
             onPress={handleMapPress}
             showsUserLocation={locationPermission}
             showsMyLocationButton={false}
             showsCompass={true}
+            moveOnMarkerPress={false}
           >
             {markerPosition && (
               <Marker
@@ -726,10 +738,18 @@ export default function LocationSelection({
           
           {/* Zoom Controls */}
           <View style={styles.zoomControls}>
-            <TouchableOpacity style={styles.zoomButton} onPress={zoomIn}>
+            <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={zoomIn}
+              disabled={isAnimatingRef.current}
+            >
               <Ionicons name="add" size={24} color="#333" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.zoomButton} onPress={zoomOut}>
+            <TouchableOpacity 
+              style={styles.zoomButton} 
+              onPress={zoomOut}
+              disabled={isAnimatingRef.current}
+            >
               <Ionicons name="remove" size={24} color="#333" />
             </TouchableOpacity>
           </View>
@@ -738,8 +758,9 @@ export default function LocationSelection({
           <TouchableOpacity 
             style={styles.currentLocationButton}
             onPress={getCurrentLocation}
+            disabled={loading || isAnimatingRef.current}
           >
-            <Ionicons name="locate" size={24} color="#333" />
+            <Ionicons name="locate" size={24} color={loading ? "#999" : "#333"} />
           </TouchableOpacity>
           
           {/* Info Overlay */}
@@ -858,6 +879,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
   },
   searchButtonText: {
     color: 'white',
