@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,14 +11,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 interface ChildrenSelectionProps {
   selectedOption: string;
   onSelectOption: (option: string) => void;
+  visibleOnProfile?: boolean;
+  onToggleVisibility?: (visible: boolean) => void;
 }
 
 export default function ChildrenSelection({ 
   selectedOption, 
-  onSelectOption 
+  onSelectOption,
+  visibleOnProfile = true,
+  onToggleVisibility = () => {}
 }: ChildrenSelectionProps) {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(visibleOnProfile);
   const [showChildCount, setShowChildCount] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(visibleOnProfile);
+  }, [visibleOnProfile]);
   
   const familyPlanOptions = [
     "Don't want children",
@@ -45,6 +53,7 @@ export default function ChildrenSelection({
 
   const handleVisibilityToggle = (value: boolean) => {
     setIsVisible(value);
+    onToggleVisibility(value);
   };
 
   return (

@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   Switch
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface CurrentChildrenSelectionProps {
-  selectedOption: string;
-  onSelectOption: (option: string) => void;
-}
+    selectedOption: string;
+    onSelectOption: (option: string) => void;
+    visibleOnProfile?: boolean;
+    onToggleVisibility?: (visible: boolean) => void;
+  }
 
 export default function CurrentChildrenSelection({ 
   selectedOption, 

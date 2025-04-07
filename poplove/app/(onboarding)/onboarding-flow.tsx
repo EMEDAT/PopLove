@@ -98,6 +98,8 @@ export default function OnboardingFlow() {
     ethnicityVisible: true, 
     hasChildren: '',
     currentChildren: '', 
+    childrenVisible: true,
+    currentChildrenVisible: true,
     lifestyle: [] as string[],
     lifestyleVisible: true,  
     interests: [] as string[],
@@ -363,6 +365,8 @@ export default function OnboardingFlow() {
             height: profileData.height,
             ethnicity: profileData.ethnicity,
             hasChildren: profileData.hasChildren,
+            childrenVisible: profileData.childrenVisible !== false,
+            currentChildrenVisible: profileData.currentChildrenVisible !== false,
             lifestyle: profileData.lifestyle,
             lifestyleVisible: profileData.lifestyleVisible !== false,
             interests: profileData.interests,
@@ -696,20 +700,24 @@ export default function OnboardingFlow() {
                 onToggleVisibility={(visible) => updateProfile('ethnicityVisible', visible)}
               />
             );
-        case 'children':
-          return (
-            <ChildrenSelection
-              selectedOption={profileData.hasChildren}
-              onSelectOption={(option) => updateProfile('hasChildren', option)}
-            />
-          );
-        case 'currentChildren':
-          return (
-            <CurrentChildrenSelection 
-              selectedOption={profileData.currentChildren}
-              onSelectOption={(option) => updateProfile('currentChildren', option)}
-            />
-          );
+            case 'children':
+              return (
+                <ChildrenSelection
+                  selectedOption={profileData.hasChildren}
+                  onSelectOption={(option) => updateProfile('hasChildren', option)}
+                  visibleOnProfile={profileData.childrenVisible !== false}
+                  onToggleVisibility={(visible) => updateProfile('childrenVisible', visible)}
+                />
+              );
+              case 'currentChildren':
+                return (
+                  <CurrentChildrenSelection 
+                    selectedOption={profileData.currentChildren}
+                    onSelectOption={(option) => updateProfile('currentChildren', option)}
+                    visibleOnProfile={profileData.currentChildrenVisible !== false}
+                    onToggleVisibility={(visible) => updateProfile('currentChildrenVisible', visible)}
+                  />
+                );
       case 'lifestyle':
         return (
           <ExpectationsLifestyle 
