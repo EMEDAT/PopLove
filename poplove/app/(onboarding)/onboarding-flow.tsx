@@ -35,6 +35,7 @@ import ProgressBar from '../../components/onboarding/ProgressBar';
 import OnboardingNavigation from '../../components/onboarding/OnboardingNavigation';
 import LocationSelection from '../../components/onboarding/LocationSelection';
 import DatingPreferenceSelection from '../../components/onboarding/DatingPreferenceSelection';
+import RelationshipTypeSelection from '../../components/onboarding/RelationshipTypeSelection';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
@@ -42,6 +43,7 @@ const STEPS = [
   'gender',
   'datingPreference',
   'lifestyle',
+  'relationshipType',
   'pronouns',
   'dateOfBirth', // or 'age' depending on what you're using
   'location',    // This should come right after dateOfBirth/age
@@ -80,6 +82,9 @@ export default function OnboardingFlow() {
     showingSexualitySubpage: false,
     datingPreferences: [] as string[],
     datingPreferencesVisible: true,
+    relationshipType: '',
+    relationshipTypeCustomDescription: '',
+    relationshipTypeVisible: true,
     pronouns: '',
     pronounsVisible: true,
     ageRange: '',
@@ -491,6 +496,9 @@ export default function OnboardingFlow() {
       case 'datingPreference':
         title = 'Dating Preference';
         break;
+      case 'relationshipType':
+        title = 'Relationship Type';
+        break;
       case 'dateOfBirth':
         title = 'Age';
         break;
@@ -595,6 +603,17 @@ export default function OnboardingFlow() {
                 onToggleVisibility={(visible) => updateProfile('datingPreferencesVisible', visible)}
               />
             );
+        case 'relationshipType':
+          return (
+            <RelationshipTypeSelection
+              selectedRelationshipType={profileData.relationshipType}
+              onSelectRelationshipType={(relationshipType) => updateProfile('relationshipType', relationshipType)}
+              customDescription={profileData.relationshipTypeCustomDescription}
+              onUpdateCustomDescription={(description) => updateProfile('relationshipTypeCustomDescription', description)}
+              visibleOnProfile={profileData.relationshipTypeVisible}
+              onToggleVisibility={(visible) => updateProfile('relationshipTypeVisible', visible)}
+            />
+          );
         case 'pronouns':
           return (
             <PronounsSelection 
