@@ -3,104 +3,78 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Switch
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function ChildrenSelection({ selectedOption, onSelectOption }) {
-  const [showChildCount, setShowChildCount] = useState(false);
-  
-  const childrenOptions = [
-    'No children',
-    'Have children',
-    'Want children someday',
-    'Don\'t want children',
-    'Prefer not to say'
-  ];
-  
-  const childCountOptions = ['1', '2', '3', '4+'];
+interface ChildrenSelectionProps {
+  selectedOption: string;
+  onSelectOption: (option: string) => void;
+}
 
-  const handleOptionSelect = (option) => {
-    if (option === 'Have children') {
-      setShowChildCount(true);
-      // Don't change selection if user already has a number selected
-      if (!selectedOption.startsWith('Have ') || selectedOption === 'Have children') {
-        onSelectOption(option);
-      }
-    } else {
-      setShowChildCount(false);
-      onSelectOption(option);
-    }
-  };
+export default function ChildrenSelection({ 
+  selectedOption, 
+  onSelectOption 
+}: ChildrenSelectionProps) {
+  const [showChildrenDetails, setShowChildrenDetails] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   
-  const handleChildCountSelect = (count) => {
-    onSelectOption(`Have ${count} children`);
-    setShowChildCount(false);
+  const familyPlanOptions = [
+    "Don't want children",
+    "Want children",
+    "Open to children",
+    "Not sure",
+    "Prefer not to say"
+  ];
+
+  const handleOptionSelect = (option: string) => {
+    onSelectOption(option);
+  };
+
+  const handleVisibilityToggle = (value: boolean) => {
+    setIsVisible(value);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Do you have children?</Text>
-      <Text style={styles.subtitle}>This helps in finding compatible matches</Text>
+      <Text style={styles.title}>What are your family plans?</Text>
       
-      {!showChildCount ? (
-        <View style={styles.optionsContainer}>
-          {childrenOptions.map((option) => (
-            <TouchableOpacity
-              key={option}
-              onPress={() => handleOptionSelect(option)}
-              style={styles.optionButton}
-            >
-              <LinearGradient
-                colors={selectedOption === option || (selectedOption.startsWith('Have ') && option === 'Have children') 
-                  ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Text style={[
-                  styles.optionText,
-                  (selectedOption === option || (selectedOption.startsWith('Have ') && option === 'Have children')) && styles.selectedOptionText
-                ]}>
-                  {option}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : (
-        <View style={styles.optionsContainer}>
-          <Text style={styles.countTitle}>How many children do you have?</Text>
-          {childCountOptions.map((count) => (
-            <TouchableOpacity
-              key={count}
-              onPress={() => handleChildCountSelect(count)}
-              style={styles.optionButton}
-            >
-              <LinearGradient
-                colors={selectedOption === `Have ${count} children` ? ['#EC5F61', '#F0B433'] : ['#E6E9ED', '#E6E9ED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Text style={[
-                  styles.optionText,
-                  selectedOption === `Have ${count} children` && styles.selectedOptionText
-                ]}>
-                  {count}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
-          
+      <View style={styles.optionsContainer}>
+        {familyPlanOptions.map((option) => (
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => setShowChildCount(false)}
+            key={option}
+            onPress={() => handleOptionSelect(option)}
+            style={styles.optionButton}
           >
-            <Text style={styles.backText}>Back</Text>
+            <LinearGradient
+              colors={selectedOption === option 
+                ? ['#EC5F61', '#F0B433'] 
+                : ['#E6E9ED', '#E6E9ED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={[
+                styles.optionText,
+                selectedOption === option && styles.selectedOptionText
+              ]}>
+                {option}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
-      )}
+        ))}
+      </View>
+      
+      <View style={styles.visibilityContainer}>
+        <Text style={styles.visibilityText}>Visible on profile</Text>
+        <Switch
+          value={isVisible}
+          onValueChange={handleVisibilityToggle}
+          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
+        />
+      </View>
       
       <Text style={styles.privacyNote}>
         You can control who sees this information in your privacy settings
@@ -113,16 +87,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#F2F1ED',
   },
   title: {
     fontSize: 24,
     fontWeight: '600',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#666',
     marginBottom: 24,
+    color: '#161616',
   },
   optionsContainer: {
     width: '100%',
@@ -142,26 +113,25 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   optionText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
     color: '#333',
   },
   selectedOptionText: {
     color: 'white',
   },
-  countTitle: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 15,
-    color: '#333',
+  visibilityContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
-  backButton: {
-    marginTop: 20,
-    alignSelf: 'center',
-  },
-  backText: {
-    color: '#FF6B6B',
+  visibilityText: {
     fontSize: 16,
+    color: '#161616',
     fontWeight: '500',
   },
   privacyNote: {
