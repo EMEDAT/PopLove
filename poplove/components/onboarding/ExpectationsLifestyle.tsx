@@ -60,16 +60,16 @@ export default function ExpectationsLifestyle({
   };
 
   const options = [
-    { id: 'Long-term relationship open-to-short', label: 'Long-term relationship, open-to-short', size: 'Larger', position: { top: 20, left: 0 } },
+    { id: 'Post-breakup exploration', label: 'Post-breakup exploration', size: 'Larger', position: { top: 20, left: 0 } },
     { id: 'Life Partner', label: 'Life Partner', size: 'Small', position: { top: 0, right: 110 } },
     { id: 'Long-term relationship', label: 'Long-term relationship', size: 'Large', position: { top: -20, right: 0 } },
     { id: 'Family', label: 'Start a family', size: 'Largest', position: { top: 120, left: 75 } },
-    { id: 'Short-term relationship (open to Long)', label: 'Short-term relationship, open-to-Long', size: 'Larger', position: { top: 240, left: 0 } },
+    { id: 'Faith-based partnership', label: 'Faith-based partnership', size: 'Larger', position: { top: 240, left: 0 } },
     { id: 'Casual', label: 'Casual dating', size: 'SmallPlus', position: { top: 265, right: 115 } },
     { id: 'Friends', label: 'Friends first', size: 'Smaller', position: { top: 150, right: 30 } },
     { id: 'Friendsplus', label: 'Friends with benefit', size: 'Smaller', position: { top: 83, right: 0 } },
     { id: 'Chat Mate', label: 'Chat Mate', size: 'Smallest', position: { top: 80, left: 180 } },
-    { id: 'Flirting', label: 'Flirting', size: 'Smaller', position: { top: 160, left: 0 } },
+    { id: 'Activity partner', label: 'Activity partner', size: 'Smaller', position: { top: 160, left: 0 } },
     { id: 'Marriage', label: 'Marriage', size: 'small', position: { bottom: 30, left: 65 } },
     { id: 'Type Myself', label: 'Type It MYSELF', size: 'Smallest', position: { bottom: 40, left: 0 } },
     { id: 'Short-term relationship', label: 'Short-term relationship', size: 'Large', position: { bottom: 115, right: 0 } },
