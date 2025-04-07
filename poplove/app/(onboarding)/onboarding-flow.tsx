@@ -440,6 +440,8 @@ export default function OnboardingFlow() {
         return !!profileData.gender;
       case 'datingPreference':
         return profileData.datingPreferences.length > 0;
+      case 'relationshipType':
+        return !!profileData.relationshipType;
       case 'dateOfBirth':
         return !!profileData.birthDate && 
                 !!profileData.age && 

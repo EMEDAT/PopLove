@@ -1,5 +1,5 @@
 // components/onboarding/ExpectationsLifestyle.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,9 @@ import {
   TextInput,
   Switch,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +37,7 @@ export default function ExpectationsLifestyle({
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customIntention, setCustomIntention] = useState('');
   const [customIntentions, setCustomIntentions] = useState<string[]>([]);
+  const glowAnimation = useRef(new Animated.Value(0)).current;
 
   // Sync local state with props
   useEffect(() => {
@@ -58,6 +61,27 @@ export default function ExpectationsLifestyle({
       onToggleVisibility(value);
     }
   };
+
+  // Add this useEffect to create the animation
+  useEffect(() => {
+    // Create a repeating pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnimation, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        }),
+        Animated.timing(glowAnimation, {
+          toValue: 0,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        })
+      ])
+    ).start();
+  }, []);
 
   const options = [
     { id: 'Post-breakup exploration', label: 'Post-breakup exploration', size: 'Larger', position: { top: 20, left: 0 } },
@@ -151,42 +175,79 @@ export default function ExpectationsLifestyle({
       <Text style={styles.title}>What is your dating intention?</Text>
       
       <View style={styles.optionsContainer}>
-        {options.map((option) => {
-          const sizeStyle = getSizeStyles(option.size);
-          const isSelected = localSelectedOptions.includes(option.id);
-          
-          return (
-            <TouchableOpacity
-              key={option.id}
-              onPress={() => toggleOption(option.id)}
-              style={[
-                styles.optionButton,
-                sizeStyle,
-                option.position,
-                isSelected ? styles.selectedOption : styles.unselectedOption
-              ]}
-            >
-              {isSelected ? (
+      {options.map((option) => {
+        const sizeStyle = getSizeStyles(option.size);
+        const isSelected = localSelectedOptions.includes(option.id);
+        
+        // Special styling for "Type It MYSELF" button
+        const isTypeMyself = option.id === 'Type Myself';
+        
+        return (
+          <TouchableOpacity
+            key={option.id}
+            onPress={() => toggleOption(option.id)}
+            style={[
+              styles.optionButton,
+              sizeStyle,
+              option.position,
+              isSelected ? styles.selectedOption : styles.unselectedOption,
+              // Add special styling for Type Myself
+              isTypeMyself && styles.typeMyselfButton
+            ]}
+          >
+            {isSelected ? (
+              <LinearGradient
+                colors={['#FF6B6B', '#FFA07A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.optionGradient, { width: sizeStyle.width, height: sizeStyle.height }]}
+              >
+                <Text style={[styles.optionText, { fontSize: sizeStyle.fontSize, color: 'white' }]}>
+                  {option.label}
+                </Text>
+              </LinearGradient>
+            ) : isTypeMyself ? (
+              // Special styling for Type Myself when not selected
+              <Animated.View 
+                style={[
+                  styles.typeMyselfContent,
+                  { 
+                    width: sizeStyle.width, 
+                    height: sizeStyle.height,
+                    shadowOpacity: glowAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.2, 0.8]
+                    }),
+                    transform: [{
+                      scale: glowAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.05]
+                      })
+                    }]
+                  }
+                ]}
+              >
                 <LinearGradient
                   colors={['#FF6B6B', '#FFA07A']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={[styles.optionGradient, { width: sizeStyle.width, height: sizeStyle.height }]}
+                  style={styles.typeMyselfGradient}
                 >
-                  <Text style={[styles.optionText, { fontSize: sizeStyle.fontSize, color: 'white' }]}>
+                  <Text style={[styles.typeMyselfText, { fontSize: sizeStyle.fontSize }]}>
                     {option.label}
                   </Text>
                 </LinearGradient>
-              ) : (
-                <View style={[styles.optionContent, { width: sizeStyle.width, height: sizeStyle.height }]}>
-                  <Text style={[styles.optionText, { fontSize: sizeStyle.fontSize }]}>
-                    {option.label}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+              </Animated.View>
+            ) : (
+              <View style={[styles.optionContent, { width: sizeStyle.width, height: sizeStyle.height }]}>
+                <Text style={[styles.optionText, { fontSize: sizeStyle.fontSize }]}>
+                  {option.label}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
       </View>
       
       {/* Profile Visibility Toggle */}
@@ -510,5 +571,33 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontSize: 16,
     fontWeight: '600',
+  },
+  typeMyselfButton: {
+    zIndex: 10, // Make it appear above other buttons
+  },
+  typeMyselfContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+    shadowColor: "#FF6B6B",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: 'visible',
+  },
+  typeMyselfGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: '#710014',
+  },
+  typeMyselfText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
 });
