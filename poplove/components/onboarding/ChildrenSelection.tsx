@@ -40,6 +40,9 @@ export default function ChildrenSelection({
 
   const handleOptionSelect = (option: string) => {
     if (option === "Want children") {
+      // First, update the parent component state to capture the basic selection
+      onSelectOption(option);
+      // Then show the count selection UI
       setShowChildCount(true);
     } else {
       onSelectOption(option);
@@ -47,7 +50,12 @@ export default function ChildrenSelection({
   };
   
   const handleChildCountSelect = (count: string) => {
-    onSelectOption(`Want ${count} children`);
+    // Add console.log to verify what's being sent
+    console.log("Selected child count:", count);
+    // Use a simpler format with fewer spaces
+    const selection = `Want_${count}_Children`;
+    console.log("Sending to parent:", selection);
+    onSelectOption(selection);
     setShowChildCount(false);
   };
 

@@ -185,6 +185,8 @@ export default function OnboardingFlow() {
       
       try {
         setSavingProgress(true);
+
+        console.log('Progress save - hasChildren value:', profileData.hasChildren);
         
         // Save current progress to Firestore
         await setDoc(doc(firestore, 'users', user.uid), {
@@ -214,6 +216,7 @@ export default function OnboardingFlow() {
   }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
+    console.log(`Updating ${field} to:`, value); // Add this
     setProfileData(prev => ({ 
       ...prev, 
       [field]: value 
@@ -348,6 +351,12 @@ export default function OnboardingFlow() {
             hasChildren: profileData.hasChildren
           });
           
+          console.log('Final save - hasChildren value:', profileData.hasChildren);
+
+          const formattedChildren = profileData.hasChildren.includes(' ') 
+          ? profileData.hasChildren.replace(/\s+/g, '') 
+          : profileData.hasChildren;
+
           // Update Firestore with complete profile data
           const userRef = doc(firestore, 'users', user.uid);
           await setDoc(userRef, {
@@ -364,7 +373,7 @@ export default function OnboardingFlow() {
             ageRange: profileData.ageRange,
             height: profileData.height,
             ethnicity: profileData.ethnicity,
-            hasChildren: profileData.hasChildren,
+            hasChildren: formattedChildren,
             childrenVisible: profileData.childrenVisible !== false,
             currentChildrenVisible: profileData.currentChildrenVisible !== false,
             lifestyle: profileData.lifestyle,
@@ -704,7 +713,18 @@ export default function OnboardingFlow() {
               return (
                 <ChildrenSelection
                   selectedOption={profileData.hasChildren}
-                  onSelectOption={(option) => updateProfile('hasChildren', option)}
+                  onSelectOption={(option) => {
+                    console.log("CHILDREN OPTION RECEIVED:", option);
+                    // Force update in case there's a state update issue
+                    updateProfile('wantChildren', option);
+                    // Force an immediate Firebase update to test
+                    if (user) {
+                      setDoc(doc(firestore, 'users', user.uid), {
+                        hasChildren: option,
+                        updatedAt: serverTimestamp()
+                      }, { merge: true });
+                    }
+                  }}
                   visibleOnProfile={profileData.childrenVisible !== false}
                   onToggleVisibility={(visible) => updateProfile('childrenVisible', visible)}
                 />
