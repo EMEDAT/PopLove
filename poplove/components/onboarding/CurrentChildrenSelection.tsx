@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Switch
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface CurrentChildrenSelectionProps {
@@ -42,13 +43,11 @@ export default function CurrentChildrenSelection({
     setShowChildCount(false);
   };
 
-  const handleVisibilityToggle = (value: boolean) => {
-    setIsVisible(value);
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Do you have children?</Text>
+      <Text style={styles.title}>
+        {!showChildCount ? 'Do you have children?' : 'How many children do you have?'}
+      </Text>
       
       {!showChildCount ? (
         <View style={styles.optionsContainer}>
@@ -56,57 +55,47 @@ export default function CurrentChildrenSelection({
             <TouchableOpacity
               key={option}
               onPress={() => handleOptionSelect(option)}
-              style={styles.optionButton}
+              style={styles.row}
             >
-              <LinearGradient
-                colors={
-                  selectedOption === option || 
-                  (selectedOption.startsWith('Have ') && option === 'Have children')
-                    ? ['#EC5F61', '#F0B433'] 
-                    : ['#E6E9ED', '#E6E9ED']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Text style={[
-                  styles.optionText,
-                  (selectedOption === option || 
-                    (selectedOption.startsWith('Have ') && option === 'Have children')) 
-                    && styles.selectedOptionText
-                ]}>
-                  {option}
-                </Text>
-              </LinearGradient>
+              <Text style={styles.text}>{option}</Text>
+              <View style={styles.checkboxContainer}>
+              {(selectedOption === option || 
+                (selectedOption.startsWith('Have ') && option === 'Have children')) ? (
+                <View style={styles.checkboxContainer}>
+                    <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientCheckbox}
+                    >
+                    <Text style={styles.checkmark}>✓</Text>
+                    </LinearGradient>
+                </View>
+                ) : (
+                <View style={styles.checkbox} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
       ) : (
         <View style={styles.optionsContainer}>
-          <Text style={styles.countTitle}>How many children do you have?</Text>
           {childCountOptions.map((count) => (
             <TouchableOpacity
               key={count}
               onPress={() => handleChildCountSelect(count)}
-              style={styles.optionButton}
+              style={styles.row}
             >
-              <LinearGradient
-                colors={
-                  selectedOption === `Have ${count} children`
-                    ? ['#EC5F61', '#F0B433'] 
-                    : ['#E6E9ED', '#E6E9ED']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Text style={[
-                  styles.optionText,
-                  selectedOption === `Have ${count} children` && styles.selectedOptionText
-                ]}>
-                  {count}
-                </Text>
-              </LinearGradient>
+              <Text style={styles.text}>{count}</Text>
+              <View style={styles.checkboxContainer}>
+                {selectedOption === `Have ${count} children` ? (
+                  <View style={styles.checkboxChecked}>
+                    <Text style={styles.checkmark}>✓</Text>
+                  </View>
+                ) : (
+                  <View style={styles.checkbox} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
           
@@ -123,15 +112,11 @@ export default function CurrentChildrenSelection({
         <Text style={styles.visibilityText}>Visible on profile</Text>
         <Switch
           value={isVisible}
-          onValueChange={handleVisibilityToggle}
+          onValueChange={setIsVisible}
           trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
           thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
         />
       </View>
-      
-      <Text style={styles.privacyNote}>
-        You can control who sees this information in your privacy settings
-      </Text>
     </View>
   );
 }
@@ -152,6 +137,55 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 13,
   },
+  // Added new styles
+  row: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    height: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  text: { 
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
+  },
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gradientCheckbox: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkbox: {
+    width: 24, 
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#F9F6F2',
+  },
+  checkboxChecked: {
+    width: 24, 
+    height: 24,
+    borderRadius: 4,
+    overflow: 'hidden',
+    justifyContent: 'center', // Center vertically
+    alignItems: 'center',     // Center horizontally
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  // Kept existing styles
   optionButton: {
     width: '100%',
     height: 50,
@@ -202,11 +236,4 @@ const styles = StyleSheet.create({
     color: '#161616',
     fontWeight: '500',
   },
-  privacyNote: {
-    marginTop: 24,
-    fontSize: 14,
-    color: '#888',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  }
 });

@@ -36,6 +36,7 @@ import OnboardingNavigation from '../../components/onboarding/OnboardingNavigati
 import LocationSelection from '../../components/onboarding/LocationSelection';
 import DatingPreferenceSelection from '../../components/onboarding/DatingPreferenceSelection';
 import RelationshipTypeSelection from '../../components/onboarding/RelationshipTypeSelection';
+import CurrentChildrenSelection from '../../components/onboarding/CurrentChildrenSelection';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
@@ -46,6 +47,7 @@ const STEPS = [
   'relationshipType',
   'height',
   'ethnicity',
+  'currentChildren',
   'children',
   'pronouns',
   'dateOfBirth', 
@@ -95,6 +97,7 @@ export default function OnboardingFlow() {
     ethnicity: '',
     ethnicityVisible: true, 
     hasChildren: '',
+    currentChildren: '', 
     lifestyle: [] as string[],
     lifestyleVisible: true,  
     interests: [] as string[],
@@ -240,6 +243,7 @@ export default function OnboardingFlow() {
     height: string;
     ethnicity: string;
     hasChildren: string;
+    currentChildren?: string;
     lifestyle: string[];
     interests: string[];
     dealBreaker: boolean;
@@ -459,6 +463,8 @@ export default function OnboardingFlow() {
         return !!profileData.height;
       case 'ethnicity':
         return !!profileData.ethnicity;
+      case 'currentChildren':
+        return !!profileData.currentChildren;
       case 'children':
         return !!profileData.hasChildren;
       case 'lifestyle':
@@ -518,6 +524,9 @@ export default function OnboardingFlow() {
         break;
       case 'children':
         title = 'Children';
+        break;
+      case 'currentChildren':
+        title = 'Current Children';
         break;
       case 'lifestyle':
         title = 'Expectations & Lifestyle';
@@ -692,6 +701,13 @@ export default function OnboardingFlow() {
             <ChildrenSelection
               selectedOption={profileData.hasChildren}
               onSelectOption={(option) => updateProfile('hasChildren', option)}
+            />
+          );
+        case 'currentChildren':
+          return (
+            <CurrentChildrenSelection 
+              selectedOption={profileData.currentChildren}
+              onSelectOption={(option) => updateProfile('currentChildren', option)}
             />
           );
       case 'lifestyle':

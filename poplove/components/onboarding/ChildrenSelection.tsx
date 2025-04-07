@@ -17,7 +17,6 @@ export default function ChildrenSelection({
   selectedOption, 
   onSelectOption 
 }: ChildrenSelectionProps) {
-  const [showChildrenDetails, setShowChildrenDetails] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   
   const familyPlanOptions = [
@@ -42,27 +41,30 @@ export default function ChildrenSelection({
       
       <View style={styles.optionsContainer}>
         {familyPlanOptions.map((option) => (
-          <TouchableOpacity
-            key={option}
-            onPress={() => handleOptionSelect(option)}
-            style={styles.optionButton}
-          >
-            <LinearGradient
-              colors={selectedOption === option 
-                ? ['#EC5F61', '#F0B433'] 
-                : ['#E6E9ED', '#E6E9ED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
+          <View key={option}>
+            <TouchableOpacity 
+              style={styles.row} 
+              onPress={() => handleOptionSelect(option)}
+              activeOpacity={0.7}
             >
-              <Text style={[
-                styles.optionText,
-                selectedOption === option && styles.selectedOptionText
-              ]}>
-                {option}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.text}>{option}</Text>
+              {selectedOption === option ? (
+                <View style={styles.checkboxContainer}>
+                  <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientCheckbox}
+                  >
+                    <Text style={styles.checkmark}>✓</Text>
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={styles.checkbox} />
+              )}
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </View>
         ))}
       </View>
       
@@ -75,10 +77,6 @@ export default function ChildrenSelection({
           thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
         />
       </View>
-      
-      <Text style={styles.privacyNote}>
-        You can control who sees this information in your privacy settings
-      </Text>
     </View>
   );
 }
@@ -97,28 +95,47 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     width: '100%',
-    gap: 13,
   },
-  optionButton: {
-    width: '100%',
-    height: 50,
-    borderRadius: 28,
+  row: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    height: 56,
+  },
+  text: { 
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
+  },
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  gradientButton: {
+  gradientCheckbox: {
     width: '100%',
     height: '100%',
+    borderRadius: 4,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 20,
   },
-  optionText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+  checkbox: {
+    width: 24, 
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#F9F6F2',
   },
-  selectedOptionText: {
+  checkmark: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0'
   },
   visibilityContainer: {
     flexDirection: 'row',
@@ -134,11 +151,4 @@ const styles = StyleSheet.create({
     color: '#161616',
     fontWeight: '500',
   },
-  privacyNote: {
-    marginTop: 24,
-    fontSize: 14,
-    color: '#888',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  }
 });
