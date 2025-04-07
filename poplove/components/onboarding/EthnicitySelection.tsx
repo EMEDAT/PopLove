@@ -201,7 +201,9 @@ const styles = StyleSheet.create({
     height: 56
   },
   optionText: {
-    fontSize: 16
+    fontSize: 16, 
+    color: '#161616',
+    fontWeight: '500',
   },
   feedback: {
     marginTop: 0

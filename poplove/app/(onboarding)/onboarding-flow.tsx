@@ -44,12 +44,12 @@ const STEPS = [
   'datingPreference',
   'lifestyle',
   'relationshipType',
-  'pronouns',
-  'dateOfBirth', // or 'age' depending on what you're using
-  'location',    // This should come right after dateOfBirth/age
   'height',
   'ethnicity',
   'children',
+  'pronouns',
+  'dateOfBirth', 
+  'location',    
   'interests',
   'prompts',
   'subscription',

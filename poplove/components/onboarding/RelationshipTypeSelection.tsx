@@ -95,13 +95,22 @@ export default function RelationshipTypeSelection({
       
       <ScrollView style={styles.optionsContainer}>
         {relationshipTypes.map((type) => (
+        <React.Fragment key={type}>
           <TouchableOpacity
             key={type}
             style={[
               styles.optionButton,
               selectedRelationshipType === type.toLowerCase() && styles.selectedOption
             ]}
-            onPress={() => onSelectRelationshipType(type.toLowerCase())}
+            onPress={() => {
+                // If the option is already selected, deselect it by setting to empty string
+                // Otherwise, select it
+                if (selectedRelationshipType === type.toLowerCase()) {
+                  onSelectRelationshipType('');
+                } else {
+                  onSelectRelationshipType(type.toLowerCase());
+                }
+              }}
           >
             <Text style={styles.optionText}>{type}</Text>
             <View style={styles.checkboxContainer}>
@@ -118,7 +127,9 @@ export default function RelationshipTypeSelection({
                 <View style={styles.checkbox} />
               )}
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity>   
+          <View style={styles.divider} />  
+          </React.Fragment>    
         ))}
         
         {/* Custom option */}
@@ -348,7 +359,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   customButton: {
-    marginTop: 20,
+    marginTop: 40,
     padding: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -383,7 +394,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 16,
-    marginTop: -10,
+    marginTop: -30,
   },
   visibilityText: {
     fontSize: 16, 
