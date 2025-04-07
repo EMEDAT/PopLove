@@ -88,12 +88,19 @@ export default function CurrentChildrenSelection({
             >
               <Text style={styles.text}>{count}</Text>
               <View style={styles.checkboxContainer}>
-                {selectedOption === `Have ${count} children` ? (
-                  <View style={styles.checkboxChecked}>
+              {selectedOption === `Have ${count} children` ? (
+                <View style={styles.checkboxContainer}>
+                    <LinearGradient
+                    colors={['#EC5F61', '#F0B433']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientCheckbox}
+                    >
                     <Text style={styles.checkmark}>✓</Text>
-                  </View>
+                    </LinearGradient>
+                </View>
                 ) : (
-                  <View style={styles.checkbox} />
+                <View style={styles.checkbox} />
                 )}
               </View>
             </TouchableOpacity>
@@ -108,15 +115,17 @@ export default function CurrentChildrenSelection({
         </View>
       )}
       
-      <View style={styles.visibilityContainer}>
-        <Text style={styles.visibilityText}>Visible on profile</Text>
-        <Switch
-          value={isVisible}
-          onValueChange={setIsVisible}
-          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
-          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
-        />
-      </View>
+      {!showChildCount && (
+        <View style={styles.visibilityContainer}>
+            <Text style={styles.visibilityText}>Visible on profile</Text>
+            <Switch
+            value={isVisible}
+            onValueChange={setIsVisible}
+            trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+            thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
+            />
+        </View>
+        )}
     </View>
   );
 }
@@ -226,10 +235,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 200,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
   },
   visibilityText: {
     fontSize: 16,

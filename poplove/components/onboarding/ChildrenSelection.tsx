@@ -18,6 +18,7 @@ export default function ChildrenSelection({
   onSelectOption 
 }: ChildrenSelectionProps) {
   const [isVisible, setIsVisible] = useState(true);
+  const [showChildCount, setShowChildCount] = useState(false);
   
   const familyPlanOptions = [
     "Don't want children",
@@ -26,9 +27,20 @@ export default function ChildrenSelection({
     "Not sure",
     "Prefer not to say"
   ];
+  
+  const childCountOptions = ['1', '2', '3', '4+'];
 
   const handleOptionSelect = (option: string) => {
-    onSelectOption(option);
+    if (option === "Want children") {
+      setShowChildCount(true);
+    } else {
+      onSelectOption(option);
+    }
+  };
+  
+  const handleChildCountSelect = (count: string) => {
+    onSelectOption(`Want ${count} children`);
+    setShowChildCount(false);
   };
 
   const handleVisibilityToggle = (value: boolean) => {
@@ -37,46 +49,89 @@ export default function ChildrenSelection({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What are your family plans?</Text>
+      <Text style={styles.title}>
+        {!showChildCount ? 'What are your family plans?' : 'How many children do you want?'}
+      </Text>
       
-      <View style={styles.optionsContainer}>
-        {familyPlanOptions.map((option) => (
-          <View key={option}>
-            <TouchableOpacity 
-              style={styles.row} 
-              onPress={() => handleOptionSelect(option)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.text}>{option}</Text>
-              {selectedOption === option ? (
-                <View style={styles.checkboxContainer}>
-                  <LinearGradient
-                    colors={['#EC5F61', '#F0B433']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientCheckbox}
-                  >
-                    <Text style={styles.checkmark}>✓</Text>
-                  </LinearGradient>
-                </View>
-              ) : (
-                <View style={styles.checkbox} />
-              )}
-            </TouchableOpacity>
-            <View style={styles.divider} />
-          </View>
-        ))}
-      </View>
+      {!showChildCount ? (
+        <View style={styles.optionsContainer}>
+          {familyPlanOptions.map((option) => (
+            <View key={option}>
+              <TouchableOpacity 
+                style={styles.row} 
+                onPress={() => handleOptionSelect(option)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.text}>{option}</Text>
+                {(selectedOption === option || 
+                  (selectedOption.startsWith('Want ') && option === 'Want children')) ? (
+                  <View style={styles.checkboxContainer}>
+                    <LinearGradient
+                      colors={['#EC5F61', '#F0B433']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.gradientCheckbox}
+                    >
+                      <Text style={styles.checkmark}>✓</Text>
+                    </LinearGradient>
+                  </View>
+                ) : (
+                  <View style={styles.checkbox} />
+                )}
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.optionsContainer}>
+          {childCountOptions.map((count) => (
+            <View key={count}>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => handleChildCountSelect(count)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.text}>{count}</Text>
+                {selectedOption === `Want ${count} children` ? (
+                  <View style={styles.checkboxContainer}>
+                    <LinearGradient
+                      colors={['#EC5F61', '#F0B433']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.gradientCheckbox}
+                    >
+                      <Text style={styles.checkmark}>✓</Text>
+                    </LinearGradient>
+                  </View>
+                ) : (
+                  <View style={styles.checkbox} />
+                )}
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </View>
+          ))}
+          
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setShowChildCount(false)}
+          >
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       
-      <View style={styles.visibilityContainer}>
-        <Text style={styles.visibilityText}>Visible on profile</Text>
-        <Switch
-          value={isVisible}
-          onValueChange={handleVisibilityToggle}
-          trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
-          thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
-        />
-      </View>
+      {!showChildCount && (
+        <View style={styles.visibilityContainer}>
+          <Text style={styles.visibilityText}>Visible on profile</Text>
+          <Switch
+            value={isVisible}
+            onValueChange={handleVisibilityToggle}
+            trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
+            thumbColor={isVisible ? '#FFFFFF' : '#FFFFFF'}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -141,14 +196,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 110,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
   },
   visibilityText: {
     fontSize: 16,
     color: '#161616',
     fontWeight: '500',
   },
+  backButton: {
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  backText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    fontWeight: '500',
+  }
 });
