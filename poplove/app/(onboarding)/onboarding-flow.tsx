@@ -96,7 +96,7 @@ export default function OnboardingFlow() {
     height: '',
     ethnicity: '',
     ethnicityVisible: true, 
-    hasChildren: '',
+    wantChildren: '',
     currentChildren: '', 
     childrenVisible: true,
     currentChildrenVisible: true,
@@ -186,7 +186,7 @@ export default function OnboardingFlow() {
       try {
         setSavingProgress(true);
 
-        console.log('Progress save - hasChildren value:', profileData.hasChildren);
+        console.log('Progress save - wantChildren value:', profileData.wantChildren);
         
         // Save current progress to Firestore
         await setDoc(doc(firestore, 'users', user.uid), {
@@ -247,7 +247,7 @@ export default function OnboardingFlow() {
     ageConfirmed?: boolean;
     height: string;
     ethnicity: string;
-    hasChildren: string;
+    wantChildren: string;
     currentChildren?: string;
     lifestyle: string[];
     interests: string[];
@@ -288,7 +288,7 @@ export default function OnboardingFlow() {
         return;
       }
       
-      if (STEPS[currentStep] === 'children' && !profileData.hasChildren) {
+      if (STEPS[currentStep] === 'children' && !profileData.wantChildren) {
         Alert.alert('Missing Information', 'Please select an option to continue');
         return;
       }
@@ -348,14 +348,10 @@ export default function OnboardingFlow() {
             ageRange: profileData.ageRange,
             height: profileData.height,
             ethnicity: profileData.ethnicity,
-            hasChildren: profileData.hasChildren
+            wantChildren: profileData.wantChildren
           });
           
-          console.log('Final save - hasChildren value:', profileData.hasChildren);
-
-          const formattedChildren = profileData.hasChildren.includes(' ') 
-          ? profileData.hasChildren.replace(/\s+/g, '') 
-          : profileData.hasChildren;
+          console.log('Final save - wantChildren value:', profileData.wantChildren);
 
           // Update Firestore with complete profile data
           const userRef = doc(firestore, 'users', user.uid);
@@ -373,7 +369,7 @@ export default function OnboardingFlow() {
             ageRange: profileData.ageRange,
             height: profileData.height,
             ethnicity: profileData.ethnicity,
-            hasChildren: formattedChildren,
+            wantChildren: profileData.wantChildren,
             childrenVisible: profileData.childrenVisible !== false,
             currentChildrenVisible: profileData.currentChildrenVisible !== false,
             lifestyle: profileData.lifestyle,
@@ -401,7 +397,7 @@ export default function OnboardingFlow() {
             console.log('Verified saved ageRange:', userData.ageRange);
             console.log('Verified saved height:', userData.height);
             console.log('Verified saved ethnicity:', userData.ethnicity);
-            console.log('Verified saved hasChildren:', userData.hasChildren);
+            console.log('Verified saved wantChildren:', userData.wantChildren);
             
             if (!userData.gender) {
               console.error('Gender not saved properly!');
@@ -479,7 +475,7 @@ export default function OnboardingFlow() {
       case 'currentChildren':
         return !!profileData.currentChildren;
       case 'children':
-        return !!profileData.hasChildren;
+        return !!profileData.wantChildren;
       case 'lifestyle':
         return profileData.lifestyle.length > 0;
       case 'interests':
@@ -712,19 +708,8 @@ export default function OnboardingFlow() {
             case 'children':
               return (
                 <ChildrenSelection
-                  selectedOption={profileData.hasChildren}
-                  onSelectOption={(option) => {
-                    console.log("CHILDREN OPTION RECEIVED:", option);
-                    // Force update in case there's a state update issue
-                    updateProfile('wantChildren', option);
-                    // Force an immediate Firebase update to test
-                    if (user) {
-                      setDoc(doc(firestore, 'users', user.uid), {
-                        hasChildren: option,
-                        updatedAt: serverTimestamp()
-                      }, { merge: true });
-                    }
-                  }}
+                  selectedOption={profileData.wantChildren}
+                  onSelectOption={(option) => updateProfile('wantChildren', option)}
                   visibleOnProfile={profileData.childrenVisible !== false}
                   onToggleVisibility={(visible) => updateProfile('childrenVisible', visible)}
                 />
