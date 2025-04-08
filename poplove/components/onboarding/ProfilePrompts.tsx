@@ -20,15 +20,15 @@ interface Prompt {
 }
 
 interface ProfilePromptsProps {
-  userPrompts: Prompt[];
-  onUpdatePrompts: (prompts: Prompt[]) => void;
-  onClose: () => void;
+  prompts: { question: string; answer: string; }[];
+  onUpdatePrompt: (index: number, answer: string) => void;
+  onClose?: () => void; // Make it optional
 }
 
 export default function ProfilePrompts({ 
-  userPrompts = [], 
-  onUpdatePrompts,
-  onClose
+  prompts = [], 
+  onUpdatePrompt,
+  onClose = () => {}
 }: ProfilePromptsProps) {
   const [selectedCategory, setSelectedCategory] = useState('About me');
   const [showPromptsModal, setShowPromptsModal] = useState(false);
@@ -118,25 +118,52 @@ export default function ProfilePrompts({
 
   // Check if a prompt is already selected by the user
   const isPromptSelected = (promptId: string) => {
-    return userPrompts.some(p => p.question === promptsByCategory[selectedCategory].find(item => item.id === promptId)?.question);
+    return prompts.some(p => p.question === promptsByCategory[selectedCategory].find(item => item.id === promptId)?.question);
   };
 
   // Handle prompt selection
-  const handleSelectPrompt = (prompt: Prompt) => {
-    setEditingPrompt(prompt);
-    setShowPromptsModal(false);
-  };
+// Handle prompt selection
+const handleSelectPrompt = (prompt: Prompt) => {
+  // Find the index in prompts where we should add this question
+  const existingIndex = prompts.findIndex(p => p.question === prompt.question);
+  
+  // If not found, create new prompt with empty answer
+  if (existingIndex === -1) {
+    // For a new prompt, we need to handle the slot
+    const newPromptObject = {
+      ...prompt,
+      answer: ""
+    };
+    
+    // Find next empty slot
+    const emptyIndex = prompts.length;
+    
+    // Create basic prompt and pass to parent
+    onUpdatePrompt(emptyIndex, "");
+    
+    // Then set for editing
+    setEditingPrompt(newPromptObject);
+  } else {
+    // If already exists, just edit it
+    setEditingPrompt({
+      ...prompt,
+      answer: prompts[existingIndex].answer
+    });
+  }
+  
+  setShowPromptsModal(false);
+};
 
   // Handle saving prompt answer
   const handleSavePrompt = (promptQuestion: string, answer: string) => {
     if (!editingPrompt) return;
 
-    const existingPromptIndex = userPrompts.findIndex(p => p.question === promptQuestion);
+    const existingPromptIndex = prompts.findIndex(p => p.question === promptQuestion);
     let updatedPrompts;
 
     if (existingPromptIndex >= 0) {
       // Update existing prompt
-      updatedPrompts = [...userPrompts];
+      updatedPrompts = [...prompts];
       updatedPrompts[existingPromptIndex] = {
         ...updatedPrompts[existingPromptIndex],
         answer
@@ -144,7 +171,7 @@ export default function ProfilePrompts({
     } else {
       // Add new prompt
       updatedPrompts = [
-        ...userPrompts,
+        ...prompts,
         {
           id: editingPrompt.id,
           question: promptQuestion,
@@ -154,7 +181,14 @@ export default function ProfilePrompts({
       ];
     }
 
-    onUpdatePrompts(updatedPrompts);
+    if (existingPromptIndex >= 0) {
+      // Update existing prompt
+      onUpdatePrompt(existingPromptIndex, answer);
+    } else {
+      // For a new prompt, find the next available index
+      const newIndex = prompts.length;
+      onUpdatePrompt(newIndex, answer);
+    }
     setEditingPrompt(null);
   };
 
@@ -178,7 +212,7 @@ export default function ProfilePrompts({
       {/* Prompt answers section */}
       <ScrollView style={styles.scrollView}>
         {/* Display existing prompts */}
-        {userPrompts.map((prompt, index) => (
+        {prompts.map((prompt, index) => (
           <View key={index} style={styles.promptItem}>
             <Text style={styles.promptQuestion}>{prompt.question}</Text>
             <Text style={styles.promptAnswer}>{prompt.answer}</Text>
@@ -186,7 +220,7 @@ export default function ProfilePrompts({
         ))}
 
         {/* Empty slots for adding new prompts */}
-        {Array.from({ length: 3 - userPrompts.length }).map((_, index) => (
+        {Array.from({ length: 3 - prompts.length }).map((_, index) => (
           <TouchableOpacity
             key={`empty-${index}`}
             style={styles.emptyPrompt}
@@ -241,7 +275,7 @@ export default function ProfilePrompts({
           </ScrollView>
 
           {/* Category message */}
-          {selectedCategory === 'About me' && userPrompts.some(p => promptsByCategory['About me'].some(q => q.question === p.question)) && (
+          {selectedCategory === 'About me' && prompts.some(p => promptsByCategory['About me'].some(q => q.question === p.question)) && (
             <View style={styles.categoryMessage}>
               <Text style={styles.categoryMessageText}>
                 You've got 'About me' covered. Why not try another category?

@@ -124,11 +124,7 @@ export default function OnboardingFlow() {
     lifestyleVisible: true,  
     interests: [] as string[],
     dealBreaker: false,
-    prompts: [
-      { question: 'My greatest strength?', answer: '' },
-      { question: 'My most irrational fear?', answer: '' },
-      { question: 'Dating me is like?', answer: '' }
-    ],
+    prompts: [] as { question: string; answer: string }[],
     subscriptionPlan: 'basic',
     locationCoordinates: null as {
       latitude: number;
@@ -929,13 +925,32 @@ export default function OnboardingFlow() {
               onToggleVisibility={(visible) => updateProfile('drugUsageVisible', visible)}
             />
           );
-      case 'prompts':
-        return (
-          <ProfilePrompts 
-            prompts={profileData.prompts}
-            onUpdatePrompt={updatePrompt}
-          />
-        );
+          case 'prompts':
+            return (
+              <ProfilePrompts 
+                prompts={profileData.prompts}  // Use prompts instead of userPrompts
+                onUpdatePrompt={(index, answer) => {
+                  const updatedPrompts = [...profileData.prompts];
+                  
+                  // If it's an existing prompt
+                  if (index < updatedPrompts.length) {
+                    updatedPrompts[index] = {
+                      ...updatedPrompts[index],
+                      answer
+                    };
+                  } else {
+                    // Adding a new prompt
+                    updatedPrompts.push({
+                      question: "",  // This will be set by the component
+                      answer
+                    });
+                  }
+                  
+                  updateProfile('prompts', updatedPrompts);
+                }}
+                onClose={() => handleNext()}
+              />
+            );
       case 'subscription':
         return (
           <SubscriptionPlan 
