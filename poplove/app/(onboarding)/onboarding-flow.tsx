@@ -309,21 +309,6 @@ export default function OnboardingFlow() {
     updateProfile('prompts', updatedPrompts);
   };
 
-    // Helper function to provide default questions when creating new prompts
-    const promptsByCategory = {
-      'About me': [
-        { id: '1', question: 'A life goal of mine', answer: '' },
-        { id: '2', question: 'Unusual skills', answer: '' },
-        { id: '3', question: 'Dating me is like', answer: '' },
-        { id: '4', question: 'A random fact I love is', answer: '' },
-        { id: '5', question: 'I go crazy for', answer: '' },
-        { id: '6', question: 'My greatest strength', answer: '' },
-        { id: '7', question: 'The way to win me over is', answer: '' },
-        { id: '8', question: 'My most irrational fear', answer: '' },
-        { id: '9', question: 'My simple pleasures', answer: '' },
-      ]
-    };
-
   // Define the type for profile data
   interface ProfileData {
     displayName: string;

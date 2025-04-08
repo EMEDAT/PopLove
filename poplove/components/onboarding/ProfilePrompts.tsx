@@ -23,14 +23,14 @@ interface Prompt {
 interface ProfilePromptsProps {
   prompts: { question: string; answer: string; }[];
   onUpdatePrompt: (index: number, answer: string) => void;
-  onUpdatePrompts?: (prompts: { question: string; answer: string; }[]) => void; // Add this line
+  onUpdatePrompts?: (prompts: { question: string; answer: string; }[]) => void;
   onClose?: () => void;
 }
 
 export default function ProfilePrompts({ 
   prompts = [], 
   onUpdatePrompt,
-  onUpdatePrompts, // Add this to the destructuring
+  onUpdatePrompts,
   onClose = () => {}
 }: ProfilePromptsProps) {
   const [selectedCategory, setSelectedCategory] = useState('About me');
@@ -46,9 +46,9 @@ export default function ProfilePrompts({
   
   // Available prompt categories
   const categories = [
-    'About me',
-    'Self-care',
-    'Getting personal',
+    '👤 About me',
+    '🧖 Self-care',
+    '🔍 Getting personal',
     '🧠 Personality & Values',
     '😂 Humor & Fun',
     '❤️ Relationships & Connection',
@@ -59,28 +59,28 @@ export default function ProfilePrompts({
 
   // Available prompts by category
   const promptsByCategory: Record<string, Prompt[]> = {
-    'About me': [
-      { id: '1', question: 'A life goal of mine', answer: '', category: 'About me' },
-      { id: '2', question: 'Unusual skills', answer: '', category: 'About me' },
-      { id: '3', question: 'Dating me is like', answer: '', category: 'About me' },
-      { id: '4', question: 'A random fact I love is', answer: '', category: 'About me' },
-      { id: '5', question: 'I go crazy for', answer: '', category: 'About me' },
-      { id: '6', question: 'My greatest strength', answer: '', category: 'About me' },
-      { id: '7', question: 'The way to win me over is', answer: '', category: 'About me' },
-      { id: '8', question: 'My most irrational fear', answer: '', category: 'About me' },
-      { id: '9', question: 'My simple pleasures', answer: '', category: 'About me' },
-      { id: '10', question: 'This year, I really want to', answer: '', category: 'About me' },
-      { id: '11', question: 'I recently discovered that', answer: '', category: 'About me' },
-      { id: '12', question: 'Typical Sunday', answer: '', category: 'About me' },
+    '👤 About me': [
+      { id: '1', question: 'A life goal of mine', answer: '', category: '👤 About me' },
+      { id: '2', question: 'Unusual skills', answer: '', category: '👤 About me' },
+      { id: '3', question: 'Dating me is like', answer: '', category: '👤 About me' },
+      { id: '4', question: 'A random fact I love is', answer: '', category: '👤 About me' },
+      { id: '5', question: 'I go crazy for', answer: '', category: '👤 About me' },
+      { id: '6', question: 'My greatest strength', answer: '', category: '👤 About me' },
+      { id: '7', question: 'The way to win me over is', answer: '', category: '👤 About me' },
+      { id: '8', question: 'My most irrational fear', answer: '', category: '👤 About me' },
+      { id: '9', question: 'My simple pleasures', answer: '', category: '👤 About me' },
+      { id: '10', question: 'This year, I really want to', answer: '', category: '👤 About me' },
+      { id: '11', question: 'I recently discovered that', answer: '', category: '👤 About me' },
+      { id: '12', question: 'Typical Sunday', answer: '', category: '👤 About me' },
     ],
     // Other categories remain the same
-    'Self-care': [
-      { id: '13', question: 'My self-care routine includes', answer: '', category: 'Self-care' },
-      { id: '14', question: 'I feel most centered when', answer: '', category: 'Self-care' },
+    '🧖 Self-care': [
+      { id: '13', question: 'My self-care routine includes', answer: '', category: '🧖 Self-care' },
+      { id: '14', question: 'I feel most centered when', answer: '', category: '🧖 Self-care' },
     ],
-    'Getting personal': [
-      { id: '15', question: 'My love language is', answer: '', category: 'Getting personal' },
-      { id: '16', question: "What I'm looking for in a partner", answer: '', category: 'Getting personal' },
+    '🔍 Getting personal': [
+      { id: '15', question: 'My love language is', answer: '', category: '🔍 Getting personal' },
+      { id: '16', question: "What I'm looking for in a partner", answer: '', category: '🔍 Getting personal' },
     ],
     '🧠 Personality & Values': [
       { id: '17', question: 'A fact about me that surprises people...', answer: '', category: '🧠 Personality & Values' },
@@ -172,7 +172,7 @@ export default function ProfilePrompts({
     }
   };
 
-  // FIXED: Completely revised delete function
+  // Handle deleting a prompt
   const handleDeletePrompt = (index: number) => {
     console.log('Attempting to delete prompt at index:', index);
     console.log('Current prompts:', JSON.stringify(prompts));
@@ -191,14 +191,11 @@ export default function ProfilePrompts({
       }
     }
     
+    // Update local state
+    setLocalPrompts(updatedPrompts);
+    
     // Close editing modal
     setEditingPrompt(null);
-    
-    // Reset category and reopen modal
-    setTimeout(() => {
-      setSelectedCategory('About me');
-      setShowPromptsModal(true);
-    }, 50);
   };
 
   // Handle saving prompt answer
@@ -254,51 +251,63 @@ export default function ProfilePrompts({
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Write your profile answers</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Text style={styles.closeButtonText}>×</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Prompt answers section */}
       <ScrollView style={styles.scrollView}>
-        {/* Display existing prompts */}
+        {/* Display existing prompts with X button in top right */}
         {localPrompts.map((prompt, index) => (
-        <TouchableOpacity 
-          key={index} 
-          style={styles.promptItem}
-          onPress={() => {
-            // Set the existing prompt for editing
-            setEditingPrompt({
-              id: `existing-${index}`,
-              question: prompt.question,
-              answer: prompt.answer,
-              category: '' // You might want to track category
-            });
-          }}
-        >
-          <Text style={styles.promptQuestion}>{prompt.question}</Text>
-          <Text style={styles.promptAnswer}>
-            {prompt.answer || 'Add an answer'}
-          </Text>
-        </TouchableOpacity>
-      ))}
+          <View key={index} style={styles.promptItemContainer}>
+            <TouchableOpacity 
+              style={styles.promptItem}
+              onPress={() => {
+                // Set the existing prompt for editing
+                setEditingPrompt({
+                  id: `existing-${index}`,
+                  question: prompt.question,
+                  answer: prompt.answer,
+                  category: '' // You might want to track category
+                });
+              }}
+            >
+              <Text style={styles.promptQuestion}>{prompt.question}</Text>
+              <Text style={styles.promptAnswer}>
+                {prompt.answer || 'Add an answer'}
+              </Text>
+            </TouchableOpacity>
+            
+            {/* X button for deleting a prompt */}
+            <TouchableOpacity 
+              style={styles.deleteIconButton}
+              onPress={() => handleDeletePrompt(index)}
+            >
+              <Text style={styles.deleteIconText}>×</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
 
-        {/* Empty slots for adding new prompts */}
+        {/* Empty slots for adding new prompts with + button in top right */}
         {Array.from({ length: 3 }).map((_, index) => {
           if (index < localPrompts.length) {
             return null; // Already rendered above
           }
           return (
-            <TouchableOpacity
-              key={`empty-${index}`}
-              style={styles.emptyPrompt}
-              onPress={() => handleAddPrompt(index)}
-            >
-              <Text style={styles.emptyPromptText}>Select a Prompt</Text>
-              <View style={styles.addButton}>
-                <Text style={styles.addButtonText}>+</Text>
-              </View>
-            </TouchableOpacity>
+            <View key={`empty-${index}`} style={styles.promptItemContainer}>
+              <TouchableOpacity
+                style={styles.emptyPrompt}
+                onPress={() => handleAddPrompt(index)}
+              >
+                <Text style={styles.emptyPromptText}>Select a Prompt</Text>
+              </TouchableOpacity>
+              
+              {/* + button for adding a prompt */}
+              <TouchableOpacity 
+                style={styles.addIconButton}
+                onPress={() => handleAddPrompt(index)}
+              >
+                <Text style={styles.addIconText}>+</Text>
+              </TouchableOpacity>
+            </View>
           );
         })}
 
@@ -381,71 +390,24 @@ export default function ProfilePrompts({
           transparent={false}
         >
           <SafeAreaView style={styles.editContainer}>
-          <View style={styles.editHeader}>
-          <TouchableOpacity 
-            onPress={() => {
-              console.log('Delete pressed for prompt:', editingPrompt);
-              console.log('Current prompts array:', JSON.stringify(prompts));
-              
-              // Debug logging to see exactly what we're searching for
-              if (editingPrompt) {
-                console.log('Looking for question:', editingPrompt.question);
-                // Print all questions in the array for comparison
-                prompts.forEach((p, idx) => {
-                  console.log(`Prompt ${idx}: "${p.question}"`);
-                });
-              }
-              
-              // Instead of searching by question, use the editingPrompt index directly
-              if (editingPrompt && editingPrompt.id) {
-                // Extract the index from the id if it's in the format "existing-X"
-                const idParts = editingPrompt.id.split('-');
-                if (idParts[0] === 'existing' && !isNaN(parseInt(idParts[1]))) {
-                  const indexFromId = parseInt(idParts[1]);
-                  console.log('Using index from id:', indexFromId);
-                  
-                  if (indexFromId >= 0 && indexFromId < prompts.length) {
-                    handleDeletePrompt(indexFromId);
-                  } else {
-                    console.error('Invalid index from id:', indexFromId);
-                  }
-                } else {
-                  // For newly selected prompts without existing- prefix
-                  // Find by question which should be unique
-                  const promptIndex = prompts.findIndex(p => 
-                    p.question.trim().toLowerCase() === editingPrompt.question.trim().toLowerCase()
-                  );
-                  
-                  if (promptIndex !== -1) {
-                    handleDeletePrompt(promptIndex);
-                  } else {
-                    console.error('Could not find prompt index by question');
-                    console.log('Selected question:', editingPrompt.question);
-                    
-                    // Last resort - if this is the only prompt, delete at index 0
-                    if (prompts.length === 1) {
-                      handleDeletePrompt(0);
-                    }
-                  }
-                }
-              } else {
-                console.error('No editing prompt or invalid id');
-              }
-            }}
-          >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
-          <Text style={styles.editTitle}>Write answer</Text>
-          <TouchableOpacity 
-            onPress={() => handleSavePrompt(editingPrompt!.question, editingPrompt!.answer)}
-            disabled={!editingPrompt?.answer?.trim()}
-          >
-            <Text style={[
-              styles.doneButton,
-              !editingPrompt?.answer?.trim() && styles.disabledButton
-            ]}>Done</Text>
-          </TouchableOpacity>
-          </View>
+            <View style={styles.editHeader}>
+              <TouchableOpacity 
+                onPress={() => setEditingPrompt(null)}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.editTitle}>Write answer</Text>
+              <TouchableOpacity 
+                onPress={() => handleSavePrompt(editingPrompt!.question, editingPrompt!.answer)}
+                disabled={!editingPrompt?.answer?.trim()}
+              >
+                <Text style={[
+                  styles.doneButton,
+                  !editingPrompt?.answer?.trim() && styles.disabledButton
+                ]}>Done</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.editContent}>
               <Text style={styles.questionLabel}>{editingPrompt.question}</Text>
@@ -481,7 +443,7 @@ export default function ProfilePrompts({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   header: {
     flexDirection: 'row',
@@ -493,9 +455,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#161616',
   },
   closeButton: {
     padding: 5,
@@ -512,8 +474,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 10,
   },
-  promptItem: {
+  // Modified to handle the layout with button on the right
+  promptItemContainer: {
+    position: 'relative',
     marginBottom: 15,
+    paddingTop: 12, // Add padding to account for overlapping button
+    paddingRight: 12, // Add padding to account for overlapping button
+  },
+  promptItem: {
     padding: 15,
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
@@ -529,34 +497,74 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  emptyPrompt: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  // New styles for the X button
+  deleteIconButton: {
+    position: 'absolute',
+    top: 0, // Less negative to bring it down
+    right: 0, // Less negative to bring it left
+    width: 25,
+    height: 25,
+    borderRadius: 15,
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  deleteIconText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'medium',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  emptyPrompt: {
     padding: 15,
-    marginBottom: 15,
+    marginBottom: -14,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#ccc',
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
+    minHeight: 80, // Ensure minimum height for empty containers
   },
   emptyPromptText: {
     color: '#999',
     fontSize: 16,
   },
-  addButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  // New styles for the + button
+  addIconButton: {
+    position: 'absolute',
+    top: 0, // Less negative to bring it down
+    right: 0, // Less negative to bring it left
+    width: 25,
+    height: 25,
+    borderRadius: 15,
     backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  addButtonText: {
+  addIconText: {
     color: 'white',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
+    textAlign: 'center',
     lineHeight: 22,
   },
   requiredText: {
@@ -593,13 +601,16 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     flexDirection: 'row',
     padding: 10,
+    maxHeight: 80,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   categoryTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    height: 40,
+    marginTop: 10,
+    paddingVertical: 10,
     paddingHorizontal: 15,
     marginRight: 10,
     borderRadius: 20,
@@ -655,7 +666,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  // Updated to cancel button instead of delete
   cancelButton: {
+    padding: 5,
+  },
+  cancelButtonText: {
     color: '#333',
     fontSize: 16,
   },
@@ -720,9 +735,5 @@ const styles = StyleSheet.create({
   learnMoreText: {
     color: '#FF6B6B',
     textDecorationLine: 'underline',
-  },
-  deleteButtonText: {
-    color: '#FF3B30', // iOS delete red
-    fontSize: 16,
   },
 });
