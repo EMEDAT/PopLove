@@ -37,10 +37,22 @@ import LocationSelection from '../../components/onboarding/LocationSelection';
 import DatingPreferenceSelection from '../../components/onboarding/DatingPreferenceSelection';
 import RelationshipTypeSelection from '../../components/onboarding/RelationshipTypeSelection';
 import CurrentChildrenSelection from '../../components/onboarding/CurrentChildrenSelection';
+import WorkplaceSelection from '../../components/onboarding/WorkplaceSelection';
+import JobTitleSelection from '../../components/onboarding/JobTitleSelection';
+import SchoolSelection from '../../components/onboarding/SchoolSelection';
+import EducationLevelSelection from '../../components/onboarding/EducationLevelSelection';
+import ReligiousBeliefSelection from '../../components/onboarding/ReligiousBeliefSelection';
+import PoliticalBeliefSelection from '../../components/onboarding/PoliticalBeliefSelection';
+import DrinkingSelection from '../../components/onboarding/DrinkingSelection';
+import SmokingSelection from '../../components/onboarding/SmokingSelection';
+import DrugUsageSelection from '../../components/onboarding/DrugUsageSelection';
 
 // Define all the steps in the onboarding flow
 const STEPS = [
   'profile',
+  'dateOfBirth', 
+  'location', 
+  'pronouns',
   'gender',
   'datingPreference',
   'lifestyle',
@@ -49,9 +61,17 @@ const STEPS = [
   'ethnicity',
   'currentChildren',
   'children',
-  'pronouns',
-  'dateOfBirth', 
-  'location',    
+  'workplace',        
+  'jobTitle',          
+  'school',            
+  'education',         
+  'religiousBeliefs',  
+  'politicalBeliefs',  
+  'drinking',          
+  'smoking',           
+  'drugUsage',         
+
+   
   'interests',
   'prompts',
   'subscription',
@@ -120,6 +140,24 @@ export default function OnboardingFlow() {
       formattedAddress?: string;
       useExactAddress?: boolean;
     } | null,
+    workplace: '',
+    workplaceVisible: true,
+    jobTitle: '',
+    jobTitleVisible: true,
+    school: '',
+    schoolVisible: true,
+    education: '',
+    educationVisible: false,
+    religiousBeliefs: '',
+    religiousBeliefsVisible: true,
+    politicalBeliefs: '',
+    politicalBeliefsVisible: true,
+    drinking: '',
+    drinkingVisible: true,
+    smoking: '',
+    smokingVisible: true,
+    drugUsage: '',
+    drugUsageVisible: true,
   });
 
   // Load saved onboarding progress
@@ -372,6 +410,24 @@ export default function OnboardingFlow() {
             wantChildren: profileData.wantChildren,
             childrenVisible: profileData.childrenVisible !== false,
             currentChildrenVisible: profileData.currentChildrenVisible !== false,
+            workplace: profileData.workplace,
+            workplaceVisible: profileData.workplaceVisible,
+            jobTitle: profileData.jobTitle,
+            jobTitleVisible: profileData.jobTitleVisible,
+            school: profileData.school,
+            schoolVisible: profileData.schoolVisible,
+            education: profileData.education,
+            educationVisible: false, 
+            religiousBeliefs: profileData.religiousBeliefs,
+            religiousBeliefsVisible: profileData.religiousBeliefsVisible,
+            politicalBeliefs: profileData.politicalBeliefs,
+            politicalBeliefsVisible: profileData.politicalBeliefsVisible,
+            drinking: profileData.drinking,
+            drinkingVisible: profileData.drinkingVisible,
+            smoking: profileData.smoking,
+            smokingVisible: profileData.smokingVisible,
+            drugUsage: profileData.drugUsage,
+            drugUsageVisible: profileData.drugUsageVisible,
             lifestyle: profileData.lifestyle,
             lifestyleVisible: profileData.lifestyleVisible !== false,
             interests: profileData.interests,
@@ -476,6 +532,24 @@ export default function OnboardingFlow() {
         return !!profileData.currentChildren;
       case 'children':
         return !!profileData.wantChildren;
+      case 'workplace':
+        return !!profileData.workplace;
+      case 'jobTitle':
+        return !!profileData.jobTitle;
+      case 'school':
+        return !!profileData.school;
+      case 'education':
+        return !!profileData.education;
+      case 'religiousBeliefs':
+        return !!profileData.religiousBeliefs;
+      case 'politicalBeliefs':
+        return !!profileData.politicalBeliefs;
+      case 'drinking':
+        return !!profileData.drinking;
+      case 'smoking':
+        return !!profileData.smoking;
+      case 'drugUsage':
+        return !!profileData.drugUsage;
       case 'lifestyle':
         return profileData.lifestyle.length > 0;
       case 'interests':
@@ -537,8 +611,35 @@ export default function OnboardingFlow() {
       case 'currentChildren':
         title = 'Current Children';
         break;
+      case 'workplace':
+        title = 'Workplace';
+        break;
+      case 'jobTitle':
+        title = 'Job Title';
+        break;
+      case 'school':
+        title = 'School';
+        break;
+      case 'education':
+        title = 'Education Level';
+        break;
+      case 'religiousBeliefs':
+        title = 'Religious Beliefs';
+        break;
+      case 'politicalBeliefs':
+        title = 'Political Beliefs';
+        break;
+      case 'drinking':
+        title = 'Drinking Habits';
+        break;
+      case 'smoking':
+        title = 'Smoking Habits';
+        break;
+      case 'drugUsage':
+        title = 'Drug Usage';
+        break;
       case 'lifestyle':
-        title = 'Expectations & Lifestyle';
+        title = 'Dating Intentions';
         break;
       case 'interests':
         title = 'Interests';
@@ -741,6 +842,93 @@ export default function OnboardingFlow() {
             onToggleDealBreaker={(value) => updateProfile('dealBreaker', value)}
           />
         );
+        case 'workplace':
+          return (
+            <WorkplaceSelection
+              workplace={profileData.workplace}
+              onWorkplaceChange={(workplace) => updateProfile('workplace', workplace)}
+              visibleOnProfile={profileData.workplaceVisible}
+              onToggleVisibility={(visible) => updateProfile('workplaceVisible', visible)}
+            />
+          );
+          
+        case 'jobTitle':
+          return (
+            <JobTitleSelection
+              jobTitle={profileData.jobTitle}
+              onJobTitleChange={(jobTitle) => updateProfile('jobTitle', jobTitle)}
+              visibleOnProfile={profileData.jobTitleVisible}
+              onToggleVisibility={(visible) => updateProfile('jobTitleVisible', visible)}
+            />
+          );
+          
+        case 'school':
+          return (
+            <SchoolSelection
+              school={profileData.school}
+              onSchoolChange={(school) => updateProfile('school', school)}
+              visibleOnProfile={profileData.schoolVisible}
+              onToggleVisibility={(visible) => updateProfile('schoolVisible', visible)}
+            />
+          );
+          
+          case 'education':
+            return (
+              <EducationLevelSelection
+                selectedOption={profileData.education}
+                onSelectOption={(option) => updateProfile('education', option)}
+              />
+            );
+          
+        case 'religiousBeliefs':
+          return (
+            <ReligiousBeliefSelection
+              selectedOption={profileData.religiousBeliefs}
+              onSelectOption={(option) => updateProfile('religiousBeliefs', option)}
+              visibleOnProfile={profileData.religiousBeliefsVisible}
+              onToggleVisibility={(visible) => updateProfile('religiousBeliefsVisible', visible)}
+            />
+          );
+          
+        case 'politicalBeliefs':
+          return (
+            <PoliticalBeliefSelection
+              selectedOption={profileData.politicalBeliefs}
+              onSelectOption={(option) => updateProfile('politicalBeliefs', option)}
+              visibleOnProfile={profileData.politicalBeliefsVisible}
+              onToggleVisibility={(visible) => updateProfile('politicalBeliefsVisible', visible)}
+            />
+          );
+          
+        case 'drinking':
+          return (
+            <DrinkingSelection
+              selectedOption={profileData.drinking}
+              onSelectOption={(option) => updateProfile('drinking', option)}
+              visibleOnProfile={profileData.drinkingVisible}
+              onToggleVisibility={(visible) => updateProfile('drinkingVisible', visible)}
+            />
+          );
+          
+        case 'smoking':
+          return (
+            <SmokingSelection
+              selectedOption={profileData.smoking}
+              onSelectOption={(option) => updateProfile('smoking', option)}
+              visibleOnProfile={profileData.smokingVisible}
+              onToggleVisibility={(visible) => updateProfile('smokingVisible', visible)}
+            />
+          );
+          
+        case 'drugUsage':
+          return (
+            <DrugUsageSelection
+              selectedOption={profileData.drugUsage}
+              onSelectOption={(option) => updateProfile('drugUsage', option)}
+              visibleOnProfile={profileData.drugUsageVisible}
+              onToggleVisibility={(visible) => updateProfile('drugUsageVisible', visible)}
+            />
+          );
       case 'prompts':
         return (
           <ProfilePrompts 

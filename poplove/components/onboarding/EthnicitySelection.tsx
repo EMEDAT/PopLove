@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     padding: 20 
   },
   scrollContainer: {
-    maxHeight: 7 * 56, // 5 items * height of each row
+    maxHeight: 5 * 56, // 5 items * height of each row
   },
   scrollContent: {
     paddingBottom: 20,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 120,
     height: 56
   },
   optionText: {

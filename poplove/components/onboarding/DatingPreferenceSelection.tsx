@@ -186,8 +186,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 0,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    marginTop: 50,
   },
   visibilityText: {
     fontSize: 16, 

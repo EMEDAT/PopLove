@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 200,
+    marginTop: 180,
     paddingVertical: 10,
   },
   visibilityText: {

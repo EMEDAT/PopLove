@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 14,
-    backgroundColor: '#FFFAFA',
+    backgroundColor: '#F3F3F3',
     color: '#000',
   },
   textArea: {

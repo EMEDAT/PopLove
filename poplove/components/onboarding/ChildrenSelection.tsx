@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 110,
+    marginTop: 90,
     paddingVertical: 10,
   },
   visibilityText: {

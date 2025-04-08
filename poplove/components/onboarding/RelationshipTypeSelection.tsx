@@ -393,8 +393,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: -30,
+    paddingVertical: -10,
+    marginTop: 0,
   },
   visibilityText: {
     fontSize: 16, 

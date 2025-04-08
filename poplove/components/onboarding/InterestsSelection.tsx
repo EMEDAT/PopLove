@@ -58,7 +58,7 @@ export default function InterestsSelection({
         Select your interests
       </Text>
       <Text style={styles.subtitle}>
-        Choose a few things you love so others can see what you're passionate about.
+        Choose a few additional things you love so others can see what you're passionate about.
       </Text>
       
       <View style={styles.interestsContainer}>
@@ -89,7 +89,7 @@ export default function InterestsSelection({
         <View style={styles.dealBreakerTextContainer}>
           <Text style={styles.dealBreakerTitle}>Deal Breaker</Text>
           <Text style={styles.dealBreakerSubtitle}>
-            Turn on to avoid matching with people who don't align with your values
+            Turn on to avoid matching with people who don't align with these additional values
           </Text>
         </View>
         <Switch
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 90,
   },
   dealBreakerTextContainer: {
     flex: 1,

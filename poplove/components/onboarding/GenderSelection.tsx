@@ -243,11 +243,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    backgroundColor: '#FFFAFA',
+    backgroundColor: '#F3F3F3',
   },
   selectedOptionButton: {
     borderColor: '#FF6B6B',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   optionText: {
     fontSize: 17,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
     borderColor: '#FF6B6B',
     borderWidth: 1,
     borderTopWidth: 0,
