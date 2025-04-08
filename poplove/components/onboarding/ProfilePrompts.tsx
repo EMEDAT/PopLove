@@ -1,5 +1,5 @@
-// components/profile/ProfilePrompts.tsx
-import React, { useState } from 'react';
+// components/onboarding/ProfilePrompts.tsx
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -23,18 +23,26 @@ interface Prompt {
 interface ProfilePromptsProps {
   prompts: { question: string; answer: string; }[];
   onUpdatePrompt: (index: number, answer: string) => void;
-  onClose?: () => void; // Make it optional
+  onUpdatePrompts?: (prompts: { question: string; answer: string; }[]) => void; // Add this line
+  onClose?: () => void;
 }
 
 export default function ProfilePrompts({ 
   prompts = [], 
   onUpdatePrompt,
+  onUpdatePrompts, // Add this to the destructuring
   onClose = () => {}
 }: ProfilePromptsProps) {
   const [selectedCategory, setSelectedCategory] = useState('About me');
   const [showPromptsModal, setShowPromptsModal] = useState(false);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [localPrompts, setLocalPrompts] = useState<Array<{question: string; answer: string}>>([]);
+  
+  // Sync local prompts with props
+  useEffect(() => {
+    setLocalPrompts([...prompts]);
+  }, [prompts]);
   
   // Available prompt categories
   const categories = [
@@ -65,6 +73,7 @@ export default function ProfilePrompts({
       { id: '11', question: 'I recently discovered that', answer: '', category: 'About me' },
       { id: '12', question: 'Typical Sunday', answer: '', category: 'About me' },
     ],
+    // Other categories remain the same
     'Self-care': [
       { id: '13', question: 'My self-care routine includes', answer: '', category: 'Self-care' },
       { id: '14', question: 'I feel most centered when', answer: '', category: 'Self-care' },
@@ -119,63 +128,68 @@ export default function ProfilePrompts({
 
   // Check if a prompt is already selected by the user
   const isPromptSelected = (promptId: string) => {
-    return prompts.some(p => p.question === promptsByCategory[selectedCategory].find(item => item.id === promptId)?.question);
+    return localPrompts.some(p => p.question === promptsByCategory[selectedCategory].find(item => item.id === promptId)?.question);
   };
 
   // Handle prompt selection
   const handleSelectPrompt = (prompt: Prompt) => {
     // Check if we have less than 3 prompts
-    if (prompts.length < 3) {
-      const newPromptObject = {
-        ...prompt,
+    if (localPrompts.length < 3) {
+      const newPrompt = {
+        question: prompt.question,
         answer: ""
       };
       
-      // Add the new prompt
-      onUpdatePrompt(prompts.length, "");
-      setEditingPrompt(newPromptObject);
+      // Create a new array with the new prompt
+      const updatedPrompts = [...localPrompts, newPrompt];
+      
+      // Important: Use onUpdatePrompts instead of onUpdatePrompt to update the entire array
+      if (onUpdatePrompts) {
+        onUpdatePrompts(updatedPrompts);
+      } else {
+        // Fallback to old method if onUpdatePrompts isn't available
+        // But we need to pass more information about the prompt
+        const newIndex = localPrompts.length;
+        
+        // In the old system, onUpdatePrompt can only set the answer
+        // We need to find a way to also set the question
+        onUpdatePrompt(newIndex, "");
+        
+        // The parent component needs to be updated to handle setting the question
+        // This is a limitation of the current API
+      }
+      
+      // Update local state and close modal
+      setLocalPrompts(updatedPrompts);
+      setEditingPrompt({
+        ...prompt,
+        answer: ""
+      });
       setShowPromptsModal(false);
     } else {
       // Show limit reached alert
       Alert.alert('Limit Reached', 'You can only add 3 prompts');
     }
   };
-  
-  // Modify the rendering of empty slots
-  {Array.from({ length: 3 }).map((_, index) => {
-    // If this slot is filled, don't render an empty slot
-    if (index < prompts.length) {
-      return null;
-    }
-    
-    return (
-      <TouchableOpacity
-        key={`empty-${index}`}
-        style={styles.emptyPrompt}
-        onPress={() => {
-          setSelectedCategory('About me'); // Reset to default category
-          setShowPromptsModal(true);
-        }}
-      >
-        <Text style={styles.emptyPromptText}>Select a Prompt</Text>
-        <View style={styles.addButton}>
-          <Text style={styles.addButtonText}>+</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  })}
 
+  // FIXED: Completely revised delete function
   const handleDeletePrompt = (index: number) => {
     console.log('Attempting to delete prompt at index:', index);
     console.log('Current prompts:', JSON.stringify(prompts));
-  
-    // Create a new array without the prompt at the specified index
+
+    // Create a new array without the deleted prompt
     const updatedPrompts = prompts.filter((_, i) => i !== index);
-    
     console.log('Updated prompts after deletion:', JSON.stringify(updatedPrompts));
-  
-    // Explicitly reset the prompt at this index to an empty state
-    onUpdatePrompt(index, '');
+    
+    // Use the new function to update all prompts at once if available
+    if (onUpdatePrompts) {
+      onUpdatePrompts(updatedPrompts);
+    } else {
+      // Fallback to the old method if not available
+      if (index < prompts.length) {
+        onUpdatePrompt(index, '');
+      }
+    }
     
     // Close editing modal
     setEditingPrompt(null);
@@ -190,38 +204,41 @@ export default function ProfilePrompts({
   // Handle saving prompt answer
   const handleSavePrompt = (promptQuestion: string, answer: string) => {
     if (!editingPrompt) return;
-
-    const existingPromptIndex = prompts.findIndex(p => p.question === promptQuestion);
-    let updatedPrompts;
-
+    
+    // Find the index of the prompt with this question
+    const existingPromptIndex = localPrompts.findIndex(p => p.question === promptQuestion);
+    
     if (existingPromptIndex >= 0) {
-      // Update existing prompt
-      updatedPrompts = [...prompts];
+      // Create a new array with the updated prompt
+      const updatedPrompts = [...localPrompts];
       updatedPrompts[existingPromptIndex] = {
         ...updatedPrompts[existingPromptIndex],
         answer
       };
-    } else {
-      // Add new prompt
-      updatedPrompts = [
-        ...prompts,
-        {
-          id: editingPrompt.id,
-          question: promptQuestion,
-          answer,
-          category: editingPrompt.category
-        }
-      ];
-    }
-
-    if (existingPromptIndex >= 0) {
-      // Update existing prompt
+      
+      // Update local state
+      setLocalPrompts(updatedPrompts);
+      
+      // Update parent
       onUpdatePrompt(existingPromptIndex, answer);
     } else {
-      // For a new prompt, find the next available index
-      const newIndex = prompts.length;
-      onUpdatePrompt(newIndex, answer);
+      // Adding a new prompt
+      const newPrompt = {
+        question: promptQuestion,
+        answer
+      };
+      
+      // Create a new array with the new prompt
+      const updatedPrompts = [...localPrompts, newPrompt];
+      
+      // Update local state
+      setLocalPrompts(updatedPrompts);
+      
+      // Update parent
+      onUpdatePrompt(localPrompts.length, answer);
     }
+    
+    // Close modal
     setEditingPrompt(null);
   };
 
@@ -245,7 +262,7 @@ export default function ProfilePrompts({
       {/* Prompt answers section */}
       <ScrollView style={styles.scrollView}>
         {/* Display existing prompts */}
-        {prompts.map((prompt, index) => (
+        {localPrompts.map((prompt, index) => (
         <TouchableOpacity 
           key={index} 
           style={styles.promptItem}
@@ -268,7 +285,7 @@ export default function ProfilePrompts({
 
         {/* Empty slots for adding new prompts */}
         {Array.from({ length: 3 }).map((_, index) => {
-          if (index < prompts.length) {
+          if (index < localPrompts.length) {
             return null; // Already rendered above
           }
           return (
@@ -327,7 +344,7 @@ export default function ProfilePrompts({
           </ScrollView>
 
           {/* Category message */}
-          {selectedCategory === 'About me' && prompts.some(p => promptsByCategory['About me'].some(q => q.question === p.question)) && (
+          {selectedCategory === 'About me' && localPrompts.some(p => promptsByCategory['About me'].some(q => q.question === p.question)) && (
             <View style={styles.categoryMessage}>
               <Text style={styles.categoryMessageText}>
                 You've got 'About me' covered. Why not try another category?
@@ -368,16 +385,51 @@ export default function ProfilePrompts({
           <TouchableOpacity 
             onPress={() => {
               console.log('Delete pressed for prompt:', editingPrompt);
+              console.log('Current prompts array:', JSON.stringify(prompts));
               
-              // Find the index of the current prompt
-              const promptIndex = prompts.findIndex(
-                p => p.question === editingPrompt?.question
-              );
+              // Debug logging to see exactly what we're searching for
+              if (editingPrompt) {
+                console.log('Looking for question:', editingPrompt.question);
+                // Print all questions in the array for comparison
+                prompts.forEach((p, idx) => {
+                  console.log(`Prompt ${idx}: "${p.question}"`);
+                });
+              }
               
-              if (promptIndex !== -1) {
-                handleDeletePrompt(promptIndex);
+              // Instead of searching by question, use the editingPrompt index directly
+              if (editingPrompt && editingPrompt.id) {
+                // Extract the index from the id if it's in the format "existing-X"
+                const idParts = editingPrompt.id.split('-');
+                if (idParts[0] === 'existing' && !isNaN(parseInt(idParts[1]))) {
+                  const indexFromId = parseInt(idParts[1]);
+                  console.log('Using index from id:', indexFromId);
+                  
+                  if (indexFromId >= 0 && indexFromId < prompts.length) {
+                    handleDeletePrompt(indexFromId);
+                  } else {
+                    console.error('Invalid index from id:', indexFromId);
+                  }
+                } else {
+                  // For newly selected prompts without existing- prefix
+                  // Find by question which should be unique
+                  const promptIndex = prompts.findIndex(p => 
+                    p.question.trim().toLowerCase() === editingPrompt.question.trim().toLowerCase()
+                  );
+                  
+                  if (promptIndex !== -1) {
+                    handleDeletePrompt(promptIndex);
+                  } else {
+                    console.error('Could not find prompt index by question');
+                    console.log('Selected question:', editingPrompt.question);
+                    
+                    // Last resort - if this is the only prompt, delete at index 0
+                    if (prompts.length === 1) {
+                      handleDeletePrompt(0);
+                    }
+                  }
+                }
               } else {
-                console.error('Could not find prompt index');
+                console.error('No editing prompt or invalid id');
               }
             }}
           >

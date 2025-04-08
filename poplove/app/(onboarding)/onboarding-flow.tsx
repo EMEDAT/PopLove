@@ -277,30 +277,52 @@ export default function OnboardingFlow() {
   const updatePrompt = (index: number, value: string) => {
     console.log('Updating prompts:', { index, value });
     
+    // Create a copy of the current prompts
     let updatedPrompts = [...profileData.prompts];
     
     if (value === '') {
-      // Remove the prompt if value is empty
-      updatedPrompts.splice(index, 1);
+      // This is a deletion request - if index is valid
+      if (index >= 0 && index < updatedPrompts.length) {
+        console.log('Deleting prompt at index:', index);
+        updatedPrompts = updatedPrompts.filter((_, i) => i !== index);
+        console.log('Updated prompts after deletion:', JSON.stringify(updatedPrompts));
+      }
     } else {
-      // Update or add the prompt
+      // This is an update or add request
       if (index < updatedPrompts.length) {
+        // Update existing prompt answer
         updatedPrompts[index] = { 
           ...updatedPrompts[index], 
           answer: value 
         };
       } else {
+        // Add new prompt - with a default question since we can't pass it through this API
         updatedPrompts.push({ 
-          question: '', 
+          question: "New prompt", // Default question that will be overwritten later
           answer: value 
         });
       }
     }
     
+    // Update the parent state
     console.log('Final updated prompts:', JSON.stringify(updatedPrompts));
-    
     updateProfile('prompts', updatedPrompts);
   };
+
+    // Helper function to provide default questions when creating new prompts
+    const promptsByCategory = {
+      'About me': [
+        { id: '1', question: 'A life goal of mine', answer: '' },
+        { id: '2', question: 'Unusual skills', answer: '' },
+        { id: '3', question: 'Dating me is like', answer: '' },
+        { id: '4', question: 'A random fact I love is', answer: '' },
+        { id: '5', question: 'I go crazy for', answer: '' },
+        { id: '6', question: 'My greatest strength', answer: '' },
+        { id: '7', question: 'The way to win me over is', answer: '' },
+        { id: '8', question: 'My most irrational fear', answer: '' },
+        { id: '9', question: 'My simple pleasures', answer: '' },
+      ]
+    };
 
   // Define the type for profile data
   interface ProfileData {
@@ -981,6 +1003,10 @@ export default function OnboardingFlow() {
                     });
                   }
                   
+                  updateProfile('prompts', updatedPrompts);
+                }}
+                onUpdatePrompts={(updatedPrompts) => {
+                  console.log('Directly updating entire prompts array:', JSON.stringify(updatedPrompts));
                   updateProfile('prompts', updatedPrompts);
                 }}
                 onClose={() => handleNext()}
