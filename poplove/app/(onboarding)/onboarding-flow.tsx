@@ -250,19 +250,54 @@ export default function OnboardingFlow() {
   }, [currentStep, profileData, user, initialLoading]);
 
   const updateProfile = (field: string, value: any) => {
-    console.log(`Updating ${field} to:`, value); // Add this
-    setProfileData(prev => ({ 
-      ...prev, 
-      [field]: value 
-    }));
+    console.log(`Updating ${field} to:`, value);
+    
+    if (field === 'prompts') {
+      // If value is an array, use it directly
+      if (Array.isArray(value)) {
+        setProfileData(prev => ({ 
+          ...prev, 
+          [field]: value 
+        }));
+      } else {
+        // If not an array (likely a deletion), filter out the empty prompt
+        setProfileData(prev => ({
+          ...prev,
+          [field]: prev[field].filter((p: any) => p.question !== '')
+        }));
+      }
+    } else {
+      setProfileData(prev => ({ 
+        ...prev, 
+        [field]: value 
+      }));
+    }
   };
 
-  const updatePrompt = (index: number, answer: string) => {
-    const updatedPrompts = [...profileData.prompts];
-    updatedPrompts[index] = { 
-      ...updatedPrompts[index], 
-      answer 
-    };
+  const updatePrompt = (index: number, value: string) => {
+    console.log('Updating prompts:', { index, value });
+    
+    let updatedPrompts = [...profileData.prompts];
+    
+    if (value === '') {
+      // Remove the prompt if value is empty
+      updatedPrompts.splice(index, 1);
+    } else {
+      // Update or add the prompt
+      if (index < updatedPrompts.length) {
+        updatedPrompts[index] = { 
+          ...updatedPrompts[index], 
+          answer: value 
+        };
+      } else {
+        updatedPrompts.push({ 
+          question: '', 
+          answer: value 
+        });
+      }
+    }
+    
+    console.log('Final updated prompts:', JSON.stringify(updatedPrompts));
     
     updateProfile('prompts', updatedPrompts);
   };

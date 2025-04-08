@@ -8,7 +8,8 @@ import {
   ScrollView,
   Modal,
   SafeAreaView,
-  TextInput
+  TextInput,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -122,37 +123,69 @@ export default function ProfilePrompts({
   };
 
   // Handle prompt selection
-// Handle prompt selection
-const handleSelectPrompt = (prompt: Prompt) => {
-  // Find the index in prompts where we should add this question
-  const existingIndex = prompts.findIndex(p => p.question === prompt.question);
+  const handleSelectPrompt = (prompt: Prompt) => {
+    // Check if we have less than 3 prompts
+    if (prompts.length < 3) {
+      const newPromptObject = {
+        ...prompt,
+        answer: ""
+      };
+      
+      // Add the new prompt
+      onUpdatePrompt(prompts.length, "");
+      setEditingPrompt(newPromptObject);
+      setShowPromptsModal(false);
+    } else {
+      // Show limit reached alert
+      Alert.alert('Limit Reached', 'You can only add 3 prompts');
+    }
+  };
   
-  // If not found, create new prompt with empty answer
-  if (existingIndex === -1) {
-    // For a new prompt, we need to handle the slot
-    const newPromptObject = {
-      ...prompt,
-      answer: ""
-    };
+  // Modify the rendering of empty slots
+  {Array.from({ length: 3 }).map((_, index) => {
+    // If this slot is filled, don't render an empty slot
+    if (index < prompts.length) {
+      return null;
+    }
     
-    // Find next empty slot
-    const emptyIndex = prompts.length;
-    
-    // Create basic prompt and pass to parent
-    onUpdatePrompt(emptyIndex, "");
-    
-    // Then set for editing
-    setEditingPrompt(newPromptObject);
-  } else {
-    // If already exists, just edit it
-    setEditingPrompt({
-      ...prompt,
-      answer: prompts[existingIndex].answer
-    });
-  }
+    return (
+      <TouchableOpacity
+        key={`empty-${index}`}
+        style={styles.emptyPrompt}
+        onPress={() => {
+          setSelectedCategory('About me'); // Reset to default category
+          setShowPromptsModal(true);
+        }}
+      >
+        <Text style={styles.emptyPromptText}>Select a Prompt</Text>
+        <View style={styles.addButton}>
+          <Text style={styles.addButtonText}>+</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  })}
+
+  const handleDeletePrompt = (index: number) => {
+    console.log('Attempting to delete prompt at index:', index);
+    console.log('Current prompts:', JSON.stringify(prompts));
   
-  setShowPromptsModal(false);
-};
+    // Create a new array without the prompt at the specified index
+    const updatedPrompts = prompts.filter((_, i) => i !== index);
+    
+    console.log('Updated prompts after deletion:', JSON.stringify(updatedPrompts));
+  
+    // Explicitly reset the prompt at this index to an empty state
+    onUpdatePrompt(index, '');
+    
+    // Close editing modal
+    setEditingPrompt(null);
+    
+    // Reset category and reopen modal
+    setTimeout(() => {
+      setSelectedCategory('About me');
+      setShowPromptsModal(true);
+    }, 50);
+  };
 
   // Handle saving prompt answer
   const handleSavePrompt = (promptQuestion: string, answer: string) => {
@@ -213,25 +246,44 @@ const handleSelectPrompt = (prompt: Prompt) => {
       <ScrollView style={styles.scrollView}>
         {/* Display existing prompts */}
         {prompts.map((prompt, index) => (
-          <View key={index} style={styles.promptItem}>
-            <Text style={styles.promptQuestion}>{prompt.question}</Text>
-            <Text style={styles.promptAnswer}>{prompt.answer}</Text>
-          </View>
-        ))}
+        <TouchableOpacity 
+          key={index} 
+          style={styles.promptItem}
+          onPress={() => {
+            // Set the existing prompt for editing
+            setEditingPrompt({
+              id: `existing-${index}`,
+              question: prompt.question,
+              answer: prompt.answer,
+              category: '' // You might want to track category
+            });
+          }}
+        >
+          <Text style={styles.promptQuestion}>{prompt.question}</Text>
+          <Text style={styles.promptAnswer}>
+            {prompt.answer || 'Add an answer'}
+          </Text>
+        </TouchableOpacity>
+      ))}
 
         {/* Empty slots for adding new prompts */}
-        {Array.from({ length: 3 - prompts.length }).map((_, index) => (
-          <TouchableOpacity
-            key={`empty-${index}`}
-            style={styles.emptyPrompt}
-            onPress={() => handleAddPrompt(index)}
-          >
-            <Text style={styles.emptyPromptText}>Select a Prompt</Text>
-            <View style={styles.addButton}>
-              <Text style={styles.addButtonText}>+</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {Array.from({ length: 3 }).map((_, index) => {
+          if (index < prompts.length) {
+            return null; // Already rendered above
+          }
+          return (
+            <TouchableOpacity
+              key={`empty-${index}`}
+              style={styles.emptyPrompt}
+              onPress={() => handleAddPrompt(index)}
+            >
+              <Text style={styles.emptyPromptText}>Select a Prompt</Text>
+              <View style={styles.addButton}>
+                <Text style={styles.addButtonText}>+</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
 
         <Text style={styles.requiredText}>3 answers required</Text>
       </ScrollView>
@@ -312,21 +364,36 @@ const handleSelectPrompt = (prompt: Prompt) => {
           transparent={false}
         >
           <SafeAreaView style={styles.editContainer}>
-            <View style={styles.editHeader}>
-              <TouchableOpacity onPress={() => setEditingPrompt(null)}>
-                <Text style={styles.cancelButton}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.editTitle}>Write answer</Text>
-              <TouchableOpacity 
-                onPress={() => handleSavePrompt(editingPrompt.question, editingPrompt.answer)}
-                disabled={!editingPrompt.answer?.trim()}
-              >
-                <Text style={[
-                  styles.doneButton,
-                  !editingPrompt.answer?.trim() && styles.disabledButton
-                ]}>Done</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.editHeader}>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('Delete pressed for prompt:', editingPrompt);
+              
+              // Find the index of the current prompt
+              const promptIndex = prompts.findIndex(
+                p => p.question === editingPrompt?.question
+              );
+              
+              if (promptIndex !== -1) {
+                handleDeletePrompt(promptIndex);
+              } else {
+                console.error('Could not find prompt index');
+              }
+            }}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+          <Text style={styles.editTitle}>Write answer</Text>
+          <TouchableOpacity 
+            onPress={() => handleSavePrompt(editingPrompt!.question, editingPrompt!.answer)}
+            disabled={!editingPrompt?.answer?.trim()}
+          >
+            <Text style={[
+              styles.doneButton,
+              !editingPrompt?.answer?.trim() && styles.disabledButton
+            ]}>Done</Text>
+          </TouchableOpacity>
+          </View>
 
             <View style={styles.editContent}>
               <Text style={styles.questionLabel}>{editingPrompt.question}</Text>
@@ -601,5 +668,9 @@ const styles = StyleSheet.create({
   learnMoreText: {
     color: '#FF6B6B',
     textDecorationLine: 'underline',
+  },
+  deleteButtonText: {
+    color: '#FF3B30', // iOS delete red
+    fontSize: 16,
   },
 });
