@@ -592,8 +592,13 @@ export default function OnboardingFlow() {
         return profileData.lifestyle.length > 0;
       case 'interests':
         return profileData.interests.length > 0;
-      case 'prompts':
-        return profileData.prompts.some(prompt => prompt.answer.trim() !== '');
+        case 'prompts':
+          // Check that we have exactly 3 prompts with non-empty answers
+          return profileData.prompts.length === 3 && 
+                 profileData.prompts.every(prompt => 
+                   prompt.question.trim() !== '' && 
+                   prompt.answer.trim() !== ''
+                 );
       case 'subscription':
       case 'welcome':
         return true;

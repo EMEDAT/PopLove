@@ -11,7 +11,7 @@ import {
   TextInput,
   Alert
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Prompt {
   id: string;
@@ -33,7 +33,7 @@ export default function ProfilePrompts({
   onUpdatePrompts,
   onClose = () => {}
 }: ProfilePromptsProps) {
-  const [selectedCategory, setSelectedCategory] = useState('About me');
+  const [selectedCategory, setSelectedCategory] = useState('👤 About me');
   const [showPromptsModal, setShowPromptsModal] = useState(false);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
@@ -353,13 +353,13 @@ export default function ProfilePrompts({
           </ScrollView>
 
           {/* Category message */}
-          {selectedCategory === 'About me' && localPrompts.some(p => promptsByCategory['About me'].some(q => q.question === p.question)) && (
-            <View style={styles.categoryMessage}>
-              <Text style={styles.categoryMessageText}>
-                You've got 'About me' covered. Why not try another category?
-              </Text>
-            </View>
-          )}
+          {selectedCategory && localPrompts.some(p => promptsByCategory[selectedCategory]?.some(q => q.question === p.question)) && (
+              <View style={styles.categoryMessage}>
+                <Text style={styles.categoryMessageText}>
+                  You've got '{selectedCategory.replace(/^[^\s]+\s/, '')}' covered. Why not try another category?
+                </Text>
+              </View>
+            )}
 
           {/* Prompts list */}
           <ScrollView style={styles.promptsList}>
@@ -410,7 +410,11 @@ export default function ProfilePrompts({
             </View>
 
             <View style={styles.editContent}>
-              <Text style={styles.questionLabel}>{editingPrompt.question}</Text>
+              <View style={styles.questionContainer}>
+                <Text style={styles.questionLabel}>{editingPrompt.question}</Text>
+                <MaterialCommunityIcons name="pencil" size={20} color="#aaa" />
+              </View>
+              
               <TextInput
                 style={styles.answerInput}
                 value={editingPrompt.answer}
@@ -457,6 +461,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '600',
+
     color: '#161616',
   },
   closeButton: {
@@ -487,15 +492,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#eee',
+    minHeight: 80, 
+    marginBottom: -14,
   },
   promptQuestion: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#161616',
+    marginBottom: 8,
   },
   promptAnswer: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 12,
+    color: '#777',
   },
   // New styles for the X button
   deleteIconButton: {
@@ -537,7 +545,7 @@ const styles = StyleSheet.create({
   },
   emptyPromptText: {
     color: '#999',
-    fontSize: 16,
+    fontSize: 14,
   },
   // New styles for the + button
   addIconButton: {
@@ -661,10 +669,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    backgroundColor: '#fff',
   },
   // Updated to cancel button instead of delete
   cancelButton: {
@@ -676,13 +685,14 @@ const styles = StyleSheet.create({
   },
   editTitle: {
     fontSize: 17,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#000',
+    textAlign: 'center',
   },
   doneButton: {
     color: '#FF6B6B',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   disabledButton: {
     opacity: 0.5,
@@ -690,12 +700,19 @@ const styles = StyleSheet.create({
   editContent: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#FFFFFF'
+  },
+  questionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+    paddingBottom: 5,
   },
   questionLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 10,
   },
   answerInput: {
     fontSize: 16,
@@ -703,14 +720,25 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
     padding: 0,
+    marginTop: 0,
+    marginBottom: 25,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 8,
   },
   promptTipContainer: {
-    marginTop: 40,
-    padding: 15,
+    marginTop: 20,
+    padding: 16,
     backgroundColor: '#F9F9F9',
     borderRadius: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.20,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   promptTipTitle: {
     fontSize: 16,
