@@ -70,8 +70,6 @@ const STEPS = [
   'drinking',          
   'smoking',           
   'drugUsage',         
-
-   
   'interests',
   'prompts',
   'subscription',
