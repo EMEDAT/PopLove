@@ -151,7 +151,7 @@ export default function Welcome({ onContinue }: WelcomeProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
   },
   gradient: {
     flex: 1,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 12,
-    color: '#FF6B6B',
+    color: '#161616',
     fontFamily: 'Inter_700Bold',
   },
   subtitleRow: {
@@ -187,13 +187,13 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#161616',
     marginBottom: 40,
     fontFamily: 'Inter_400Regular',
   },
   cursorBlink: {
     fontSize: 20,
-    color: '#666',
+    color: '#161616',
     marginBottom: 40,
     opacity: 0.7,
     fontFamily: 'Inter_400Regular',
