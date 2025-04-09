@@ -773,12 +773,12 @@ const deleteStory = async (storyId: string) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
     position: 'relative',
     paddingVertical: 10,
   },
   storiesScroll: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F2F1ED',
   },
   storiesContent: {
     paddingHorizontal: 10,
