@@ -101,6 +101,47 @@ export class MatchSyncService {
     }
     
     /**
+     * Updates a user's location across all their matches
+     * @param userId - The ID of the user
+     * @param newLocation - The new formatted location string
+     * @returns Promise that resolves when all matches are updated
+     */
+    static async updateLocation(userId: string, newLocation: string): Promise<void> {
+        if (!userId || !newLocation) return;
+        
+        try {
+            // Find all matches containing this user
+            const matchesRef = collection(firestore, 'matches');
+            const q = query(matchesRef, where('users', 'array-contains', userId));
+            const matchesSnapshot = await getDocs(q);
+            
+            if (matchesSnapshot.empty) {
+                console.log('No matches found for user');
+                return;
+            }
+            
+            // Use batch write for efficiency
+            const batch = writeBatch(firestore);
+            
+            matchesSnapshot.docs.forEach(matchDoc => {
+                // Update the user's location in this match if it exists in the userProfiles
+                batch.update(matchDoc.ref, {
+                    [`userProfiles.${userId}.location`]: newLocation,
+                    updatedAt: serverTimestamp()
+                });
+            });
+            
+            // Commit all updates
+            await batch.commit();
+            
+            console.log(`Updated location in ${matchesSnapshot.size} matches`);
+        } catch (error) {
+            console.error('Error updating location in matches:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * Archives an old profile photo to the user's media gallery
      * @param userId - The ID of the user
      * @param photoURL - The URL of the photo to archive
@@ -181,6 +222,64 @@ export class MatchSyncService {
             console.log(`Updated match list summary with ${matchIds.length} matches`);
         } catch (error) {
             console.error('Error updating match list summary:', error);
+        }
+    }
+    
+    /**
+     * Sync all user profile data to matches in one operation
+     * @param userId - The ID of the user
+     * @returns Promise that resolves when all profile data is synced
+     */
+    static async syncUserProfileToMatches(userId: string): Promise<void> {
+        if (!userId) return;
+        
+        try {
+            // Get current user data
+            const userDoc = await getDoc(doc(firestore, 'users', userId));
+            
+            if (!userDoc.exists()) {
+                console.error('User document not found');
+                return;
+            }
+            
+            const userData = userDoc.data();
+            
+            // Find all matches containing this user
+            const matchesRef = collection(firestore, 'matches');
+            const q = query(matchesRef, where('users', 'array-contains', userId));
+            const matchesSnapshot = await getDocs(q);
+            
+            if (matchesSnapshot.empty) {
+                console.log('No matches found for user');
+                return;
+            }
+            
+            // Use batch write for efficiency
+            const batch = writeBatch(firestore);
+            
+            // Create condensed profile data for matches
+            const matchProfile = {
+                displayName: userData.displayName || '',
+                photoURL: userData.photoURL || '',
+                location: userData.location || '',
+                // Add additional fields that need to be synced to matches
+            };
+            
+            matchesSnapshot.docs.forEach(matchDoc => {
+                // Update the entire user profile in this match
+                batch.update(matchDoc.ref, {
+                    [`userProfiles.${userId}`]: matchProfile,
+                    updatedAt: serverTimestamp()
+                });
+            });
+            
+            // Commit all updates
+            await batch.commit();
+            
+            console.log(`Synced full profile to ${matchesSnapshot.size} matches`);
+        } catch (error) {
+            console.error('Error syncing user profile to matches:', error);
+            throw error;
         }
     }
 }

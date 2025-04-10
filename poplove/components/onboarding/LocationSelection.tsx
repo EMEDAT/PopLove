@@ -533,30 +533,45 @@ export default function LocationSelection({
     }
   };
 
-  // Central function to update location data with full Firestore-compatible structure
-  const updateLocationData = (
-    latitude: number, 
-    longitude: number, 
-    address: string, 
-    city: string | null, 
-    state: string | null, 
-    country: string | null
-  ) => {
-    // Create a Firestore-compatible location object
-    const locationData: LocationData = {
-      latitude,
-      longitude,
-      address: address || '',
-      city: city || null,
-      state: state || null,
-      country: country || null,
-      formattedAddress: !useExactAddress ? (address || '') : (`${city || ''}, ${country || ''}`.trim()),
-      useExactAddress: useExactAddress  // Keep this as-is
-    };
-    
-    // Call the parent component's callback
-    onLocationSelect(locationData);
+// Central function to update location data with full Firestore-compatible structure
+const updateLocationData = (
+  latitude: number, 
+  longitude: number, 
+  address: string, 
+  city: string | null, 
+  state: string | null, 
+  country: string | null
+) => {
+  // Create a Firestore-compatible location object
+  const locationData: LocationData = {
+    latitude,
+    longitude,
+    address: address || '',
+    city: city || null,
+    state: state || null,
+    country: country || null,
+    formattedAddress: !useExactAddress ? (address || '') : (`${city || ''}, ${country || ''}`.trim()),
+    useExactAddress: useExactAddress  // Keep this as-is
   };
+  
+  // Create a formatted location string for display
+  let locationString = '';
+  if (city) locationString += city;
+  if (state) locationString += locationString ? ', ' + state : state;
+  if (country) locationString += locationString ? ', ' + country : country;
+  
+  // If we have no components but have an address, use that
+  if (!locationString && address) locationString = address;
+  
+  // If still empty, use a default
+  if (!locationString) locationString = 'Unknown location';
+  
+  // Call the parent component's callback
+  onLocationSelect(locationData);
+  
+  // Also update the location string in the main profile data
+  updateProfile('location', locationString);
+};
 
   // Zoom controls
   const zoomIn = () => {

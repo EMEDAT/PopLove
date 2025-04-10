@@ -43,38 +43,38 @@ export const calculateMatchPercentage = async (userId1: string, userId2: string)
   }
 
   // PRONOUNS COMPATIBILITY (up to 3 points)
-if (user1Data.pronouns && user2Data.pronouns) {
-  totalFactors++;
-  factorsContributing++;
-  
-  // Determine pronoun gender alignment
-  const getGenderFromPronouns = (pronouns) => {
-    if (pronouns.includes('He')) return 'male';
-    if (pronouns.includes('She')) return 'female';
-    return 'neutral';
-  };
-  
-  const gender1 = getGenderFromPronouns(user1Data.pronouns);
-  const gender2 = getGenderFromPronouns(user2Data.pronouns);
-  
-  // For heterosexual matching
-  if ((gender1 === 'male' && gender2 === 'female') || 
-      (gender1 === 'female' && gender2 === 'male')) {
-    score += 3;
-  } 
-  // For same pronouns matching
-  else if (user1Data.pronouns === user2Data.pronouns) {
-    score += 2;
+  if (user1Data.pronouns && user2Data.pronouns) {
+    totalFactors++;
+    factorsContributing++;
+    
+    // Determine pronoun gender alignment
+    const getGenderFromPronouns = (pronouns) => {
+      if (pronouns.includes('He')) return 'male';
+      if (pronouns.includes('She')) return 'female';
+      return 'neutral';
+    };
+    
+    const gender1 = getGenderFromPronouns(user1Data.pronouns);
+    const gender2 = getGenderFromPronouns(user2Data.pronouns);
+    
+    // For heterosexual matching
+    if ((gender1 === 'male' && gender2 === 'female') || 
+        (gender1 === 'female' && gender2 === 'male')) {
+      score += 3;
+    } 
+    // For same pronouns matching
+    else if (user1Data.pronouns === user2Data.pronouns) {
+      score += 2;
+    }
+    // For gender-neutral and other combinations
+    else if (gender1 === 'neutral' || gender2 === 'neutral') {
+      score += 2;
+    }
+    // All other combinations
+    else {
+      score += 1;
+    }
   }
-  // For gender-neutral and other combinations
-  else if (gender1 === 'neutral' || gender2 === 'neutral') {
-    score += 2;
-  }
-  // All other combinations
-  else {
-    score += 1;
-  }
-}
   
   // LIFESTYLE MATCHING (up to 15 points)
   const user1Lifestyle = user1Data.lifestyle || [];
@@ -92,34 +92,14 @@ if (user1Data.pronouns && user2Data.pronouns) {
     score += lifestyleWeight;
   }
   
-  // LOCATION MATCHING (up to 10 points)
+  // LOCATION MATCHING (up to 15 points) - Enhanced and prioritized
   if (user1Data.location && user2Data.location) {
     totalFactors++;
     factorsContributing++;
     
-    if (user1Data.location === user2Data.location) {
-      score += 10;
-    } else {
-      // Check for partial match (e.g., same city or region)
-      const user1Location = user1Data.location.toLowerCase();
-      const user2Location = user2Data.location.toLowerCase();
-      
-      // Extract city from "City, Country" format
-      const user1City = user1Location.split(',')[0]?.trim();
-      const user2City = user2Location.split(',')[0]?.trim();
-      
-      if (user1City && user2City && (user1City === user2City)) {
-        score += 8; // Good match - same city
-      } else {
-        // Check if they're in the same country/region
-        const user1Country = user1Location.split(',')[1]?.trim();
-        const user2Country = user2Location.split(',')[1]?.trim();
-        
-        if (user1Country && user2Country && (user1Country === user2Country)) {
-          score += 3; // Partial match - same country/region
-        }
-      }
-    }
+    // Enhanced location matching with prioritization
+    const locationScore = calculateLocationScore(user1Data, user2Data);
+    score += locationScore;
   }
   
   // AGE MATCHING (up to 10 points)
@@ -316,4 +296,121 @@ if (user1Data.pronouns && user2Data.pronouns) {
   
   // Ensure minimum score of 45 to avoid too low matches
   return Math.max(45, Math.round(score));
+};
+
+/**
+ * Enhanced function for calculating location match score with prioritization
+ * @param user1Data First user's data
+ * @param user2Data Second user's data
+ * @returns Location match score (0-15)
+ */
+const calculateLocationScore = (user1Data: any, user2Data: any): number => {
+  // If exact location string match, perfect score
+  if (user1Data.location === user2Data.location) {
+    return 15; // Perfect match - exact location strings
+  }
+  
+  // Parse location strings - format: "City, State, Country"
+  const parseLocation = (locationString: string) => {
+    const parts = locationString.split(',').map(part => part.trim().toLowerCase());
+    return {
+      // If only 1 part, assume it's a city
+      city: parts.length > 0 ? parts[0] : '',
+      // If 2 parts, assume state is 2nd part
+      state: parts.length > 1 ? parts[1] : '',
+      // If 3 parts or 2 parts with no state, assume country is last part
+      country: parts.length > 2 ? parts[2] : (parts.length === 2 ? parts[1] : '')
+    };
+  };
+  
+  const loc1 = parseLocation(user1Data.location);
+  const loc2 = parseLocation(user2Data.location);
+  
+  // PRIORITY 1: City match - highest priority (12 points)
+  if (loc1.city && loc2.city && loc1.city === loc2.city) {
+    return 15; // Full score for matching city
+  }
+  
+  // PRIORITY 2: State match - medium priority (8 points)
+  if (loc1.state && loc2.state && loc1.state === loc2.state) {
+    return 8; // Good score for matching state
+  }
+  
+  // PRIORITY 3: Country match - lowest priority (4 points)
+  if (loc1.country && loc2.country && loc1.country === loc2.country) {
+    return 4; // Basic score for matching country
+  }
+  
+  // Different locations
+  return 1;
+};
+
+// Direct matching by location components with proper prioritization
+export const matchUsersByLocation = (users: any[], currentUserLocation: any): any[] => {
+  if (!currentUserLocation) return users;
+  
+  // Helper function to parse location string
+  const parseLocation = (locationString: string) => {
+    if (!locationString) return { city: '', state: '', country: '' };
+    
+    const parts = locationString.split(',').map(part => part.trim().toLowerCase());
+    return {
+      city: parts.length > 0 ? parts[0] : '',
+      state: parts.length > 1 ? parts[1] : '',
+      country: parts.length > 2 ? parts[2] : (parts.length === 2 ? parts[1] : '')
+    };
+  };
+  
+  // Parse current user's location
+  const userLoc = parseLocation(currentUserLocation);
+  
+  // First try to match by city - highest priority
+  let matches = users.filter(user => {
+    const otherLoc = parseLocation(user.location);
+    return userLoc.city && otherLoc.city && userLoc.city === otherLoc.city;
+  });
+  
+  // If no matches by city, try matching by state
+  if (matches.length === 0 && userLoc.state) {
+    matches = users.filter(user => {
+      const otherLoc = parseLocation(user.location);
+      return otherLoc.state && userLoc.state === otherLoc.state;
+    });
+  }
+  
+  // If still no matches, try matching by country
+  if (matches.length === 0 && userLoc.country) {
+    matches = users.filter(user => {
+      const otherLoc = parseLocation(user.location);
+      return otherLoc.country && userLoc.country === otherLoc.country;
+    });
+  }
+  
+  // If still no matches, return everyone sorted by closest location components
+  if (matches.length === 0) {
+    return users.sort((a, b) => {
+      const locA = parseLocation(a.location);
+      const locB = parseLocation(b.location);
+      
+      // Compare by country first
+      if (userLoc.country) {
+        const countryMatchA = locA.country === userLoc.country;
+        const countryMatchB = locB.country === userLoc.country;
+        if (countryMatchA && !countryMatchB) return -1;
+        if (!countryMatchA && countryMatchB) return 1;
+      }
+      
+      // Then by state
+      if (userLoc.state) {
+        const stateMatchA = locA.state === userLoc.state;
+        const stateMatchB = locB.state === userLoc.state;
+        if (stateMatchA && !stateMatchB) return -1;
+        if (!stateMatchA && stateMatchB) return 1;
+      }
+      
+      return 0;
+    });
+  }
+  
+  return matches;
 };

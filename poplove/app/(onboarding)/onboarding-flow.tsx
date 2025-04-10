@@ -339,218 +339,218 @@ export default function OnboardingFlow() {
     };
   }
 
-  const handleNext = async () => {
-    if (currentStep < STEPS.length - 1) {
-      // Validate current step before advancing
-      if (STEPS[currentStep] === 'age' && !profileData.age) {
-        Alert.alert('Missing Information', 'Please enter your age to continue');
-        return;
-      }
-  
-      if (STEPS[currentStep] === 'location' && !profileData.locationCoordinates) {
-        Alert.alert('Missing Information', 'Please select your location to continue');
-        return;
-      }
-      
-      if (STEPS[currentStep] === 'height' && !profileData.height) {
-        Alert.alert('Missing Information', 'Please enter your height to continue');
-        return;
-      }
-      
-      if (STEPS[currentStep] === 'ethnicity' && !profileData.ethnicity) {
-        Alert.alert('Missing Information', 'Please select your ethnicity to continue');
-        return;
-      }
-      
-      if (STEPS[currentStep] === 'children' && !profileData.wantChildren) {
-        Alert.alert('Missing Information', 'Please select an option to continue');
-        return;
-      }
-      
-      setCurrentStep(currentStep + 1);
-    } else {
-      // Complete onboarding
-      try {
-        setLoading(true);
-        setError(null);
-        
-        if (user) {
-          // Validate critical profile fields
-          if (!profileData.gender) {
-            setError('Gender selection is required');
-            Alert.alert('Missing Information', 'Please select your gender to continue');
-            // Go back to gender selection step
-            const genderStepIndex = STEPS.indexOf('gender');
-            if (genderStepIndex >= 0) {
-              setCurrentStep(genderStepIndex);
-            }
-            setLoading(false);
-            return;
-          }
-  
-          // Check for valid gender value
-          if (profileData.gender !== 'male' && profileData.gender !== 'female' && profileData.gender !== 'non-binary') {
-            console.error(`Invalid gender value: ${profileData.gender}`);
-            setError('Please select a valid gender');
-            Alert.alert('Invalid Selection', 'Please select a valid gender option');
-            const genderStepIndex = STEPS.indexOf('gender');
-            if (genderStepIndex >= 0) {
-              setCurrentStep(genderStepIndex);
-            }
-            setLoading(false);
-            return;
-          }
-          
-          // Validate age is provided
-          if (!profileData.age) {
-            setError('Age is required');
-            Alert.alert('Missing Information', 'Please enter your age to continue');
-            const ageStepIndex = STEPS.indexOf('age');
-            if (ageStepIndex >= 0) {
-              setCurrentStep(ageStepIndex);
-            }
-            setLoading(false);
-            return;
-          }
-          
-          // Let's add logs to verify data being saved
-          console.log('Saving profile data:', {
-            displayName: profileData.displayName,
-            gender: profileData.gender, 
-            age: profileData.age,
-            pronoun: profileData.pronouns,
-            ageRange: profileData.ageRange,
-            height: profileData.height,
-            ethnicity: profileData.ethnicity,
-            wantChildren: profileData.wantChildren
-          });
-          
-          console.log('Final save - wantChildren value:', profileData.wantChildren);
-  
-          // Generate location string directly from coordinates
-          let cityPart = "";
-          let statePart = "";
-          let countryPart = "";
-          
-          if (profileData.locationCoordinates?.city) cityPart = profileData.locationCoordinates.city;
-          if (profileData.locationCoordinates?.state) statePart = profileData.locationCoordinates.state;
-          if (profileData.locationCoordinates?.country) countryPart = profileData.locationCoordinates.country;
-          
-          // Build location string with parts that exist
-          let locationString = "";
-          if (cityPart) locationString += cityPart;
-          if (statePart) locationString += locationString ? ", " + statePart : statePart;
-          if (countryPart) locationString += locationString ? ", " + countryPart : countryPart;
-          
-          // If we end up with an empty string, use default
-          if (!locationString) locationString = "Uyo, Akwa Ibom, Nigeria";
-          
-          console.log("FINAL LOCATION STRING:", locationString);
-          
-          // Create userData object with all fields explicitly set
-          const userData = {
-            displayName: profileData.displayName || '',
-            photoURL: profileData.photoURL || '',
-            bio: profileData.bio || '',
-            location: locationString,
-            
-            // Location fields
-            latitude: profileData.locationCoordinates?.latitude || 5.033,
-            longitude: profileData.locationCoordinates?.longitude || 7.9,
-            address: profileData.locationCoordinates?.address || 'Uyo, Akwa Ibom, Nigeria',
-            city: profileData.locationCoordinates?.city || 'Uyo',
-            state: profileData.locationCoordinates?.state || 'Akwa Ibom',
-            country: profileData.locationCoordinates?.country || 'Nigeria',
-            useExactLocation: profileData.locationCoordinates?.useExactAddress || false,
-            
-            gender: profileData.gender, 
-            datingPreferences: profileData.datingPreferences || [],
-            datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
-            pronouns: profileData.pronouns || '',
-            pronounsVisible: profileData.pronounsVisible !== false,
-            age: profileData.age || '',
-            ageRange: profileData.ageRange || '',
-            height: profileData.height || '',
-            ethnicity: profileData.ethnicity || '',
-            wantChildren: profileData.wantChildren || '',
-            childrenVisible: profileData.childrenVisible !== false,
-            currentChildren: profileData.currentChildren || '',
-            currentChildrenVisible: profileData.currentChildrenVisible !== false,
-            workplace: profileData.workplace || '',
-            workplaceVisible: profileData.workplaceVisible !== false,
-            jobTitle: profileData.jobTitle || '',
-            jobTitleVisible: profileData.jobTitleVisible !== false,
-            school: profileData.school || '',
-            schoolVisible: profileData.schoolVisible !== false,
-            education: profileData.education || '',
-            educationVisible: false, 
-            religiousBeliefs: profileData.religiousBeliefs || '',
-            religiousBeliefsVisible: profileData.religiousBeliefsVisible !== false,
-            politicalBeliefs: profileData.politicalBeliefs || '',
-            politicalBeliefsVisible: profileData.politicalBeliefsVisible !== false,
-            drinking: profileData.drinking || '',
-            drinkingVisible: profileData.drinkingVisible !== false,
-            smoking: profileData.smoking || '',
-            smokingVisible: profileData.smokingVisible !== false,
-            drugUsage: profileData.drugUsage || '',
-            drugUsageVisible: profileData.drugUsageVisible !== false,
-            lifestyle: profileData.lifestyle || [],
-            lifestyleVisible: profileData.lifestyleVisible !== false,
-            interests: profileData.interests || [],
-            dealBreaker: Boolean(profileData.dealBreaker),
-            prompts: profileData.prompts || [],
-            subscriptionPlan: profileData.subscriptionPlan || 'basic',
-            hasCompletedOnboarding: true,
-            updatedAt: serverTimestamp(),
-            onboardingProgress: null,
-            onboardingStartTime: null
-          };
-          
-          // Update Firestore with the user data
-          const userRef = doc(firestore, 'users', user.uid);
-          await setDoc(userRef, userData, { merge: true });
-          
-          await setHasCompletedOnboarding(true);
-          
-          // Verify the data was properly set
-          const verifyDoc = await getDoc(userRef);
-          if (verifyDoc.exists()) {
-            const savedData = verifyDoc.data();
-            console.log('Verified saved gender:', savedData.gender);
-            console.log('Verified saved age:', savedData.age);
-            console.log('Verified saved pronouns:', savedData.pronouns);
-            console.log('Verified saved ageRange:', savedData.ageRange);
-            console.log('Verified saved height:', savedData.height);
-            console.log('Verified saved ethnicity:', savedData.ethnicity);
-            console.log('Verified saved wantChildren:', savedData.wantChildren);
-            console.log('Verified saved location:', savedData.location);
-            
-            if (!savedData.gender) {
-              console.error('Gender not saved properly!');
-            }
-            
-            if (!savedData.age) {
-              console.error('Age not saved properly!');
-            }
-            
-            if (!savedData.location) {
-              console.error('Location not saved properly!');
-            }
-          }
-          
-          router.replace('/(tabs)');
-        } else {
-          throw new Error('User not authenticated');
-        }
-      } catch (error: any) {
-        console.error('Error updating profile:', error);
-        setError(error.message || 'An unexpected error occurred');
-        Alert.alert('Error', 'Failed to complete onboarding. Please try again.');
-      } finally {
-        setLoading(false);
-      }
+const handleNext = async () => {
+  if (currentStep < STEPS.length - 1) {
+    // Validate current step before advancing
+    if (STEPS[currentStep] === 'age' && !profileData.age) {
+      Alert.alert('Missing Information', 'Please enter your age to continue');
+      return;
     }
-  };
+
+    if (STEPS[currentStep] === 'location' && !profileData.locationCoordinates) {
+      Alert.alert('Missing Information', 'Please select your location to continue');
+      return;
+    }
+    
+    if (STEPS[currentStep] === 'height' && !profileData.height) {
+      Alert.alert('Missing Information', 'Please enter your height to continue');
+      return;
+    }
+    
+    if (STEPS[currentStep] === 'ethnicity' && !profileData.ethnicity) {
+      Alert.alert('Missing Information', 'Please select your ethnicity to continue');
+      return;
+    }
+    
+    if (STEPS[currentStep] === 'children' && !profileData.wantChildren) {
+      Alert.alert('Missing Information', 'Please select an option to continue');
+      return;
+    }
+    
+    setCurrentStep(currentStep + 1);
+  } else {
+    // Complete onboarding
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (user) {
+        // Validate critical profile fields
+        if (!profileData.gender) {
+          setError('Gender selection is required');
+          Alert.alert('Missing Information', 'Please select your gender to continue');
+          // Go back to gender selection step
+          const genderStepIndex = STEPS.indexOf('gender');
+          if (genderStepIndex >= 0) {
+            setCurrentStep(genderStepIndex);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Check for valid gender value
+        if (profileData.gender !== 'male' && profileData.gender !== 'female' && profileData.gender !== 'non-binary') {
+          console.error(`Invalid gender value: ${profileData.gender}`);
+          setError('Please select a valid gender');
+          Alert.alert('Invalid Selection', 'Please select a valid gender option');
+          const genderStepIndex = STEPS.indexOf('gender');
+          if (genderStepIndex >= 0) {
+            setCurrentStep(genderStepIndex);
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Validate age is provided
+        if (!profileData.age) {
+          setError('Age is required');
+          Alert.alert('Missing Information', 'Please enter your age to continue');
+          const ageStepIndex = STEPS.indexOf('age');
+          if (ageStepIndex >= 0) {
+            setCurrentStep(ageStepIndex);
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Let's add logs to verify data being saved
+        console.log('Saving profile data:', {
+          displayName: profileData.displayName,
+          gender: profileData.gender, 
+          age: profileData.age,
+          pronoun: profileData.pronouns,
+          ageRange: profileData.ageRange,
+          height: profileData.height,
+          ethnicity: profileData.ethnicity,
+          wantChildren: profileData.wantChildren
+        });
+        
+        console.log('Final save - wantChildren value:', profileData.wantChildren);
+
+        // Generate location string directly from coordinates
+        let cityPart = "";
+        let statePart = "";
+        let countryPart = "";
+        
+        if (profileData.locationCoordinates?.city) cityPart = profileData.locationCoordinates.city;
+        if (profileData.locationCoordinates?.state) statePart = profileData.locationCoordinates.state;
+        if (profileData.locationCoordinates?.country) countryPart = profileData.locationCoordinates.country;
+        
+        // Build location string with parts that exist
+        let locationString = "";
+        if (cityPart) locationString += cityPart;
+        if (statePart) locationString += locationString ? ", " + statePart : statePart;
+        if (countryPart) locationString += locationString ? ", " + countryPart : countryPart;
+        
+        // If we end up with an empty string, use default
+        if (!locationString) locationString = "Uyo, Akwa Ibom, Nigeria";
+        
+        console.log("FINAL LOCATION STRING:", locationString);
+        
+        // Create userData object with all fields explicitly set
+        const userData = {
+          displayName: profileData.displayName || '',
+          photoURL: profileData.photoURL || '',
+          bio: profileData.bio || '',
+          location: locationString,
+          
+          // Location fields
+          latitude: profileData.locationCoordinates?.latitude || 5.033,
+          longitude: profileData.locationCoordinates?.longitude || 7.9,
+          address: profileData.locationCoordinates?.address || 'Uyo, Akwa Ibom, Nigeria',
+          city: profileData.locationCoordinates?.city || 'Uyo',
+          state: profileData.locationCoordinates?.state || 'Akwa Ibom',
+          country: profileData.locationCoordinates?.country || 'Nigeria',
+          useExactLocation: profileData.locationCoordinates?.useExactAddress || false,
+          
+          gender: profileData.gender, 
+          datingPreferences: profileData.datingPreferences || [],
+          datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
+          pronouns: profileData.pronouns || '',
+          pronounsVisible: profileData.pronounsVisible !== false,
+          age: profileData.age || '',
+          ageRange: profileData.ageRange || '',
+          height: profileData.height || '',
+          ethnicity: profileData.ethnicity || '',
+          wantChildren: profileData.wantChildren || '',
+          childrenVisible: profileData.childrenVisible !== false,
+          currentChildren: profileData.currentChildren || '',
+          currentChildrenVisible: profileData.currentChildrenVisible !== false,
+          workplace: profileData.workplace || '',
+          workplaceVisible: profileData.workplaceVisible !== false,
+          jobTitle: profileData.jobTitle || '',
+          jobTitleVisible: profileData.jobTitleVisible !== false,
+          school: profileData.school || '',
+          schoolVisible: profileData.schoolVisible !== false,
+          education: profileData.education || '',
+          educationVisible: false, 
+          religiousBeliefs: profileData.religiousBeliefs || '',
+          religiousBeliefsVisible: profileData.religiousBeliefsVisible !== false,
+          politicalBeliefs: profileData.politicalBeliefs || '',
+          politicalBeliefsVisible: profileData.politicalBeliefsVisible !== false,
+          drinking: profileData.drinking || '',
+          drinkingVisible: profileData.drinkingVisible !== false,
+          smoking: profileData.smoking || '',
+          smokingVisible: profileData.smokingVisible !== false,
+          drugUsage: profileData.drugUsage || '',
+          drugUsageVisible: profileData.drugUsageVisible !== false,
+          lifestyle: profileData.lifestyle || [],
+          lifestyleVisible: profileData.lifestyleVisible !== false,
+          interests: profileData.interests || [],
+          dealBreaker: Boolean(profileData.dealBreaker),
+          prompts: profileData.prompts || [],
+          subscriptionPlan: profileData.subscriptionPlan || 'basic',
+          hasCompletedOnboarding: true,
+          updatedAt: serverTimestamp(),
+          onboardingProgress: null,
+          onboardingStartTime: null
+        };
+        
+        // Update Firestore with the user data
+        const userRef = doc(firestore, 'users', user.uid);
+        await setDoc(userRef, userData, { merge: true });
+        
+        await setHasCompletedOnboarding(true);
+        
+        // Verify the data was properly set
+        const verifyDoc = await getDoc(userRef);
+        if (verifyDoc.exists()) {
+          const savedData = verifyDoc.data();
+          console.log('Verified saved gender:', savedData.gender);
+          console.log('Verified saved age:', savedData.age);
+          console.log('Verified saved pronouns:', savedData.pronouns);
+          console.log('Verified saved ageRange:', savedData.ageRange);
+          console.log('Verified saved height:', savedData.height);
+          console.log('Verified saved ethnicity:', savedData.ethnicity);
+          console.log('Verified saved wantChildren:', savedData.wantChildren);
+          console.log('Verified saved location:', savedData.location);
+          
+          if (!savedData.gender) {
+            console.error('Gender not saved properly!');
+          }
+          
+          if (!savedData.age) {
+            console.error('Age not saved properly!');
+          }
+          
+          if (!savedData.location) {
+            console.error('Location not saved properly!');
+          }
+        }
+        
+        router.replace('/(tabs)');
+      } else {
+        throw new Error('User not authenticated');
+      }
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setError(error.message || 'An unexpected error occurred');
+      Alert.alert('Error', 'Failed to complete onboarding. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+};
 
   const handleBack = () => {
     if (currentStep > 0) {
