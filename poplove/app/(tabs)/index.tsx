@@ -25,6 +25,7 @@ import { MessageStatus } from '../../components/chat/MessageStatus';
 import NotificationBadge from '../../components/shared/NotificationBadge';
 import { router } from 'expo-router';
 import FilterButton from '../../components/FilterButton';
+import { filterProfilesByDistance } from '../../utils/distance';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
@@ -137,12 +138,14 @@ export default function HomeScreen() {
         const dealBreakerEnabled = userData.dealBreaker === true;
         const userInterests = userData.interests || [];
         
-        // Location processing (if available)
-        if (userData.latitude && userData.longitude) {
-          setUserLocation({
-            lat: userData.latitude,
-            lon: userData.longitude
-          });
+        // Extract user's location
+        const userLocation = {
+          lat: userData.latitude || null,
+          lon: userData.longitude || null
+        };
+        
+        if (userLocation.lat && userLocation.lon) {
+          setUserLocation(userLocation);
         }
         
         // Construct profiles query
@@ -150,7 +153,7 @@ export default function HomeScreen() {
           collection(firestore, 'users'),
           where('gender', '==', genderPreference),
           where('hasCompletedOnboarding', '==', true),
-          limit(20)
+          limit(30) // Fetch more profiles to allow for filtering
         );
         
         const querySnapshot = await getDocs(profilesQuery);
@@ -176,7 +179,9 @@ export default function HomeScreen() {
               height: data.height || '',
               ethnicity: data.ethnicity || '',
               hasChildren: data.hasChildren || '',
-              distance: Math.floor(Math.random() * 30) + 1, // Simulate distance
+              // Add location coordinates
+              latitude: data.latitude,
+              longitude: data.longitude,
             };
           })
           .filter(profile => {
@@ -205,18 +210,29 @@ export default function HomeScreen() {
             return true;
           });
         
+        // Calculate distances and filter by distance
+        const profilesWithDistance = filterProfilesByDistance(
+          fetchedProfiles,
+          userLocation.lat,
+          userLocation.lon,
+          100 // Max distance in kilometers - adjust as needed
+        );
+        
+        // Sort by distance
+        profilesWithDistance.sort((a, b) => a.distance - b.distance);
+        
         // Update state safely
         if (isMounted) {
           // Set user preferences
           setUserPreferences(userData);
           
           // Update profiles
-          setProfiles(fetchedProfiles);
-          setOriginalProfiles(fetchedProfiles);
+          setProfiles(profilesWithDistance);
+          setOriginalProfiles(profilesWithDistance);
           setLoading(false);
           
           // Handle empty profiles case
-          if (fetchedProfiles.length === 0) {
+          if (profilesWithDistance.length === 0) {
             setError('No profiles available right now. Check back soon!');
           }
         }

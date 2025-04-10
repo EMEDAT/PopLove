@@ -429,23 +429,79 @@ export default function OnboardingFlow() {
 
           // Update Firestore with complete profile data
           const userRef = doc(firestore, 'users', user.uid);
+          
+          // Define proper interface for location data
+          interface LocationData {
+            latitude?: number;
+            longitude?: number;
+            address: string;
+            city: string;
+            state: string;
+            country: string;
+            formattedAddress: string;
+            useExactLocation: boolean;
+          }
+          
+          // Process location data properly
+          let locationData: LocationData = {
+            address: "",
+            city: "Uyo",
+            state: "Akwa Ibom",
+            country: "Nigeria",
+            formattedAddress: "",
+            useExactLocation: false
+          };
+          
+          if (profileData.locationCoordinates) {
+            locationData = {
+              // Save the location coordinates
+              latitude: profileData.locationCoordinates.latitude,
+              longitude: profileData.locationCoordinates.longitude,
+              // Use address hierarchically - prioritize what's available
+              address: profileData.locationCoordinates.address || '',
+              city: profileData.locationCoordinates.city || 'Uyo', // Default to Uyo
+              state: profileData.locationCoordinates.state || 'Akwa Ibom', // Default state
+              country: profileData.locationCoordinates.country || 'Nigeria', // Default country
+              formattedAddress: profileData.locationCoordinates.formattedAddress || 
+                                profileData.locationCoordinates.address || 
+                                'Uyo, Akwa Ibom, Nigeria',
+              useExactLocation: profileData.locationCoordinates.useExactAddress || false
+            };
+          } else {
+            // Default location data for users without location
+            locationData = {
+              latitude: 5.033, // Default to Uyo
+              longitude: 7.9,
+              address: "Uyo, Akwa Ibom, Nigeria",
+              city: "Uyo",
+              state: "Akwa Ibom",
+              country: "Nigeria",
+              formattedAddress: "Uyo, Akwa Ibom, Nigeria",
+              useExactLocation: false
+            };
+          }
+
+          // Set the location string
+          const locationString = locationData.formattedAddress || 
+                                `${locationData.city}, ${locationData.country}`.trim() ||
+                                "Uyo, Nigeria";
+          
           await setDoc(userRef, {
             displayName: profileData.displayName,
             photoURL: profileData.photoURL,
             bio: profileData.bio,
-            location: profileData.locationCoordinates?.formattedAddress || 
-            profileData.locationCoordinates?.address || 
-            profileData.location || '',
-          
-          // Save the complete location coordinates object
-          latitude: profileData.locationCoordinates?.latitude,
-          longitude: profileData.locationCoordinates?.longitude,
-          address: profileData.locationCoordinates?.address,
-          city: profileData.locationCoordinates?.city,
-          state: profileData.locationCoordinates?.state,
-          country: profileData.locationCoordinates?.country,
-          formattedAddress: profileData.locationCoordinates?.formattedAddress,
-          useExactLocation: profileData.locationCoordinates?.useExactAddress,
+            location: locationString, // Use the processed location string
+            
+            // Include all location fields
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            address: locationData.address,
+            city: locationData.city,
+            state: locationData.state,
+            country: locationData.country,
+            formattedAddress: locationData.formattedAddress,
+            useExactLocation: locationData.useExactLocation,
+            
             gender: profileData.gender, 
             datingPreferences: profileData.datingPreferences,
             datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
