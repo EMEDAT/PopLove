@@ -421,6 +421,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                   </View>
                 </View>
 
+                {/* Ethnicity */}
+                {renderCheckboxSection("Ethnicity", ethnicityOptions, "ethnicity")}
+
                 {/* Height Range */}
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Height (cm)</Text>
@@ -440,9 +443,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                     />
                   </View>
                 </View>
-
-                {/* Ethnicity */}
-                {renderCheckboxSection("Ethnicity", ethnicityOptions, "ethnicity")}
 
                 {/* Lifestyle */}
                 {renderCheckboxSection("Lifestyle & Dating Intentions", lifestyleOptions, "lifestyle")}
