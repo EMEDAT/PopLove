@@ -40,6 +40,7 @@ export default function EthnicitySelection({
     'Black/African Descent',
     'Afro-Latino',
     'East Asian',
+    'Caucasian/White',
     'Chinese',
     'Japanese',
     'Korean',

@@ -37,11 +37,13 @@ interface LocationData {
 interface LocationSelectionProps {
   selectedLocation: LocationData | null;
   onLocationSelect: (location: LocationData) => void;
+  updateProfile: (field: string, value: any) => void;
 }
 
 export default function LocationSelection({
   selectedLocation,
   onLocationSelect,
+  updateProfile,
 }: LocationSelectionProps) {
   // Refs
   const mapRef = useRef<MapView | null>(null);
@@ -69,7 +71,7 @@ export default function LocationSelection({
   const [loading, setLoading] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [useExactAddress, setUseExactAddress] = useState(true);
+  const [useExactAddress, setUseExactAddress] = useState(false);
   
   // Initialize with existing data if available
   useEffect(() => {
@@ -548,8 +550,8 @@ export default function LocationSelection({
       city: city || null,
       state: state || null,
       country: country || null,
-      formattedAddress: useExactAddress ? (address || '') : (cityCountryAddress || ''),
-      useExactAddress: useExactAddress
+      formattedAddress: !useExactAddress ? (address || '') : (`${city || ''}, ${country || ''}`.trim()),
+      useExactAddress: useExactAddress  // Keep this as-is
     };
     
     // Call the parent component's callback
@@ -801,7 +803,10 @@ export default function LocationSelection({
           trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
           thumbColor={useExactAddress ? '#fff' : '#fff'}
           ios_backgroundColor="#E5E5E5"
-          onValueChange={handleToggleExactAddress}
+          onValueChange={value => {
+            setUseExactAddress(value);
+            updateProfile('useExactAddress', value);
+          }}
           value={useExactAddress}
         />
       </View>

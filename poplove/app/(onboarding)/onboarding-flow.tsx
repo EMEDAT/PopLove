@@ -816,20 +816,21 @@ export default function OnboardingFlow() {
         );
         case 'location':
           return (
-          <LocationSelection
-            selectedLocation={profileData.locationCoordinates}
-            onLocationSelect={(location) => {
-              updateProfile('locationCoordinates', {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                address: location.address,
-                city: location.city,
-                state: location.state,
-                country: location.country,
-              });
-              updateProfile('location', location.city || location.address);
-            }}
-          />
+            <LocationSelection
+              selectedLocation={profileData.locationCoordinates}
+              onLocationSelect={(location) => {
+                updateProfile('locationCoordinates', {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  address: location.address,
+                  city: location.city,
+                  state: location.state,
+                  country: location.country,
+                  useExactAddress: location.useExactAddress
+                });
+              }}
+              updateProfile={updateProfile}
+            />
           );
         case 'height':
           return (
