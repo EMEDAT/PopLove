@@ -433,7 +433,19 @@ export default function OnboardingFlow() {
             displayName: profileData.displayName,
             photoURL: profileData.photoURL,
             bio: profileData.bio,
-            location: profileData.location,
+            location: profileData.locationCoordinates?.formattedAddress || 
+            profileData.locationCoordinates?.address || 
+            profileData.location || '',
+          
+          // Save the complete location coordinates object
+          latitude: profileData.locationCoordinates?.latitude,
+          longitude: profileData.locationCoordinates?.longitude,
+          address: profileData.locationCoordinates?.address,
+          city: profileData.locationCoordinates?.city,
+          state: profileData.locationCoordinates?.state,
+          country: profileData.locationCoordinates?.country,
+          formattedAddress: profileData.locationCoordinates?.formattedAddress,
+          useExactLocation: profileData.locationCoordinates?.useExactAddress,
             gender: profileData.gender, 
             datingPreferences: profileData.datingPreferences,
             datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
