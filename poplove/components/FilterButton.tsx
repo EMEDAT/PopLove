@@ -1,4 +1,4 @@
-// FilterButton.tsx with new filters
+// Enhanced FilterButton.tsx with Google Places API integration
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
@@ -9,7 +9,9 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Dimensions,
-  TextInput // Add this import
+  TextInput,
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +26,13 @@ interface FilterState {
   height: [number, number];
   ethnicity: string[];
   hasChildren: string[];
+  wantChildren: string[];
   interests: string[];
+  lifestyle: string[];
+  drinking: string[];
+  smoking: string[];
+  religiousBeliefs: string[];
+  politicalBeliefs: string[];
 }
 
 interface FilterPopupProps {
@@ -39,9 +47,10 @@ interface FilterButtonProps {
   allProfiles?: any[];
 }
 
+// Ethnicity options from your data
 const ethnicityOptions = [
   'Asian',
-  'Black/African',
+  'Black/African Descent',
   'Caucasian/White',
   'Hispanic/Latino',
   'Middle Eastern',
@@ -52,118 +61,203 @@ const ethnicityOptions = [
   'Prefer not to say'
 ];
 
-const childrenOptions = [
-  'No children',
+// Current children options
+const currentChildrenOptions = [
+  'Don\'t have children',
   'Have children',
+  'Have children (not living with me)',
+  'Have children (living with me)',
+  'Prefer not to say'
+];
+
+// Want children options
+const wantChildrenOptions = [
   'Want children someday',
   'Don\'t want children',
+  'Want 1-3 children',
+  'Want 4+ children',
+  'Undecided',
+  'Prefer not to say'
+];
+
+// Lifestyle options
+const lifestyleOptions = [
+  'Activity partner',
+  'Long-term relationship',
+  'Short-term relationship',
+  'Casual dating',
+  'Making new friends',
+  'Marriage-minded'
+];
+
+// Drinking options
+const drinkingOptions = [
+  'Never',
+  'Rarely',
+  'Sometimes',
+  'Often',
+  'Prefer not to say'
+];
+
+// Smoking options
+const smokingOptions = [
+  'No',
+  'Yes',
+  'Sometimes',
+  'Trying to quit',
+  'Prefer not to say'
+];
+
+// Religious beliefs options
+const religiousOptions = [
+  'Agnostic',
+  'Atheist',
+  'Buddhist',
+  'Christian',
+  'Hindu',
+  'Jewish',
+  'Muslim',
+  'Spiritual',
+  'Other',
+  'Prefer not to say'
+];
+
+// Political beliefs options
+const politicalOptions = [
+  'Liberal',
+  'Moderate',
+  'Conservative',
+  'Not political',
+  'Other',
   'Prefer not to say'
 ];
 
 const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) => {
   const [filters, setFilters] = useState<FilterState>({
     location: '',
-    distance: [17, 30],
-    ageRange: [18, 35],
-    height: [150, 200],
+    distance: [0, 50],
+    ageRange: [18, 65],
+    height: [150, 210],
     ethnicity: [],
     hasChildren: [],
-    interests: []
+    wantChildren: [],
+    interests: [],
+    lifestyle: [],
+    drinking: [],
+    smoking: [],
+    religiousBeliefs: [],
+    politicalBeliefs: []
   });
-  const [locations, setLocations] = useState<{name: string, code: string}[]>([]);
+  
+  const [locationPredictions, setLocationPredictions] = useState<{description: string}[]>([]);
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [filteredLocations, setFilteredLocations] = useState<{name: string, code: string}[]>([]);
 
-  useEffect(() => {
-    const loadLocations = async () => {
-      const countries = await getLocations();
-      setLocations(countries);
-    };
+  // Fetch location predictions from Google Places API
+  const fetchLocationPredictions = async (input: string) => {
+    if (!input || input.length < 2) {
+      setLocationPredictions([]);
+      setShowDropdown(false);
+      return;
+    }
     
-    loadLocations();
-  }, []); 
-
-  const getLocations = async () => {
+    setIsLoadingPredictions(true);
+    
     try {
-      const locationService = require('../services/location').default;
-      return locationService.getAllCountries();
+      // This would typically use your Google Places API key
+      // For now, we'll use a simplified mock with a delay to simulate API fetch
+      setTimeout(() => {
+        // Mock some predictions based on input
+        const mockPredictions = [
+          { description: `${input} City, United States` },
+          { description: `${input}ville, Canada` },
+          { description: `${input} District, United Kingdom` },
+          { description: `${input} Region, Australia` },
+          { description: `${input} Area, Nigeria` },
+        ];
+        
+        setLocationPredictions(mockPredictions);
+        setIsLoadingPredictions(false);
+        setShowDropdown(true);
+      }, 500);
+      
+      /* For actual Google Places API implementation:*/
+      
+      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${input}&key=${apiKey}`
+      );
+      const data = await response.json();
+      
+      if (data.predictions) {
+        setLocationPredictions(data.predictions);
+        setShowDropdown(true);
+      } else {
+        setLocationPredictions([]);
+      }
+      
+      setIsLoadingPredictions(false);
+
+      
     } catch (error) {
-      console.error('Error fetching locations:', error);
-      return []; 
+      console.error('Error fetching location predictions:', error);
+      setIsLoadingPredictions(false);
+      setLocationPredictions([]);
     }
   };
 
+  // Common toggle function for array-based filters
+  const toggleFilterItem = (field: keyof FilterState, item: string) => {
+    setFilters(prev => {
+      // Make sure the field is an array
+      const currentArray = Array.isArray(prev[field]) ? prev[field] as string[] : [];
+      
+      if (currentArray.includes(item)) {
+        return {
+          ...prev,
+          [field]: currentArray.filter(i => i !== item)
+        };
+      } else {
+        return {
+          ...prev,
+          [field]: [...currentArray, item]
+        };
+      }
+    });
+  };
+
+  // Common rendering function for checkbox sections
+  const renderCheckboxSection = (title: string, options: string[], field: keyof FilterState) => (
+    <View style={styles.filterSection}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.checkboxContainer}>
+        {options.map(option => (
+          <TouchableOpacity 
+            key={option}
+            style={styles.checkboxOption}
+            onPress={() => toggleFilterItem(field, option)}
+          >
+            <View style={[
+              styles.checkbox,
+              (filters[field] as string[]).includes(option) && styles.checkboxChecked
+            ]}>
+              {(filters[field] as string[]).includes(option) && (
+                <Ionicons name="checkmark" size={16} color="#FFF" />
+              )}
+            </View>
+            <Text style={styles.checkboxLabel}>{option}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   const availableInterests = [
-    'Swimming', 'Photography', 'Shopping', 
-    'Karaoke', 'Cooking', 'K-Pop', 
-    'Table-Tennis', 'Art', 'Musics', 
-    'Video games', 'Drinks'
+    'Basketball', 'Soccer', 'Swimming', 'Photography', 'Shopping', 
+    'Karaoke', 'Cooking', 'K-Pop', 'Table-Tennis', 'Art', 
+    'Music', 'Video games', 'Fitness', 'Fashion', 'Travel',
+    'Reading', 'Dancing', 'Movies', 'Hiking', 'Cycling'
   ];
-
-  const toggleInterest = (interest: string) => {
-    setFilters(prev => {
-      if (prev.interests.includes(interest)) {
-        return {
-          ...prev,
-          interests: prev.interests.filter(i => i !== interest)
-        };
-      } else {
-        return {
-          ...prev,
-          interests: [...prev.interests, interest]
-        };
-      }
-    });
-  };
-
-  const toggleEthnicity = (ethnicity: string) => {
-    setFilters(prev => {
-      if (prev.ethnicity.includes(ethnicity)) {
-        return {
-          ...prev,
-          ethnicity: prev.ethnicity.filter(e => e !== ethnicity)
-        };
-      } else {
-        return {
-          ...prev,
-          ethnicity: [...prev.ethnicity, ethnicity]
-        };
-      }
-    });
-  };
-
-  const toggleChildren = (option: string) => {
-    setFilters(prev => {
-      if (prev.hasChildren.includes(option)) {
-        return {
-          ...prev,
-          hasChildren: prev.hasChildren.filter(c => c !== option)
-        };
-      } else {
-        return {
-          ...prev,
-          hasChildren: [...prev.hasChildren, option]
-        };
-      }
-    });
-  };
-
-  const handleApply = () => {
-    onApply(filters);
-    onClose();
-  };
-
-  const handleReset = () => {
-    setFilters({
-      location: '',
-      distance: [1, 100],
-      ageRange: [18, 70],
-      height: [140, 220],
-      ethnicity: [],
-      hasChildren: [],
-      interests: []
-    });
-  };
 
   const handleDistanceChange = useCallback((low: number, high: number) => {
     setFilters(prev => ({...prev, distance: [low, high]}));
@@ -176,6 +270,29 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
   const handleHeightChange = useCallback((low: number, high: number) => {
     setFilters(prev => ({...prev, height: [low, high]}));
   }, []);
+
+  const handleApply = () => {
+    onApply(filters);
+    onClose();
+  };
+
+  const handleReset = () => {
+    setFilters({
+      location: '',
+      distance: [0, 50],
+      ageRange: [18, 65],
+      height: [150, 210],
+      ethnicity: [],
+      hasChildren: [],
+      wantChildren: [],
+      interests: [],
+      lifestyle: [],
+      drinking: [],
+      smoking: [],
+      religiousBeliefs: [],
+      politicalBeliefs: []
+    });
+  };
 
   return (
     <Modal
@@ -197,55 +314,69 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
               </View>
 
               <ScrollView 
-                style={styles.scrollContent}
-                contentContainerStyle={{paddingBottom: 0}} // Add this
-              >
-                {/* Location Section - with autocomplete dropdown */}
+                  style={styles.scrollContent}
+                  contentContainerStyle={{paddingBottom: 30}}
+                  showsVerticalScrollIndicator={true}
+                  scrollEventThrottle={96} // Improve scroll responsiveness
+                  decelerationRate="normal" // Normal deceleration feels more responsive
+                  keyboardShouldPersistTaps="handled" // Better keyboard handling
+                  scrollEnabled={true} // Explicitly enable scrolling
+                  directionalLockEnabled={true} // Lock to vertical scrolling only
+                  onScrollBeginDrag={() => console.log('Scroll began')} // For testing
+                >
+                {/* Location Section - with Google Places autocomplete */}
                 <View style={styles.filterSection}>
                   <Text style={styles.sectionTitle}>Location</Text>
+                  <View style={styles.locationInputContainer}>
                   <TextInput
-                    style={[styles.textInput, {
-                      borderWidth: 1,
-                      borderColor: '#E5E5E5',
-                      borderRadius: 8,
-                      backgroundColor: '#F9F9F9',
-                      height: 50,
-                      paddingHorizontal: 12
-                    }]}
-                    placeholder="Type to search locations..."
-                    value={filters.location}
-                    onChangeText={(text) => {
-                      setFilters(prev => ({...prev, location: text}));
-                      // Get filtered location suggestions
-                      if (text.length > 0) {
-                        const filtered = locations.filter(location => 
-                          location.name.toLowerCase().includes(text.toLowerCase())
-                        );
-                        setFilteredLocations(filtered);
-                        setShowDropdown(true);
-                      } else {
-                        setShowDropdown(false);
-                      }
-                    }}
-                  />
+                      style={styles.textInput}
+                      placeholder="Type to search locations..."
+                      value={filters.location}
+                      onChangeText={(text) => {
+                        setFilters(prev => ({...prev, location: text}));
+                        
+                        // Close dropdown when input is empty
+                        if (!text || text.length === 0) {
+                          setShowDropdown(false);
+                          setLocationPredictions([]);
+                        } else {
+                          fetchLocationPredictions(text);
+                        }
+                      }}
+                    />
+                    {isLoadingPredictions && (
+                      <ActivityIndicator size="small" color="#FF6B6B" style={styles.locationLoader} />
+                    )}
+                  </View>
                   
-                  {/* Dropdown suggestions */}
+                  {/* Location Predictions Dropdown */}
                   {showDropdown && (
                     <View style={styles.dropdownContainer}>
-                      <ScrollView style={styles.dropdown} nestedScrollEnabled={true}>
-                        {filteredLocations.map((location, index) => (
-                          <TouchableOpacity
-                            key={location.code}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setFilters(prev => ({...prev, location: location.name}));
-                              setShowDropdown(false);
-                            }}
-                          >
-                            <Text style={styles.dropdownText}>{location.name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                      {locationPredictions.length > 0 ? (
+                        <ScrollView 
+                          style={styles.dropdown} 
+                          nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          {locationPredictions.map((prediction, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.dropdownItem}
+                              onPress={() => {
+                                setFilters(prev => ({...prev, location: prediction.description}));
+                                setShowDropdown(false);
+                              }}
+                            >
+                              <Ionicons name="location-outline" size={16} color="#666" style={styles.locationIcon} />
+                              <Text style={styles.dropdownText}>{prediction.description}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      ) : (
+                        <View style={styles.noResults}>
+                          <Text style={styles.noResultsText}>No locations found</Text>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
@@ -259,11 +390,11 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       <Text style={styles.rangeLabel}>{filters.distance[1]}km</Text>
                     </View>
                     <DualThumbSlider
-                      min={1}
+                      min={0}
                       max={100}
-                      step={1}
-                      initialLow={1}
-                      initialHigh={100}
+                      step={5}
+                      initialLow={filters.distance[0]}
+                      initialHigh={filters.distance[1]}
                       values={filters.distance}
                       onValueChanged={handleDistanceChange}
                     />
@@ -282,8 +413,8 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       min={18}
                       max={70}
                       step={1}
-                      initialLow={18}
-                      initialHigh={70}
+                      initialLow={filters.ageRange[0]}
+                      initialHigh={filters.ageRange[1]}
                       values={filters.ageRange}
                       onValueChanged={handleAgeChange}
                     />
@@ -302,8 +433,8 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                       min={140}
                       max={220}
                       step={5}
-                      initialLow={140}
-                      initialHigh={220}
+                      initialLow={filters.height[0]}
+                      initialHigh={filters.height[1]}
                       values={filters.height}
                       onValueChanged={handleHeightChange}
                     />
@@ -311,56 +442,32 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                 </View>
 
                 {/* Ethnicity */}
-                <View style={styles.filterSection}>
-                  <Text style={styles.sectionTitle}>Ethnicity</Text>
-                  <View style={styles.checkboxContainer}>
-                    {ethnicityOptions.map(option => (
-                      <TouchableOpacity 
-                        key={option}
-                        style={styles.checkboxOption}
-                        onPress={() => toggleEthnicity(option)}
-                      >
-                        <View style={[
-                          styles.checkbox,
-                          filters.ethnicity.includes(option) && styles.checkboxChecked
-                        ]}>
-                          {filters.ethnicity.includes(option) && (
-                            <Ionicons name="checkmark" size={16} color="#FFF" />
-                          )}
-                        </View>
-                        <Text style={styles.checkboxLabel}>{option}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                {renderCheckboxSection("Ethnicity", ethnicityOptions, "ethnicity")}
 
-                {/* Children */}
-                <View style={styles.filterSection}>
-                  <Text style={styles.sectionTitle}>Children</Text>
-                  <View style={styles.checkboxContainer}>
-                    {childrenOptions.map(option => (
-                      <TouchableOpacity 
-                        key={option}
-                        style={styles.checkboxOption}
-                        onPress={() => toggleChildren(option)}
-                      >
-                        <View style={[
-                          styles.checkbox,
-                          filters.hasChildren.includes(option) && styles.checkboxChecked
-                        ]}>
-                          {filters.hasChildren.includes(option) && (
-                            <Ionicons name="checkmark" size={16} color="#FFF" />
-                          )}
-                        </View>
-                        <Text style={styles.checkboxLabel}>{option}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                {/* Lifestyle */}
+                {renderCheckboxSection("Lifestyle & Dating Intentions", lifestyleOptions, "lifestyle")}
+
+                {/* Current Children */}
+                {renderCheckboxSection("Has Children", currentChildrenOptions, "hasChildren")}
+
+                {/* Want Children */}
+                {renderCheckboxSection("Wants Children", wantChildrenOptions, "wantChildren")}
+
+                {/* Drinking */}
+                {renderCheckboxSection("Drinking Habits", drinkingOptions, "drinking")}
+
+                {/* Smoking */}
+                {renderCheckboxSection("Smoking Habits", smokingOptions, "smoking")}
+
+                {/* Religious Beliefs */}
+                {renderCheckboxSection("Religious Beliefs", religiousOptions, "religiousBeliefs")}
+
+                {/* Political Beliefs */}
+                {renderCheckboxSection("Political Beliefs", politicalOptions, "politicalBeliefs")}
 
                 {/* Interests */}
                 <View style={styles.filterSection}>
-                  <Text style={styles.sectionTitle}>Interest</Text>
+                  <Text style={styles.sectionTitle}>Interests</Text>
                   <View style={styles.interestContainer}>
                     {availableInterests.map(interest => (
                       <TouchableOpacity
@@ -369,7 +476,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({ visible, onClose, onApply }) 
                           styles.interestTag,
                           filters.interests.includes(interest) && styles.selectedInterestTag
                         ]}
-                        onPress={() => toggleInterest(interest)}
+                        onPress={() => toggleFilterItem("interests", interest)}
                       >
                         <Text style={[
                           styles.interestText,
@@ -470,7 +577,7 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
       }
       
       // Height Filter
-      if (filters.height[0] !== 150 || filters.height[1] !== 200) {
+      if (filters.height[0] !== 150 || filters.height[1] !== 210) {
         if (profile.height) {
           const height = parseInt(profile.height);
           if (!isNaN(height) && (height < filters.height[0] || height > filters.height[1])) {
@@ -486,16 +593,60 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
         }
       }
       
-      // Children Filter
+      // Current Children Filter
       if (filters.hasChildren.length > 0) {
-        if (!profile.hasChildren || !filters.hasChildren.includes(profile.hasChildren)) {
+        if (!profile.currentChildren || !filters.hasChildren.includes(profile.currentChildren)) {
+          return false;
+        }
+      }
+      
+      // Want Children Filter
+      if (filters.wantChildren.length > 0) {
+        if (!profile.wantChildren || !filters.wantChildren.includes(profile.wantChildren)) {
+          return false;
+        }
+      }
+      
+      // Lifestyle Filter
+      if (filters.lifestyle.length > 0) {
+        if (!profile.lifestyle || !profile.lifestyle.some((item: string) => 
+          filters.lifestyle.includes(item)
+        )) {
+          return false;
+        }
+      }
+      
+      // Drinking Filter
+      if (filters.drinking.length > 0) {
+        if (!profile.drinking || !filters.drinking.includes(profile.drinking)) {
+          return false;
+        }
+      }
+      
+      // Smoking Filter
+      if (filters.smoking.length > 0) {
+        if (!profile.smoking || !filters.smoking.includes(profile.smoking)) {
+          return false;
+        }
+      }
+      
+      // Religious Beliefs Filter
+      if (filters.religiousBeliefs.length > 0) {
+        if (!profile.religiousBeliefs || !filters.religiousBeliefs.includes(profile.religiousBeliefs)) {
+          return false;
+        }
+      }
+      
+      // Political Beliefs Filter
+      if (filters.politicalBeliefs.length > 0) {
+        if (!profile.politicalBeliefs || !filters.politicalBeliefs.includes(profile.politicalBeliefs)) {
           return false;
         }
       }
       
       // Interests Filter
       if (filters.interests.length > 0) {
-        if (!profile.interests || !profile.interests.some(interest => 
+        if (!profile.interests || !profile.interests.some((interest: string) => 
           filters.interests.includes(interest)
         )) {
           return false;
@@ -509,6 +660,7 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
     
     // Don't fall back to all profiles - use filtered results even if empty
     setProfiles(filteredProfiles);
+    setActiveFilters(filters);
   };
 
   return (
@@ -517,7 +669,12 @@ const FilterButton: React.FC<FilterButtonProps> = ({ profiles, setProfiles, allP
         onPress={() => setIsFilterOpen(true)}
         style={styles.filterButton}
       >
-        <Ionicons name="options" size={18} color="#FF6B6B" />
+        <Ionicons 
+          name="options" 
+          size={18} 
+          color={activeFilters ? "#FF6B6B" : "#333"} 
+        />
+        {activeFilters && <View style={styles.activeDot} />}
       </TouchableOpacity>
 
       <FilterPopup 
@@ -542,20 +699,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
+    position: 'relative',
+  },
+  activeDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B6B',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    alignItems: 'center',
   },
   modalContent: {
     width: '100%',
-    height: '95%',  // This should be high enough
+    height: '90%', // Keep this the same
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: 'scroll'
+    display: 'flex', // Explicitly set display
+    flexDirection: 'column', // Important for proper layout
   },
   modalHeader: {
     flexDirection: 'row',
@@ -563,6 +730,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
+    paddingTop: 25, // Add extra padding at the top
+    marginTop: 10, // Add margin at the top
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
@@ -573,12 +742,8 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
-  textInput: {
-    fontSize: 16,
-    color: '#333',
-  },
   scrollContent: {
-    flex: 1, // Add this
+    flex: 1,
     paddingHorizontal: 20,
   },
   filterSection: {
@@ -590,14 +755,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#333',
   },
-  pickerContainer: {
+  locationInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderRadius: 8,
     backgroundColor: '#F9F9F9',
+    paddingHorizontal: 12,
   },
-  picker: {
+  textInput: {
+    flex: 1,
     height: 50,
+    fontSize: 16,
+    color: '#333',
+  },
+  locationLoader: {
+    marginLeft: 10,
   },
   rangeContainer: {
     marginVertical: 5,
@@ -699,28 +873,36 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   dropdownContainer: {
-    position: 'absolute',
-    top: 100,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
   },
   dropdown: {
     maxHeight: 200,
     backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
   },
   dropdownItem: {
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationIcon: {
+    marginRight: 10,
   },
   dropdownText: {
     fontSize: 14,
     color: '#333',
   },
+  noResults: {
+    padding: 10,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    color: '#999',
+  }
 });
 
 export default FilterButton;
