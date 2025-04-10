@@ -15,7 +15,7 @@ const firebaseConfig = {
   appId: "1:781404328808:web:7c503d7bf427e58dc37cdd",
 };
 
-// Log Firebase config for debugging
+// Log Firebase config for debuggingnote
 console.log('Firebase Config:', {
   apiKey: firebaseConfig.apiKey ? 'Configured' : 'Missing',
   authDomain: firebaseConfig.authDomain ? 'Configured' : 'Missing',
