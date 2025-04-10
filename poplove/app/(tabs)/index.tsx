@@ -111,59 +111,67 @@ export default function HomeScreen() {
         setLoading(true);
         setError(null);
         
+        // Log user details for debugging
+        console.log('USER DETAILS FOR MATCHING:', {
+          uid: user.uid,
+          email: user.email
+        });
+        
         // Fetch user document
         const userDoc = await getDoc(doc(firestore, 'users', user.uid));
         
-        if (!isMounted) return;
-        
-        // Validate user document and gender
         if (!userDoc.exists()) {
+          console.error('NO USER DOCUMENT FOUND');
           setError('User profile not found');
           setLoading(false);
           return;
         }
         
         const userData = userDoc.data();
-        const userGender = userData.gender;
+        console.log('USER DATA FOR MATCHING:', userData);
         
-        if (!userGender) {
+        // Validate critical profile data
+        if (!userData.gender) {
+          console.error('NO GENDER SPECIFIED');
           setError('Please complete your profile setup');
           setLoading(false);
           return;
         }
         
         // Determine opposite gender for matching
-        const genderPreference = userGender === 'male' ? 'female' : 'male';
-        const blockedUsers = userData.blockedUsers || [];
-        const dealBreakerEnabled = userData.dealBreaker === true;
-        const userInterests = userData.interests || [];
+        const genderPreference = userData.gender === 'male' ? 'female' : 'male';
+        console.log('MATCHING GENDER:', genderPreference);
         
-        // Extract user's location
-        const userLocation = {
-          lat: userData.latitude || null,
-          lon: userData.longitude || null
-        };
+        // Location logging
+        console.log('USER LOCATION:', {
+          latitude: userData.latitude,
+          longitude: userData.longitude,
+          location: userData.location
+        });
         
-        if (userLocation.lat && userLocation.lon) {
-          setUserLocation(userLocation);
-        }
-        
-        // Construct profiles query
+        // Construct advanced profiles query with more robust filtering
         const profilesQuery = query(
           collection(firestore, 'users'),
           where('gender', '==', genderPreference),
           where('hasCompletedOnboarding', '==', true),
-          limit(30) // Fetch more profiles to allow for filtering
+          limit(50) // Fetch more profiles to allow for comprehensive filtering
         );
         
         const querySnapshot = await getDocs(profilesQuery);
+        console.log(`FOUND ${querySnapshot.size} POTENTIAL PROFILES`);
         
-        if (!isMounted) return;
-        
-        // Process and filter profiles
+        // Detailed profile processing with extensive logging
         const fetchedProfiles = querySnapshot.docs
           .map(doc => {
             const data = doc.data();
+            console.log('POTENTIAL PROFILE:', {
+              id: doc.id,
+              gender: data.gender,
+              location: data.location,
+              latitude: data.latitude,
+              longitude: data.longitude
+            });
+            
             return {
               id: doc.id,
               displayName: data.displayName || 'User',
@@ -174,75 +182,52 @@ export default function HomeScreen() {
               ageRange: data.ageRange?.split(' ')[0] || '??',
               interests: data.interests || [],
               gender: data.gender || '',
-              profession: data.profession || '',
-              pronouns: data.pronouns || '',
-              height: data.height || '',
-              ethnicity: data.ethnicity || '',
-              hasChildren: data.hasChildren || '',
-              // Add location coordinates
               latitude: data.latitude,
               longitude: data.longitude,
             };
           })
           .filter(profile => {
-            // Basic filtering - exclude self and blocked users
-            if (profile.id === user.uid || blockedUsers.includes(profile.id)) {
-              return false;
-            }
-            
-            // Ensure correct gender match
-            if (profile.gender !== genderPreference) {
-              return false;
-            }
-            
-            // Deal breaker check - if enabled, require at least one shared interest
-            if (dealBreakerEnabled && userInterests.length > 0) {
-              const profileInterests = profile.interests || [];
-              if (profileInterests.length === 0) return false;
-              
-              const hasMatchingInterest = userInterests.some(interest => 
-                profileInterests.includes(interest)
-              );
-              
-              if (!hasMatchingInterest) return false;
-            }
-            
-            return true;
+            // Exclude self and handle missing data gracefully
+            return profile.id !== user.uid && 
+                   profile.latitude !== undefined && 
+                   profile.longitude !== undefined;
           });
         
-        // Calculate distances and filter by distance
+        console.log(`AFTER BASIC FILTERING: ${fetchedProfiles.length} PROFILES`);
+        
+        // Location-based sophisticated matching
         const profilesWithDistance = filterProfilesByDistance(
           fetchedProfiles,
-          userLocation.lat,
-          userLocation.lon,
-          100 // Max distance in kilometers - adjust as needed
+          userData.latitude,
+          userData.longitude,
+          100 // Max distance in kilometers
         );
         
-        // Sort by distance
+        console.log(`PROFILES AFTER DISTANCE FILTERING: ${profilesWithDistance.length}`);
+        
+        // Sort by distance and log details
         profilesWithDistance.sort((a, b) => a.distance - b.distance);
         
-        // Update state safely
-        if (isMounted) {
-          // Set user preferences
-          setUserPreferences(userData);
-          
-          // Update profiles
-          setProfiles(profilesWithDistance);
-          setOriginalProfiles(profilesWithDistance);
-          setLoading(false);
-          
-          // Handle empty profiles case
-          if (profilesWithDistance.length === 0) {
-            setError('No profiles available right now. Check back soon!');
-          }
+        profilesWithDistance.forEach(profile => {
+          console.log('MATCHED PROFILE:', {
+            name: profile.displayName,
+            distance: profile.distance,
+            location: profile.location
+          });
+        });
+        
+        setProfiles(profilesWithDistance);
+        setOriginalProfiles(profilesWithDistance);
+        setLoading(false);
+        
+        if (profilesWithDistance.length === 0) {
+          console.warn('NO MATCHING PROFILES FOUND');
+          setError('No profiles available right now. Check back soon!');
         }
       } catch (err) {
-        console.error('Error fetching profiles:', err);
-        
-        if (isMounted) {
-          setError('Failed to load profiles');
-          setLoading(false);
-        }
+        console.error('COMPLETE ERROR IN PROFILE LOADING:', err);
+        setError('Failed to load profiles');
+        setLoading(false);
       }
     };
     
