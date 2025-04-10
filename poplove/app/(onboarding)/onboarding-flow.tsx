@@ -346,7 +346,7 @@ export default function OnboardingFlow() {
         Alert.alert('Missing Information', 'Please enter your age to continue');
         return;
       }
-
+  
       if (STEPS[currentStep] === 'location' && !profileData.locationCoordinates) {
         Alert.alert('Missing Information', 'Please select your location to continue');
         return;
@@ -426,145 +426,115 @@ export default function OnboardingFlow() {
           });
           
           console.log('Final save - wantChildren value:', profileData.wantChildren);
-
-          // Update Firestore with complete profile data
-          const userRef = doc(firestore, 'users', user.uid);
+  
+          // Generate location string directly from coordinates
+          let cityPart = "";
+          let statePart = "";
+          let countryPart = "";
           
-          // Define proper interface for location data
-          interface LocationData {
-            latitude?: number;
-            longitude?: number;
-            address: string;
-            city: string;
-            state: string;
-            country: string;
-            formattedAddress: string;
-            useExactLocation: boolean;
-          }
+          if (profileData.locationCoordinates?.city) cityPart = profileData.locationCoordinates.city;
+          if (profileData.locationCoordinates?.state) statePart = profileData.locationCoordinates.state;
+          if (profileData.locationCoordinates?.country) countryPart = profileData.locationCoordinates.country;
           
-          // Process location data properly
-          let locationData: LocationData = {
-            address: "",
-            city: "Uyo",
-            state: "Akwa Ibom",
-            country: "Nigeria",
-            formattedAddress: "",
-            useExactLocation: false
-          };
+          // Build location string with parts that exist
+          let locationString = "";
+          if (cityPart) locationString += cityPart;
+          if (statePart) locationString += locationString ? ", " + statePart : statePart;
+          if (countryPart) locationString += locationString ? ", " + countryPart : countryPart;
           
-          if (profileData.locationCoordinates) {
-            locationData = {
-              // Save the location coordinates
-              latitude: profileData.locationCoordinates.latitude,
-              longitude: profileData.locationCoordinates.longitude,
-              // Use address hierarchically - prioritize what's available
-              address: profileData.locationCoordinates.address || '',
-              city: profileData.locationCoordinates.city || 'Uyo', // Default to Uyo
-              state: profileData.locationCoordinates.state || 'Akwa Ibom', // Default state
-              country: profileData.locationCoordinates.country || 'Nigeria', // Default country
-              formattedAddress: profileData.locationCoordinates.formattedAddress || 
-                                profileData.locationCoordinates.address || 
-                                'Uyo, Akwa Ibom, Nigeria',
-              useExactLocation: profileData.locationCoordinates.useExactAddress || false
-            };
-          } else {
-            // Default location data for users without location
-            locationData = {
-              latitude: 5.033, // Default to Uyo
-              longitude: 7.9,
-              address: "Uyo, Akwa Ibom, Nigeria",
-              city: "Uyo",
-              state: "Akwa Ibom",
-              country: "Nigeria",
-              formattedAddress: "Uyo, Akwa Ibom, Nigeria",
-              useExactLocation: false
-            };
-          }
-
-          // Set the location string
-          const locationString = locationData.formattedAddress || 
-                                `${locationData.city}, ${locationData.country}`.trim() ||
-                                "Uyo, Nigeria";
+          // If we end up with an empty string, use default
+          if (!locationString) locationString = "Uyo, Akwa Ibom, Nigeria";
           
-          await setDoc(userRef, {
-            displayName: profileData.displayName,
-            photoURL: profileData.photoURL,
-            bio: profileData.bio,
-            location: locationString, // Use the processed location string
+          console.log("FINAL LOCATION STRING:", locationString);
+          
+          // Create userData object with all fields explicitly set
+          const userData = {
+            displayName: profileData.displayName || '',
+            photoURL: profileData.photoURL || '',
+            bio: profileData.bio || '',
+            location: locationString,
             
-            // Include all location fields
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-            address: locationData.address,
-            city: locationData.city,
-            state: locationData.state,
-            country: locationData.country,
-            formattedAddress: locationData.formattedAddress,
-            useExactLocation: locationData.useExactLocation,
+            // Location fields
+            latitude: profileData.locationCoordinates?.latitude || 5.033,
+            longitude: profileData.locationCoordinates?.longitude || 7.9,
+            address: profileData.locationCoordinates?.address || 'Uyo, Akwa Ibom, Nigeria',
+            city: profileData.locationCoordinates?.city || 'Uyo',
+            state: profileData.locationCoordinates?.state || 'Akwa Ibom',
+            country: profileData.locationCoordinates?.country || 'Nigeria',
+            useExactLocation: profileData.locationCoordinates?.useExactAddress || false,
             
             gender: profileData.gender, 
-            datingPreferences: profileData.datingPreferences,
+            datingPreferences: profileData.datingPreferences || [],
             datingPreferencesVisible: profileData.datingPreferencesVisible !== false,
-            pronouns: profileData.pronouns,
+            pronouns: profileData.pronouns || '',
             pronounsVisible: profileData.pronounsVisible !== false,
-            age: profileData.age,
-            ageRange: profileData.ageRange,
-            height: profileData.height,
-            ethnicity: profileData.ethnicity,
-            wantChildren: profileData.wantChildren,
+            age: profileData.age || '',
+            ageRange: profileData.ageRange || '',
+            height: profileData.height || '',
+            ethnicity: profileData.ethnicity || '',
+            wantChildren: profileData.wantChildren || '',
             childrenVisible: profileData.childrenVisible !== false,
+            currentChildren: profileData.currentChildren || '',
             currentChildrenVisible: profileData.currentChildrenVisible !== false,
-            workplace: profileData.workplace,
-            workplaceVisible: profileData.workplaceVisible,
-            jobTitle: profileData.jobTitle,
-            jobTitleVisible: profileData.jobTitleVisible,
-            school: profileData.school,
-            schoolVisible: profileData.schoolVisible,
-            education: profileData.education,
+            workplace: profileData.workplace || '',
+            workplaceVisible: profileData.workplaceVisible !== false,
+            jobTitle: profileData.jobTitle || '',
+            jobTitleVisible: profileData.jobTitleVisible !== false,
+            school: profileData.school || '',
+            schoolVisible: profileData.schoolVisible !== false,
+            education: profileData.education || '',
             educationVisible: false, 
-            religiousBeliefs: profileData.religiousBeliefs,
-            religiousBeliefsVisible: profileData.religiousBeliefsVisible,
-            politicalBeliefs: profileData.politicalBeliefs,
-            politicalBeliefsVisible: profileData.politicalBeliefsVisible,
-            drinking: profileData.drinking,
-            drinkingVisible: profileData.drinkingVisible,
-            smoking: profileData.smoking,
-            smokingVisible: profileData.smokingVisible,
-            drugUsage: profileData.drugUsage,
-            drugUsageVisible: profileData.drugUsageVisible,
-            lifestyle: profileData.lifestyle,
+            religiousBeliefs: profileData.religiousBeliefs || '',
+            religiousBeliefsVisible: profileData.religiousBeliefsVisible !== false,
+            politicalBeliefs: profileData.politicalBeliefs || '',
+            politicalBeliefsVisible: profileData.politicalBeliefsVisible !== false,
+            drinking: profileData.drinking || '',
+            drinkingVisible: profileData.drinkingVisible !== false,
+            smoking: profileData.smoking || '',
+            smokingVisible: profileData.smokingVisible !== false,
+            drugUsage: profileData.drugUsage || '',
+            drugUsageVisible: profileData.drugUsageVisible !== false,
+            lifestyle: profileData.lifestyle || [],
             lifestyleVisible: profileData.lifestyleVisible !== false,
-            interests: profileData.interests,
+            interests: profileData.interests || [],
             dealBreaker: Boolean(profileData.dealBreaker),
-            prompts: profileData.prompts,
-            subscriptionPlan: profileData.subscriptionPlan,
+            prompts: profileData.prompts || [],
+            subscriptionPlan: profileData.subscriptionPlan || 'basic',
             hasCompletedOnboarding: true,
             updatedAt: serverTimestamp(),
-            // Clear onboarding progress data since it's now complete
             onboardingProgress: null,
             onboardingStartTime: null
-          }, { merge: true });
+          };
+          
+          // Update Firestore with the user data
+          const userRef = doc(firestore, 'users', user.uid);
+          await setDoc(userRef, userData, { merge: true });
           
           await setHasCompletedOnboarding(true);
           
-          // Verify the gender was properly set
+          // Verify the data was properly set
           const verifyDoc = await getDoc(userRef);
           if (verifyDoc.exists()) {
-            const userData = verifyDoc.data();
-            console.log('Verified saved gender:', userData.gender);
-            console.log('Verified saved age:', userData.age);
-            console.log('Verified saved pronouns:', userData.pronouns);
-            console.log('Verified saved ageRange:', userData.ageRange);
-            console.log('Verified saved height:', userData.height);
-            console.log('Verified saved ethnicity:', userData.ethnicity);
-            console.log('Verified saved wantChildren:', userData.wantChildren);
+            const savedData = verifyDoc.data();
+            console.log('Verified saved gender:', savedData.gender);
+            console.log('Verified saved age:', savedData.age);
+            console.log('Verified saved pronouns:', savedData.pronouns);
+            console.log('Verified saved ageRange:', savedData.ageRange);
+            console.log('Verified saved height:', savedData.height);
+            console.log('Verified saved ethnicity:', savedData.ethnicity);
+            console.log('Verified saved wantChildren:', savedData.wantChildren);
+            console.log('Verified saved location:', savedData.location);
             
-            if (!userData.gender) {
+            if (!savedData.gender) {
               console.error('Gender not saved properly!');
             }
             
-            if (!userData.age) {
+            if (!savedData.age) {
               console.error('Age not saved properly!');
+            }
+            
+            if (!savedData.location) {
+              console.error('Location not saved properly!');
             }
           }
           
