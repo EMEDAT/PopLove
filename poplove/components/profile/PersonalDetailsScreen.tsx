@@ -9,18 +9,41 @@ import {
   TextInput, 
   Alert,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthContext } from '../auth/AuthProvider';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { updateProfile } from 'firebase/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import theme from '../../lib/theme';
 import ProfileImageChanger from './ProfileImageChanger';
 import { allInterests } from '../../utils/interests';
+
+// Import selection components from onboarding
+import GenderSelection from '../onboarding/GenderSelection';
+import SexualitySelection from '../onboarding/SexualitySelection';
+import PronounsSelection from '../onboarding/PronounsSelection';
+import HeightSelection from '../onboarding/HeightSelection';
+import EthnicitySelection from '../onboarding/EthnicitySelection';
+import LocationSelection from '../onboarding/LocationSelection';
+import RelationshipTypeSelection from '../onboarding/RelationshipTypeSelection';
+import CurrentChildrenSelection from '../onboarding/CurrentChildrenSelection';
+import WorkplaceSelection from '../onboarding/WorkplaceSelection';
+import JobTitleSelection from '../onboarding/JobTitleSelection';
+import SchoolSelection from '../onboarding/SchoolSelection';
+import ReligiousBeliefSelection from '../onboarding/ReligiousBeliefSelection';
+import PoliticalBeliefSelection from '../onboarding/PoliticalBeliefSelection';
+import DrinkingSelection from '../onboarding/DrinkingSelection';
+import SmokingSelection from '../onboarding/SmokingSelection';
+import DrugUsageSelection from '../onboarding/DrugUsageSelection';
+import InterestsSelection from '../onboarding/InterestsSelection';
+import DatingPreferenceSelection from '../onboarding/DatingPreferenceSelection';
+import ChildrenSelection from '../onboarding/ChildrenSelection';
+
+const { width } = Dimensions.get('window');
 
 interface PersonalDetailsScreenProps {
   onBack?: () => void;
@@ -30,6 +53,9 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
   const { user, updateUserProfile } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Dropdown state management
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   
   // Comprehensive user details state
   const [userDetails, setUserDetails] = useState({
@@ -44,31 +70,53 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
     // Demographic details
     gender: '',
     sexuality: '',
+    sexualityVisible: true,
     ageRange: '',
     age: '',
     height: '',
     ethnicity: '',
+    ethnicityVisible: true,
     pronouns: '',
+    pronounsVisible: true,
     
     // Lifestyle details
     relationshipType: '',
+    relationshipTypeCustomDescription: '',
+    relationshipTypeVisible: true,
     wantChildren: '',
     currentChildren: '',
+    childrenVisible: true,
     drinking: '',
+    drinkingVisible: true,
     smoking: '',
+    smokingVisible: true,
     drugUsage: '',
+    drugUsageVisible: true,
+    dealBreaker: false,
+    datingPreferences: [] as string[],
+    datingPreferencesVisible: true,
     
     // Professional details
     workplace: '',
+    workplaceVisible: true,
     jobTitle: '',
+    jobTitleVisible: true,
     school: '',
+    schoolVisible: true,
     education: '',
+    educationVisible: false,
     
     // Beliefs
     religiousBeliefs: '',
+    religiousBeliefsVisible: true,
     politicalBeliefs: '',
+    politicalBeliefsVisible: true,
     
-    // Visibility toggles
+    // Location coordinates
+    latitude: null as number | null,
+    longitude: null as number | null,
+    
+    // Visibility settings
     visibilitySettings: {
       sexuality: true,
       pronouns: true,
@@ -108,29 +156,51 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
             // Demographic details
             gender: userData.gender || '',
             sexuality: userData.sexuality || '',
+            sexualityVisible: userData.sexualityVisible ?? true,
             ageRange: userData.ageRange || '',
             age: userData.age || '',
             height: userData.height || '',
             ethnicity: userData.ethnicity || '',
+            ethnicityVisible: userData.ethnicityVisible ?? true,
             pronouns: userData.pronouns || '',
+            pronounsVisible: userData.pronounsVisible ?? true,
             
             // Lifestyle details
             relationshipType: userData.relationshipType || '',
+            relationshipTypeCustomDescription: userData.relationshipTypeCustomDescription || '',
+            relationshipTypeVisible: userData.relationshipTypeVisible ?? true,
             wantChildren: userData.wantChildren || '',
             currentChildren: userData.currentChildren || '',
+            childrenVisible: userData.childrenVisible ?? true,
             drinking: userData.drinking || '',
+            drinkingVisible: userData.drinkingVisible ?? true,
             smoking: userData.smoking || '',
+            smokingVisible: userData.smokingVisible ?? true,
             drugUsage: userData.drugUsage || '',
+            drugUsageVisible: userData.drugUsageVisible ?? true,
+            dealBreaker: userData.dealBreaker || false,
+            datingPreferences: userData.datingPreferences || [],
+            datingPreferencesVisible: userData.datingPreferencesVisible ?? true,
             
             // Professional details
             workplace: userData.workplace || '',
+            workplaceVisible: userData.workplaceVisible ?? true,
             jobTitle: userData.jobTitle || '',
+            jobTitleVisible: userData.jobTitleVisible ?? true,
             school: userData.school || '',
+            schoolVisible: userData.schoolVisible ?? true,
             education: userData.education || '',
+            educationVisible: userData.educationVisible ?? false,
             
             // Beliefs
             religiousBeliefs: userData.religiousBeliefs || '',
+            religiousBeliefsVisible: userData.religiousBeliefsVisible ?? true,
             politicalBeliefs: userData.politicalBeliefs || '',
+            politicalBeliefsVisible: userData.politicalBeliefsVisible ?? true,
+            
+            // Location coordinates
+            latitude: userData.latitude || null,
+            longitude: userData.longitude || null,
             
             // Visibility settings
             visibilitySettings: {
@@ -140,7 +210,7 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
               gender: userData.genderVisible ?? true,
               interests: userData.interestsVisible ?? true,
               workplace: userData.workplaceVisible ?? true,
-              education: userData.educationVisible ?? true,
+              education: userData.educationVisible ?? false,
               religiousBeliefs: userData.religiousBeliefsVisible ?? true,
               politicalBeliefs: userData.politicalBeliefsVisible ?? true
             }
@@ -157,38 +227,17 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
     loadUserDetails();
   }, [user]);
 
-  // Handle text input changes
-  const handleInputChange = (field: string, value: string) => {
-    setUserDetails(prev => ({
-      ...prev,
-      [field]: value
+  // Handle input changes
+  const handleInputChange = (field: string, value: any) => {
+    setUserDetails(prev => ({ 
+      ...prev, 
+      [field]: value 
     }));
   };
 
-  // Handle interests toggle
-  const toggleInterest = (interest: string) => {
-    setUserDetails(prev => {
-      const currentInterests = prev.interests || [];
-      const newInterests = currentInterests.includes(interest)
-        ? currentInterests.filter(i => i !== interest)
-        : [...currentInterests, interest];
-      
-      return {
-        ...prev,
-        interests: newInterests
-      };
-    });
-  };
-
-  // Handle visibility toggle
-  const toggleVisibility = (field: keyof typeof userDetails.visibilitySettings) => {
-    setUserDetails(prev => ({
-      ...prev,
-      visibilitySettings: {
-        ...prev.visibilitySettings,
-        [field]: !prev.visibilitySettings[field]
-      }
-    }));
+  // Dropdown toggle function
+  const toggleDropdown = (section: string) => {
+    setOpenDropdown(openDropdown === section ? null : section);
   };
 
   // Save user details
@@ -198,52 +247,65 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
     try {
       setSaving(true);
       
-      // Prepare update object
+      // Prepare update object with all fields
       const updateData = {
+        // Basic info
         displayName: userDetails.displayName,
         email: userDetails.email,
         bio: userDetails.bio,
+        
+        // Location
         location: userDetails.location,
-        profession: userDetails.profession,
-        interests: userDetails.interests,
+        latitude: userDetails.latitude,
+        longitude: userDetails.longitude,
         
         // Demographic details
         gender: userDetails.gender,
         sexuality: userDetails.sexuality,
+        sexualityVisible: userDetails.sexualityVisible,
         ageRange: userDetails.ageRange,
         age: userDetails.age,
         height: userDetails.height,
         ethnicity: userDetails.ethnicity,
+        ethnicityVisible: userDetails.ethnicityVisible,
         pronouns: userDetails.pronouns,
+        pronounsVisible: userDetails.pronounsVisible,
         
-        // Lifestyle details
+        // Lifestyle
         relationshipType: userDetails.relationshipType,
+        relationshipTypeCustomDescription: userDetails.relationshipTypeCustomDescription,
+        relationshipTypeVisible: userDetails.relationshipTypeVisible,
         wantChildren: userDetails.wantChildren,
         currentChildren: userDetails.currentChildren,
+        childrenVisible: userDetails.childrenVisible,
         drinking: userDetails.drinking,
+        drinkingVisible: userDetails.drinkingVisible,
         smoking: userDetails.smoking,
+        smokingVisible: userDetails.smokingVisible,
         drugUsage: userDetails.drugUsage,
+        drugUsageVisible: userDetails.drugUsageVisible,
         
-        // Professional details
+        // Interests & Preferences
+        interests: userDetails.interests,
+        dealBreaker: userDetails.dealBreaker,
+        datingPreferences: userDetails.datingPreferences,
+        datingPreferencesVisible: userDetails.datingPreferencesVisible,
+        
+        // Professional
         workplace: userDetails.workplace,
+        workplaceVisible: userDetails.workplaceVisible,
         jobTitle: userDetails.jobTitle,
+        jobTitleVisible: userDetails.jobTitleVisible,
         school: userDetails.school,
+        schoolVisible: userDetails.schoolVisible,
         education: userDetails.education,
+        educationVisible: userDetails.educationVisible,
         
         // Beliefs
         religiousBeliefs: userDetails.religiousBeliefs,
+        religiousBeliefsVisible: userDetails.religiousBeliefsVisible,
         politicalBeliefs: userDetails.politicalBeliefs,
-        
-        // Visibility settings
-        sexualityVisible: userDetails.visibilitySettings.sexuality,
-        pronounsVisible: userDetails.visibilitySettings.pronouns,
-        locationVisible: userDetails.visibilitySettings.location,
-        genderVisible: userDetails.visibilitySettings.gender,
-        interestsVisible: userDetails.visibilitySettings.interests,
-        workplaceVisible: userDetails.visibilitySettings.workplace,
-        educationVisible: userDetails.visibilitySettings.education,
-        religiousBeliefsVisible: userDetails.visibilitySettings.religiousBeliefs,
-        politicalBeliefsVisible: userDetails.visibilitySettings.politicalBeliefs,
+        politicalBeliefsVisible: userDetails.politicalBeliefsVisible,
         
         // Timestamp
         updatedAt: serverTimestamp()
@@ -272,6 +334,49 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
     } finally {
       setSaving(false);
     }
+  };
+
+  // Render dropdown section with gradient header
+  const renderDropdownSection = (
+    title: string, 
+    content: React.ReactNode, 
+    sectionKey: string
+  ) => {
+    const isOpen = openDropdown === sectionKey;
+    
+    return (
+      <View style={styles.dropdownSection}>
+        <TouchableOpacity 
+          style={styles.dropdownHeader}
+          onPress={() => toggleDropdown(sectionKey)}
+        >
+          <LinearGradient
+            colors={isOpen ? ['#EC5F61', '#F0B433'] : ['#F9F9F9', '#F9F9F9']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.dropdownHeaderGradient}
+          >
+            <Text style={[
+              styles.dropdownHeaderText, 
+              isOpen && styles.dropdownHeaderTextActive
+            ]}>
+              {title}
+            </Text>
+            <Ionicons 
+              name={isOpen ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color={isOpen ? 'white' : '#666'} 
+            />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        {isOpen && (
+          <View style={styles.dropdownContent}>
+            {content}
+          </View>
+        )}
+      </View>
+    );
   };
 
   // Render loading state
@@ -309,216 +414,254 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
         />
       </View>
       
-      {/* Sections */}
-      <View style={styles.sectionsContainer}>
-        {/* Basic Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            value={userDetails.displayName}
-            onChangeText={(value) => handleInputChange('displayName', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={userDetails.email}
-            editable={false}
-          />
-          
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            placeholder="Bio"
-            value={userDetails.bio}
-            onChangeText={(value) => handleInputChange('bio', value)}
-            multiline
-            numberOfLines={4}
-          />
-        </View>
-        
-        {/* Demographic Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Demographic Details</Text>
-          
-          <View style={styles.inputRow}>
+      {/* Dropdowns for different sections */}
+      <View style={styles.dropdownContainer}>
+        {/* Basic Information Dropdown */}
+        {renderDropdownSection(
+          'Basic Information', 
+          <View>
             <TextInput
-              style={[styles.input, styles.halfInput]}
-              placeholder="Age"
-              value={userDetails.age}
-              onChangeText={(value) => handleInputChange('age', value)}
-              keyboardType="numeric"
+              style={styles.input}
+              placeholder="Full Name"
+              value={userDetails.displayName}
+              onChangeText={(value) => handleInputChange('displayName', value)}
             />
             <TextInput
-              style={[styles.input, styles.halfInput]}
-              placeholder="Height (cm)"
-              value={userDetails.height}
-              onChangeText={(value) => handleInputChange('height', value)}
-              keyboardType="numeric"
+              style={styles.input}
+              placeholder="Email"
+              value={userDetails.email}
+              editable={false}
             />
-          </View>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Gender"
-            value={userDetails.gender}
-            onChangeText={(value) => handleInputChange('gender', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Sexuality"
-            value={userDetails.sexuality}
-            onChangeText={(value) => handleInputChange('sexuality', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Pronouns"
-            value={userDetails.pronouns}
-            onChangeText={(value) => handleInputChange('pronouns', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Ethnicity"
-            value={userDetails.ethnicity}
-            onChangeText={(value) => handleInputChange('ethnicity', value)}
-          />
-        </View>
-        
-        {/* Location & Professional */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location & Professional</Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Location"
-            value={userDetails.location}
-            onChangeText={(value) => handleInputChange('location', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Workplace"
-            value={userDetails.workplace}
-            onChangeText={(value) => handleInputChange('workplace', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Job Title"
-            value={userDetails.jobTitle}
-            onChangeText={(value) => handleInputChange('jobTitle', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="School"
-            value={userDetails.school}
-            onChangeText={(value) => handleInputChange('school', value)}
-          />
-        </View>
-        
-        {/* Interests */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Interests</Text>
-          <View style={styles.interestsContainer}>
-            {allInterests.map((interest) => (
-              <TouchableOpacity
-                key={interest}
-                style={[
-                  styles.interestTag,
-                  userDetails.interests.includes(interest) && styles.selectedInterestTag
-                ]}
-                onPress={() => toggleInterest(interest)}
-              >
-                <Text style={[
-                  styles.interestText,
-                  userDetails.interests.includes(interest) && styles.selectedInterestText
-                ]}>
-                  {interest}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-        
-        {/* Lifestyle & Personal Preferences */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Lifestyle & Preferences</Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Relationship Type"
-            value={userDetails.relationshipType}
-            onChangeText={(value) => handleInputChange('relationshipType', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Want Children"
-            value={userDetails.wantChildren}
-            onChangeText={(value) => handleInputChange('wantChildren', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Drinking Habits"
-            value={userDetails.drinking}
-            onChangeText={(value) => handleInputChange('drinking', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Smoking Habits"
-            value={userDetails.smoking}
-            onChangeText={(value) => handleInputChange('smoking', value)}
-          />
-        </View>
-        
-        {/* Beliefs */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Beliefs</Text>
-          
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              placeholder="Bio"
+              value={userDetails.bio}
+              onChangeText={(value) => handleInputChange('bio', value)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>,
+          'basicInfo'
+        )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Religious Beliefs"
-            value={userDetails.religiousBeliefs}
-            onChangeText={(value) => handleInputChange('religiousBeliefs', value)}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Political Beliefs"
-            value={userDetails.politicalBeliefs}
-            onChangeText={(value) => handleInputChange('politicalBeliefs', value)}
-          />
-        </View>
-        
-        {/* Save Button */}
-        <TouchableOpacity 
-          style={styles.saveButton}
-          onPress={saveDetails}
-          disabled={saving}
-        >
-          <LinearGradient
-            colors={['#EC5F61', '#F0B433']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+        {/* Gender & Sexuality Dropdown */}
+        {renderDropdownSection(
+          'Gender & Sexuality',
+          <View>
+            <GenderSelection
+              selectedGender={userDetails.gender}
+              onSelectGender={(gender) => handleInputChange('gender', gender)}
+              sexuality={userDetails.sexuality}
+              onSelectSexuality={(sexuality) => handleInputChange('sexuality', sexuality)}
+              sexualityVisible={userDetails.sexualityVisible}
+              onToggleSexualityVisibility={(visible) => handleInputChange('sexualityVisible', visible)}
+            />
+          </View>,
+          'genderSexuality'
+        )}
+
+        {/* Dating Preferences Dropdown */}
+        {renderDropdownSection(
+          'Dating Preferences',
+          <View>
+            <DatingPreferenceSelection
+              selectedPreferences={userDetails.datingPreferences}
+              onSelectPreferences={(preferences) => handleInputChange('datingPreferences', preferences)}
+              visibleOnProfile={userDetails.datingPreferencesVisible}
+              onToggleVisibility={(visible) => handleInputChange('datingPreferencesVisible', visible)}
+            />
+            <RelationshipTypeSelection
+              selectedRelationshipType={userDetails.relationshipType}
+              onSelectRelationshipType={(type) => handleInputChange('relationshipType', type)}
+              customDescription={userDetails.relationshipTypeCustomDescription}
+              onUpdateCustomDescription={(description) => handleInputChange('relationshipTypeCustomDescription', description)}
+              visibleOnProfile={userDetails.relationshipTypeVisible}
+              onToggleVisibility={(visible) => handleInputChange('relationshipTypeVisible', visible)}
+            />
+          </View>,
+          'datingPreferences'
+        )}
+
+        {/* Pronouns Dropdown */}
+        {renderDropdownSection(
+          'Pronouns',
+          <PronounsSelection
+            selectedPronouns={userDetails.pronouns}
+            onSelectPronouns={(pronouns) => handleInputChange('pronouns', pronouns)}
+            visibleOnProfile={userDetails.pronounsVisible}
+            onToggleVisibility={(visible) => handleInputChange('pronounsVisible', visible)}
+          />,
+          'pronouns'
+        )}
+
+        {/* Location Dropdown */}
+        {renderDropdownSection(
+          'Location',
+          <LocationSelection
+            selectedLocation={{
+              latitude: userDetails.latitude || 5.033,
+              longitude: userDetails.longitude || 7.9,
+              address: userDetails.location || '',
+              city: null,
+              state: null,
+              country: null
+            }}
+            onLocationSelect={(location) => {
+              handleInputChange('location', location.address);
+              handleInputChange('latitude', location.latitude);
+              handleInputChange('longitude', location.longitude);
+            }}
+            updateProfile={handleInputChange}
+          />,
+          'location'
+        )}
+
+        {/* Ethnicity Dropdown */}
+        {renderDropdownSection(
+          'Ethnicity',
+          <EthnicitySelection
+            selectedEthnicity={userDetails.ethnicity}
+            onSelectEthnicity={(ethnicity) => handleInputChange('ethnicity', ethnicity)}
+            visibleOnProfile={userDetails.ethnicityVisible}
+            onToggleVisibility={(visible) => handleInputChange('ethnicityVisible', visible)}
+          />,
+          'ethnicity'
+        )}
+
+        {/* Height Dropdown */}
+        {renderDropdownSection(
+          'Height',
+          <HeightSelection
+            height={userDetails.height}
+            onHeightChange={(height) => handleInputChange('height', height)}
+          />,
+          'height'
+        )}
+
+        {/* Children Dropdown */}
+        {renderDropdownSection(
+          'Children',
+          <View>
+            <CurrentChildrenSelection
+              selectedOption={userDetails.currentChildren}
+              onSelectOption={(option) => handleInputChange('currentChildren', option)}
+              visibleOnProfile={userDetails.childrenVisible}
+              onToggleVisibility={(visible) => handleInputChange('childrenVisible', visible)}
+            />
+            <ChildrenSelection
+              selectedOption={userDetails.wantChildren}
+              onSelectOption={(option) => handleInputChange('wantChildren', option)}
+              visibleOnProfile={userDetails.childrenVisible}
+              onToggleVisibility={(visible) => handleInputChange('childrenVisible', visible)}
+            />
+          </View>,
+          'children'
+        )}
+
+        {/* Work & Education Dropdown */}
+        {renderDropdownSection(
+          'Work & Education',
+          <View>
+            <WorkplaceSelection
+              workplace={userDetails.workplace}
+              onWorkplaceChange={(workplace) => handleInputChange('workplace', workplace)}
+              visibleOnProfile={userDetails.workplaceVisible}
+              onToggleVisibility={(visible) => handleInputChange('workplaceVisible', visible)}
+            />
+            <JobTitleSelection
+              jobTitle={userDetails.jobTitle}
+              onJobTitleChange={(jobTitle) => handleInputChange('jobTitle', jobTitle)}
+              visibleOnProfile={userDetails.jobTitleVisible}
+              onToggleVisibility={(visible) => handleInputChange('jobTitleVisible', visible)}
+            />
+            <SchoolSelection
+              school={userDetails.school}
+              onSchoolChange={(school) => handleInputChange('school', school)}
+              visibleOnProfile={userDetails.schoolVisible}
+              onToggleVisibility={(visible) => handleInputChange('schoolVisible', visible)}
+            />
+          </View>,
+          'workEducation'
+        )}
+
+        {/* Interests Dropdown */}
+        {renderDropdownSection(
+          'Interests',
+          <InterestsSelection
+            selectedInterests={userDetails.interests}
+            onSelectInterests={(interests) => handleInputChange('interests', interests)}
+            dealBreaker={userDetails.dealBreaker}
+            onToggleDealBreaker={(value) => handleInputChange('dealBreaker', value)}
+          />,
+          'interests'
+        )}
+
+        {/* Lifestyle Habits Dropdown */}
+        {renderDropdownSection(
+          'Lifestyle Habits',
+          <View>
+            <DrinkingSelection
+              selectedOption={userDetails.drinking}
+              onSelectOption={(option) => handleInputChange('drinking', option)}
+              visibleOnProfile={userDetails.drinkingVisible}
+              onToggleVisibility={(visible) => handleInputChange('drinkingVisible', visible)}
+            />
+            <SmokingSelection
+              selectedOption={userDetails.smoking}
+              onSelectOption={(option) => handleInputChange('smoking', option)}
+              visibleOnProfile={userDetails.smokingVisible}
+              onToggleVisibility={(visible) => handleInputChange('smokingVisible', visible)}
+            />
+            <DrugUsageSelection
+              selectedOption={userDetails.drugUsage}
+              onSelectOption={(option) => handleInputChange('drugUsage', option)}
+              visibleOnProfile={userDetails.drugUsageVisible}
+              onToggleVisibility={(visible) => handleInputChange('drugUsageVisible', visible)}
+            />
+          </View>,
+          'lifestyleHabits'
+        )}
+
+        {/* Beliefs Dropdown */}
+        {renderDropdownSection(
+          'Beliefs',
+          <View>
+            <ReligiousBeliefSelection
+              selectedOption={userDetails.religiousBeliefs}
+              onSelectOption={(option) => handleInputChange('religiousBeliefs', option)}
+              visibleOnProfile={userDetails.religiousBeliefsVisible}
+              onToggleVisibility={(visible) => handleInputChange('religiousBeliefsVisible', visible)}
+            />
+            <PoliticalBeliefSelection
+              selectedOption={userDetails.politicalBeliefs}
+              onSelectOption={(option) => handleInputChange('politicalBeliefs', option)}
+              visibleOnProfile={userDetails.politicalBeliefsVisible}
+              onToggleVisibility={(visible) => handleInputChange('politicalBeliefsVisible', visible)}
+            />
+          </View>,
+          'beliefs'
+        )}
       </View>
+
+      {/* Save Button */}
+      <TouchableOpacity 
+        style={styles.saveButton}
+        onPress={saveDetails}
+        disabled={saving}
+      >
+        <LinearGradient
+          colors={['#EC5F61', '#F0B433']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientButton}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -571,7 +714,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   halfInput: {
-    width: '48%', // Adjust for side-by-side inputs
+    width: '48%', 
   },
   inputRow: {
     flexDirection: 'row',
@@ -632,5 +775,38 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  }
+  },
+  // New dropdown-related styles
+  dropdownContainer: {
+    paddingHorizontal: 20,
+  },
+  dropdownSection: {
+    marginBottom: 15,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  dropdownHeader: {
+    backgroundColor: '#F9F9F9',
+  },
+  dropdownHeaderGradient: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  dropdownHeaderText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  dropdownHeaderTextActive: {
+    color: 'white',
+  },
+  dropdownContent: {
+    backgroundColor: 'white',
+    padding: 15,
+  },
 });
