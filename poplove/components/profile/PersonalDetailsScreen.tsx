@@ -17,52 +17,72 @@ import { useAuthContext } from '../auth/AuthProvider';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { updateProfile } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
 import theme from '../../lib/theme';
 import ProfileImageChanger from './ProfileImageChanger';
-import { LinearGradient } from 'expo-linear-gradient';
+import { allInterests } from '../../utils/interests';
 
 interface PersonalDetailsScreenProps {
-    onBack?: () => void;
-  }
+  onBack?: () => void;
+}
 
-  export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenProps) {
-  const { user } = useAuthContext();
+export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenProps) {
+  const { user, updateUserProfile } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // User details
-  const [userDetails, setUserDetails] = useState<{
-    displayName: string;
-    email: string;
-    bio: string;
-    location: string;
-    profession: string;
-    interests: string[];
-    photoURL: string;
-    ageRange: string;
-    age: string;
-    // Add these fields:
-    pronouns: string;
-    height: string;
-    ethnicity: string;
-    hasChildren: string;
-  }>({
+  // Comprehensive user details state
+  const [userDetails, setUserDetails] = useState({
     displayName: '',
     email: '',
     bio: '',
     location: '',
     profession: '',
-    interests: [],
+    interests: [] as string[],
     photoURL: '',
+    
+    // Demographic details
+    gender: '',
+    sexuality: '',
     ageRange: '',
     age: '',
-    pronouns: '',
     height: '',
     ethnicity: '',
-    hasChildren: ''
+    pronouns: '',
+    
+    // Lifestyle details
+    relationshipType: '',
+    wantChildren: '',
+    currentChildren: '',
+    drinking: '',
+    smoking: '',
+    drugUsage: '',
+    
+    // Professional details
+    workplace: '',
+    jobTitle: '',
+    school: '',
+    education: '',
+    
+    // Beliefs
+    religiousBeliefs: '',
+    politicalBeliefs: '',
+    
+    // Visibility toggles
+    visibilitySettings: {
+      sexuality: true,
+      pronouns: true,
+      location: true,
+      gender: true,
+      interests: true,
+      workplace: true,
+      education: true,
+      religiousBeliefs: true,
+      politicalBeliefs: true
+    }
   });
-  
-  // Load user details
+
+  // Load user details on component mount
   useEffect(() => {
     const loadUserDetails = async () => {
       if (!user) {
@@ -75,38 +95,56 @@ interface PersonalDetailsScreenProps {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          setUserDetails({
+          setUserDetails(prevDetails => ({
+            ...prevDetails,
             displayName: userData.displayName || user.displayName || '',
             email: userData.email || user.email || '',
+            photoURL: userData.photoURL || user.photoURL || '',
             bio: userData.bio || '',
             location: userData.location || '',
             profession: userData.profession || '',
             interests: userData.interests || [],
-            photoURL: userData.photoURL || user.photoURL || '',
-            age: userData.age || userData.ageRange || '',
+            
+            // Demographic details
+            gender: userData.gender || '',
+            sexuality: userData.sexuality || '',
             ageRange: userData.ageRange || '',
-            pronouns: userData.pronouns || '',
+            age: userData.age || '',
             height: userData.height || '',
             ethnicity: userData.ethnicity || '',
-            hasChildren: userData.hasChildren || ''
-          });
-        } else {
-          // If no document exists, use auth data
-          setUserDetails({
-            displayName: user.displayName || '',
-            email: user.email || '',
-            bio: '',
-            location: '',
-            profession: '',
-            interests: [],
-            photoURL: user.photoURL || '',
-            age: '',
-            ageRange: '',
-            pronouns: '',
-            height: '',
-            ethnicity: '',
-            hasChildren: ''
-          });
+            pronouns: userData.pronouns || '',
+            
+            // Lifestyle details
+            relationshipType: userData.relationshipType || '',
+            wantChildren: userData.wantChildren || '',
+            currentChildren: userData.currentChildren || '',
+            drinking: userData.drinking || '',
+            smoking: userData.smoking || '',
+            drugUsage: userData.drugUsage || '',
+            
+            // Professional details
+            workplace: userData.workplace || '',
+            jobTitle: userData.jobTitle || '',
+            school: userData.school || '',
+            education: userData.education || '',
+            
+            // Beliefs
+            religiousBeliefs: userData.religiousBeliefs || '',
+            politicalBeliefs: userData.politicalBeliefs || '',
+            
+            // Visibility settings
+            visibilitySettings: {
+              sexuality: userData.sexualityVisible ?? true,
+              pronouns: userData.pronounsVisible ?? true,
+              location: userData.locationVisible ?? true,
+              gender: userData.genderVisible ?? true,
+              interests: userData.interestsVisible ?? true,
+              workplace: userData.workplaceVisible ?? true,
+              education: userData.educationVisible ?? true,
+              religiousBeliefs: userData.religiousBeliefsVisible ?? true,
+              politicalBeliefs: userData.politicalBeliefsVisible ?? true
+            }
+          }));
         }
         setLoading(false);
       } catch (error) {
@@ -118,39 +156,41 @@ interface PersonalDetailsScreenProps {
     
     loadUserDetails();
   }, [user]);
-  
-  // Handle text input change
+
+  // Handle text input changes
   const handleInputChange = (field: string, value: string) => {
     setUserDetails(prev => ({
       ...prev,
       [field]: value
     }));
   };
-  
-  // Handle interests input (comma separated)
-  const handleInterestsChange = (value: string) => {
-    const interestsArray = value
-      .split(',')
-      .map(item => item.trim())
-      .filter(item => item !== '');
-    
+
+  // Handle interests toggle
+  const toggleInterest = (interest: string) => {
+    setUserDetails(prev => {
+      const currentInterests = prev.interests || [];
+      const newInterests = currentInterests.includes(interest)
+        ? currentInterests.filter(i => i !== interest)
+        : [...currentInterests, interest];
+      
+      return {
+        ...prev,
+        interests: newInterests
+      };
+    });
+  };
+
+  // Handle visibility toggle
+  const toggleVisibility = (field: keyof typeof userDetails.visibilitySettings) => {
     setUserDetails(prev => ({
       ...prev,
-      interests: interestsArray
+      visibilitySettings: {
+        ...prev.visibilitySettings,
+        [field]: !prev.visibilitySettings[field]
+      }
     }));
   };
-  
-  // Convert interests array to comma-separated string for display
-  const interestsString = userDetails.interests.join(', ');
-  
-  // Handle profile image update
-  const handleImageUpdated = (newUrl: string) => {
-    setUserDetails(prev => ({
-      ...prev,
-      photoURL: newUrl
-    }));
-  };
-  
+
   // Save user details
   const saveDetails = async () => {
     if (!user) return;
@@ -158,35 +198,74 @@ interface PersonalDetailsScreenProps {
     try {
       setSaving(true);
       
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        displayName: userDetails.displayName,
-        photoURL: userDetails.photoURL
-      });
-      
-      // Update Firestore document
-      await updateDoc(doc(firestore, 'users', user.uid), {
+      // Prepare update object
+      const updateData = {
         displayName: userDetails.displayName,
         email: userDetails.email,
         bio: userDetails.bio,
         location: userDetails.location,
         profession: userDetails.profession,
         interests: userDetails.interests,
-        age: userDetails.age,
+        
+        // Demographic details
+        gender: userDetails.gender,
+        sexuality: userDetails.sexuality,
         ageRange: userDetails.ageRange,
-        photoURL: userDetails.photoURL,
-        pronouns: userDetails.pronouns,
+        age: userDetails.age,
         height: userDetails.height,
         ethnicity: userDetails.ethnicity,
-        hasChildren: userDetails.hasChildren,
+        pronouns: userDetails.pronouns,
+        
+        // Lifestyle details
+        relationshipType: userDetails.relationshipType,
+        wantChildren: userDetails.wantChildren,
+        currentChildren: userDetails.currentChildren,
+        drinking: userDetails.drinking,
+        smoking: userDetails.smoking,
+        drugUsage: userDetails.drugUsage,
+        
+        // Professional details
+        workplace: userDetails.workplace,
+        jobTitle: userDetails.jobTitle,
+        school: userDetails.school,
+        education: userDetails.education,
+        
+        // Beliefs
+        religiousBeliefs: userDetails.religiousBeliefs,
+        politicalBeliefs: userDetails.politicalBeliefs,
+        
+        // Visibility settings
+        sexualityVisible: userDetails.visibilitySettings.sexuality,
+        pronounsVisible: userDetails.visibilitySettings.pronouns,
+        locationVisible: userDetails.visibilitySettings.location,
+        genderVisible: userDetails.visibilitySettings.gender,
+        interestsVisible: userDetails.visibilitySettings.interests,
+        workplaceVisible: userDetails.visibilitySettings.workplace,
+        educationVisible: userDetails.visibilitySettings.education,
+        religiousBeliefsVisible: userDetails.visibilitySettings.religiousBeliefs,
+        politicalBeliefsVisible: userDetails.visibilitySettings.politicalBeliefs,
+        
+        // Timestamp
         updatedAt: serverTimestamp()
+      };
+      
+      // Update Firebase Auth profile
+      await updateUserProfile({
+        displayName: userDetails.displayName,
+        photoURL: userDetails.photoURL
       });
       
+      // Update Firestore document
+      await updateDoc(doc(firestore, 'users', user.uid), updateData);
+      
       Alert.alert('Success', 'Your profile has been updated');
+      
       // Navigate back
       if (onBack) {
         onBack();
-      } 
+      } else {
+        router.back();
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update your profile');
@@ -194,7 +273,8 @@ interface PersonalDetailsScreenProps {
       setSaving(false);
     }
   };
-  
+
+  // Render loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -203,150 +283,224 @@ interface PersonalDetailsScreenProps {
       </View>
     );
   }
-  
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* Header */}
       <View style={styles.header}>
-      <TouchableOpacity onPress={onBack || (() => router.back())} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={onBack || (() => router.back())} 
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Personal Details</Text>
         <View style={{ width: 24 }} />
       </View>
       
-      {/* Profile Image */}
+      {/* Profile Image Changer */}
       <View style={styles.profileImageContainer}>
-      <ProfileImageChanger
-        photoURL={userDetails.photoURL}
-        onImageUpdated={handleImageUpdated}
-      />
+        <ProfileImageChanger
+          photoURL={userDetails.photoURL}
+          onImageUpdated={(newUrl) => handleInputChange('photoURL', newUrl)}
+        />
       </View>
       
-      {/* Form Fields */}
-      <View style={styles.formSection}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Display Name</Text>
+      {/* Sections */}
+      <View style={styles.sectionsContainer}>
+        {/* Basic Info Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Basic Information</Text>
+          
           <TextInput
-            style={styles.textInput}
+            style={styles.input}
+            placeholder="Full Name"
             value={userDetails.displayName}
             onChangeText={(value) => handleInputChange('displayName', value)}
-            placeholder="Your name"
           />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Age</Text>
+          
           <TextInput
-            style={styles.textInput}
-            value={userDetails.age}
-            onChangeText={(value) => handleInputChange('age', value)}
-            placeholder="Your age (required for matching)"
-            keyboardType="number-pad"
-            maxLength={2}
-          />
-          <Text style={styles.helperText}>Your exact age is important for better matches</Text>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Pronouns</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.pronouns}
-            onChangeText={(value) => handleInputChange('pronouns', value)}
-            placeholder="Your pronouns"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Height (cm)</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.height}
-            onChangeText={(value) => handleInputChange('height', value)}
-            placeholder="Your height in cm"
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Ethnicity</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.ethnicity}
-            onChangeText={(value) => handleInputChange('ethnicity', value)}
-            placeholder="Your ethnicity"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Children</Text>
-          <TextInput
-            style={styles.textInput}
-            value={userDetails.hasChildren}
-            onChangeText={(value) => handleInputChange('hasChildren', value)}
-            placeholder="Children status"
-          />
-        </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            style={styles.textInput}
+            style={styles.input}
+            placeholder="Email"
             value={userDetails.email}
-            onChangeText={(value) => handleInputChange('email', value)}
-            placeholder="Your email"
             editable={false}
-            selectTextOnFocus={false}
           />
-          <Text style={styles.helperText}>Email cannot be changed</Text>
-        </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Bio</Text>
+          
           <TextInput
-            style={[styles.textInput, styles.multilineInput]}
+            style={[styles.input, styles.multilineInput]}
+            placeholder="Bio"
             value={userDetails.bio}
             onChangeText={(value) => handleInputChange('bio', value)}
-            placeholder="Tell others about yourself"
             multiline
             numberOfLines={4}
           />
         </View>
         
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Location</Text>
+        {/* Demographic Details */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Demographic Details</Text>
+          
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Age"
+              value={userDetails.age}
+              onChangeText={(value) => handleInputChange('age', value)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Height (cm)"
+              value={userDetails.height}
+              onChangeText={(value) => handleInputChange('height', value)}
+              keyboardType="numeric"
+            />
+          </View>
+          
           <TextInput
-            style={styles.textInput}
+            style={styles.input}
+            placeholder="Gender"
+            value={userDetails.gender}
+            onChangeText={(value) => handleInputChange('gender', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Sexuality"
+            value={userDetails.sexuality}
+            onChangeText={(value) => handleInputChange('sexuality', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Pronouns"
+            value={userDetails.pronouns}
+            onChangeText={(value) => handleInputChange('pronouns', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Ethnicity"
+            value={userDetails.ethnicity}
+            onChangeText={(value) => handleInputChange('ethnicity', value)}
+          />
+        </View>
+        
+        {/* Location & Professional */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location & Professional</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Location"
             value={userDetails.location}
             onChangeText={(value) => handleInputChange('location', value)}
-            placeholder="City, Country"
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Workplace"
+            value={userDetails.workplace}
+            onChangeText={(value) => handleInputChange('workplace', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Job Title"
+            value={userDetails.jobTitle}
+            onChangeText={(value) => handleInputChange('jobTitle', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="School"
+            value={userDetails.school}
+            onChangeText={(value) => handleInputChange('school', value)}
           />
         </View>
         
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Profession</Text>
+        {/* Interests */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Interests</Text>
+          <View style={styles.interestsContainer}>
+            {allInterests.map((interest) => (
+              <TouchableOpacity
+                key={interest}
+                style={[
+                  styles.interestTag,
+                  userDetails.interests.includes(interest) && styles.selectedInterestTag
+                ]}
+                onPress={() => toggleInterest(interest)}
+              >
+                <Text style={[
+                  styles.interestText,
+                  userDetails.interests.includes(interest) && styles.selectedInterestText
+                ]}>
+                  {interest}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        
+        {/* Lifestyle & Personal Preferences */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Lifestyle & Preferences</Text>
+          
           <TextInput
-            style={styles.textInput}
-            value={userDetails.profession}
-            onChangeText={(value) => handleInputChange('profession', value)}
-            placeholder="Your profession"
+            style={styles.input}
+            placeholder="Relationship Type"
+            value={userDetails.relationshipType}
+            onChangeText={(value) => handleInputChange('relationshipType', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Want Children"
+            value={userDetails.wantChildren}
+            onChangeText={(value) => handleInputChange('wantChildren', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Drinking Habits"
+            value={userDetails.drinking}
+            onChangeText={(value) => handleInputChange('drinking', value)}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Smoking Habits"
+            value={userDetails.smoking}
+            onChangeText={(value) => handleInputChange('smoking', value)}
           />
         </View>
         
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Interests</Text>
+        {/* Beliefs */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Beliefs</Text>
+          
+
           <TextInput
-            style={styles.textInput}
-            value={interestsString}
-            onChangeText={handleInterestsChange}
-            placeholder="Travel, Cooking, Sports, etc."
+            style={styles.input}
+            placeholder="Religious Beliefs"
+            value={userDetails.religiousBeliefs}
+            onChangeText={(value) => handleInputChange('religiousBeliefs', value)}
           />
-          <Text style={styles.helperText}>Separate interests with commas</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Political Beliefs"
+            value={userDetails.politicalBeliefs}
+            onChangeText={(value) => handleInputChange('politicalBeliefs', value)}
+          />
         </View>
-      </View>
-      
-      {/* Save button */}
-      <TouchableOpacity 
+        
+        {/* Save Button */}
+        <TouchableOpacity 
           style={styles.saveButton}
           onPress={saveDetails}
           disabled={saving}
@@ -364,9 +518,11 @@ interface PersonalDetailsScreenProps {
             )}
           </LinearGradient>
         </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -393,6 +549,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
+  sectionsContainer: {
+    paddingHorizontal: 20,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: theme.colors.text,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray[300],
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  halfInput: {
+    width: '48%', // Adjust for side-by-side inputs
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  multilineInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
   profileImageContainer: {
     alignItems: 'center',
     marginVertical: 20,
@@ -401,61 +589,48 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
-  disabledInput: {
-    backgroundColor: '#f9f9f9',
-    color: '#999',
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
   },
-  formSection: {
-    marginHorizontal: 20,
+  interestsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: theme.colors.text,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray[300],
-    borderRadius: 8,
+  interestTag: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
   },
-  multilineInput: {
-    minHeight: 100,
-    textAlignVertical: 'top',
+  selectedInterestTag: {
+    backgroundColor: '#FFE4E6',
+    borderColor: '#FCA5A5',
   },
-  helperText: {
+  interestText: {
     fontSize: 12,
-    color: theme.colors.gray[500],
-    marginTop: 4,
+    color: '#666',
+  },
+  selectedInterestText: {
+    color: '#E11D48',
   },
   saveButton: {
-    width: '100%',
-    height: 50,
-    borderRadius: 28,
-    overflow: 'hidden',
     marginTop: 20,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
   },
   gradientButton: {
-    width: '90%',
-    height: '100%',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 25,
-    marginLeft: '5%',
   },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });
