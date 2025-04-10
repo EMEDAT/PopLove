@@ -389,10 +389,10 @@ export default function OnboardingFlow() {
           }
   
           // Check for valid gender value
-          if (profileData.gender !== 'male' && profileData.gender !== 'female') {
+          if (profileData.gender !== 'male' && profileData.gender !== 'female' && profileData.gender !== 'non-binary') {
             console.error(`Invalid gender value: ${profileData.gender}`);
-            setError('Please select either male or female');
-            Alert.alert('Invalid Selection', 'Please select either male or female');
+            setError('Please select a valid gender');
+            Alert.alert('Invalid Selection', 'Please select a valid gender option');
             const genderStepIndex = STEPS.indexOf('gender');
             if (genderStepIndex >= 0) {
               setCurrentStep(genderStepIndex);
