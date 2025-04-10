@@ -118,7 +118,11 @@ export const categorizedInterests = {
       'Podcasting',
       'Graphic design',
       'Coding',
-      'Cryptocurrency'
+      'Cryptocurrency',
+      'Game Development',
+      'Digital art',
+      'Virtual reality',
+      'Content creation',
     ]
   };
   

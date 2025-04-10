@@ -25,7 +25,7 @@ export default function PronounsSelection({
   onToggleVisibility 
 }: PronounsSelectionProps) {
   // Limited pronouns list as requested
-  const PRONOUNS_LIST = ["she", "her", "hers", "he", "him"];
+  const PRONOUNS_LIST = ["she", "her", "they", "them", "he", "him"];
   
   // Convert string to array if needed
   const parsePronouns = (): string[] => {

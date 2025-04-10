@@ -620,16 +620,20 @@ export default function LocationSelection({
   const handleToggleExactAddress = (value: boolean) => {
     setUseExactAddress(value);
     
-    // Update the location data with the new toggle state
+    // Create a completely updated location object
     if (markerPosition) {
-      updateLocationData(
-        markerPosition.latitude, 
-        markerPosition.longitude, 
-        exactAddress,
-        selectedLocation?.city || null,
-        selectedLocation?.state || null,
-        selectedLocation?.country || null
-      );
+      const updatedLocation = {
+        latitude: markerPosition.latitude,
+        longitude: markerPosition.longitude,
+        address: exactAddress,
+        city: selectedLocation?.city || null,
+        state: selectedLocation?.state || null,
+        country: selectedLocation?.country || null,
+        useExactAddress: value  // This is the key change
+      };
+      
+      // Call the parent component's callback with the complete updated object
+      onLocationSelect(updatedLocation);
     }
   };
 
@@ -803,10 +807,7 @@ export default function LocationSelection({
           trackColor={{ false: '#E5E5E5', true: '#FF6B6B' }}
           thumbColor={useExactAddress ? '#fff' : '#fff'}
           ios_backgroundColor="#E5E5E5"
-          onValueChange={value => {
-            setUseExactAddress(value);
-            updateProfile('useExactAddress', value);
-          }}
+          onValueChange={handleToggleExactAddress}
           value={useExactAddress}
         />
       </View>
