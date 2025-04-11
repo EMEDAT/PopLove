@@ -1,4 +1,4 @@
-// components/shared/ProfileDetailsModal.jsx
+// components/shared/ProfileDetailsModal.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -17,39 +17,34 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { BlurView } from 'expo-blur';
 import VibeCheck from './VibeCheck';
-import { SubscriptionGate } from './SubscriptionGate';
 import ProfileMediaGallery from '../profile/ProfileMediaGallery';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// Simple version with minimal complexity and no TypeScript
 export function ProfileDetailsModal(props) {
   const { visible, onClose, profile: initialProfile, actionButton, secondaryButton } = props;
   
-  // Simple state for expanded sections
+  // State for expanded sections and profile data
   const [expandedSection, setExpandedSection] = useState(null);
-  // Basic profile state initialized once
   const [profile, setProfile] = useState(initialProfile || {});
-
   const [vibeCheckVisible, setVibeCheckVisible] = useState(false);
 
+  // Reset expanded sections when modal closes
   useEffect(() => {
     if (!visible) {
-      // Reset expanded section when modal closes
       setExpandedSection(null);
     }
   }, [visible]);
   
-  // Effect to load data only when the profile ID changes
+  // Fetch full profile data when profile ID changes
   useEffect(() => {
     if (initialProfile?.id) {
       // Start with initial data
       setProfile(initialProfile);
       
-      // Fetch profile data
+      // Fetch complete profile data
       const fetchProfileData = async () => {
         try {
-          // Load user profile
           const userDoc = await getDoc(doc(firestore, 'users', initialProfile.id));
           if (userDoc.exists()) {
             setProfile(prev => ({
@@ -66,44 +61,101 @@ export function ProfileDetailsModal(props) {
     }
   }, [initialProfile?.id]);
   
-  // Close modal handler - ensure this is working
+  // Handle modal close
   const handleClose = () => {
     if (onClose && typeof onClose === 'function') {
       onClose();
     }
   };
 
-  // Only render if we have a profile
-  if (!profile) return null;
-  
   // Function to toggle expandable sections
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
   
-  // Common helper to render section content
-  const renderSectionContent = (content) => {
-    if (!content) return <Text style={styles.notSpecifiedText}>Not specified</Text>;
+  // Check if a field is visible
+  const isFieldVisible = (field, defaultValue = true) => {
+    // Check if field has a visibility toggle
+    const visibilityField = `${field}Visible`;
+    
+    // If visibility field exists in profile, use it, otherwise use default
+    if (visibilityField in profile) {
+      return profile[visibilityField] !== false;
+    }
+    
+    return defaultValue;
+  };
+  
+  // Helper to render section content with visibility check
+  const renderSectionContent = (content, isVisible = true) => {
+    if (!isVisible) {
+      return <Text style={styles.hiddenText}>This information is hidden</Text>;
+    }
+    
+    if (!content) {
+      return <Text style={styles.notSpecifiedText}>Not specified</Text>;
+    }
+    
     return <Text style={styles.sectionContent}>{content}</Text>;
   };
   
-  // Extract key data with fallbacks
+  // Extract profile data with fallbacks
   const photoURL = profile.photoURL;
   const displayName = profile.displayName || 'User';
   const age = profile.age || '';
   const ethnicity = profile.ethnicity;
+  const ethnicityVisible = isFieldVisible('ethnicity');
   const pronouns = profile.pronouns;
-  const hasChildren = profile.hasChildren;
+  const pronounsVisible = isFieldVisible('pronouns');
+  const currentChildren = profile.currentChildren;
+  const childrenVisible = isFieldVisible('children');
+  const wantChildren = profile.wantChildren;
   const location = profile.location;
+  const useExactAddress = profile.useExactAddress !== false; // Default to true if not specified
   const bio = profile.bio;
   const height = profile.height;
   
+  // Work and education with visibility checks
+  const workplace = profile.workplace;
+  const workplaceVisible = isFieldVisible('workplace');
+  const jobTitle = profile.jobTitle;
+  const jobTitleVisible = isFieldVisible('jobTitle');
+  const school = profile.school;
+  const schoolVisible = isFieldVisible('school');
+  const education = profile.education;
+  const educationVisible = isFieldVisible('education', false); // Default false for education
+  
+  // Habits with visibility checks
+  const drinking = profile.drinking;
+  const drinkingVisible = isFieldVisible('drinking');
+  const smoking = profile.smoking;
+  const smokingVisible = isFieldVisible('smoking');
+  const drugUsage = profile.drugUsage;
+  const drugUsageVisible = isFieldVisible('drugUsage');
+  
+  // Beliefs with visibility checks
+  const religiousBeliefs = profile.religiousBeliefs;
+  const religiousBeliefsVisible = isFieldVisible('religiousBeliefs');
+  const politicalBeliefs = profile.politicalBeliefs;
+  const politicalBeliefsVisible = isFieldVisible('politicalBeliefs');
+  
+  // Dating preferences
+  const datingPreferences = profile.datingPreferences || [];
+  const datingPreferencesVisible = isFieldVisible('datingPreferences');
+  
   // Extract interests
   const interests = Array.isArray(profile.interests) ? profile.interests : [];
+  
   // Extract lifestyle
   const lifestyle = Array.isArray(profile.lifestyle) 
     ? profile.lifestyle.join(', ') 
     : (typeof profile.lifestyle === 'string' ? profile.lifestyle : '');
+  
+  const lifestyleVisible = isFieldVisible('lifestyle');
+  
+  // Extract relationshipType
+  const relationshipType = profile.relationshipType;
+  const relationshipTypeVisible = isFieldVisible('relationshipType');
   
   // Extract prompts
   const prompts = Array.isArray(profile.prompts) ? profile.prompts : [];
@@ -111,16 +163,17 @@ export function ProfileDetailsModal(props) {
   const fearPrompt = prompts.find(p => p?.question?.toLowerCase().includes('fear'));
   const datingPrompt = prompts.find(p => p?.question?.toLowerCase().includes('dating'));
 
-  // Handle action button clicks
+  // Handle reject button click
   const handleRejectPress = () => {
     if (secondaryButton?.onPress && typeof secondaryButton.onPress === 'function') {
       secondaryButton.onPress();
     } else {
       console.log("Pop Balloon button pressed, but no handler provided");
-      handleClose(); // Fallback to close if no handler
+      handleClose();
     }
   };
 
+  // Handle love button click
   const handleLovePress = () => {
     setVibeCheckVisible(true);
   };
@@ -142,7 +195,7 @@ export function ProfileDetailsModal(props) {
                 <Ionicons name="chevron-back" size={24} color="#344054" />
               </View>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Details</Text>
+            <Text style={styles.headerTitle}>Profile Details</Text>
             <TouchableOpacity style={styles.moreButton}>
               <View style={styles.iconCircle}>
                 <Ionicons name="ellipsis-vertical" size={24} color="#344054" />
@@ -154,8 +207,6 @@ export function ProfileDetailsModal(props) {
             style={styles.scrollView} 
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={true}
-            scrollEnabled={true}
-            keyboardShouldPersistTaps="handled"
           >
             {/* Profile Image */}
             <View style={styles.imageContainer}>
@@ -188,121 +239,280 @@ export function ProfileDetailsModal(props) {
             <View style={styles.infoSection}>
               <Text style={styles.displayName}>{displayName}{age ? `, ${age}` : ''}</Text>
               
+              {/* Location - respect location privacy */}
               {location && (
                 <View style={styles.locationRow}>
                   <Ionicons name="location-outline" size={18} color="#737373" />
-                  <Text style={styles.locationText}>{location}</Text>
+                  <Text style={styles.locationText}>
+                    {/* Show either exact address or just city/country based on user preference */}
+                    {useExactAddress ? location : location.split(',').slice(-2).join(',')}
+                    {!useExactAddress && <Text style={styles.privacyNote}> · Approximate location</Text>}
+                  </Text>
                 </View>
               )}
             </View>
             
             {/* Bio Section */}
+            {bio && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>About</Text>
+                {renderSectionContent(bio)}
+              </View>
+            )}
+
+            {/* Gender & Pronouns Section - merged */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About</Text>
-              {renderSectionContent(bio)}
+              <Text style={styles.sectionTitle}>Gender & Pronouns</Text>
+              <View style={styles.inlineDetailRow}>
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Gender</Text>
+                  <Text style={styles.detailValue}>
+                    {profile.gender 
+                      ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) 
+                      : 'Not specified'}
+                  </Text>
+                </View>
+                
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Pronouns</Text>
+                  {pronounsVisible 
+                    ? <Text style={styles.detailValue}>{pronouns || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+              </View>
             </View>
 
-            {/* Pronouns Section */}
+            {/* Physical Attributes Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Pronouns</Text>
-              {renderSectionContent(pronouns || 'Not specified')}
+              <Text style={styles.sectionTitle}>Physical Attributes</Text>
+              <View style={styles.inlineDetailRow}>
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Height</Text>
+                  <Text style={styles.detailValue}>{height ? `${height} cm` : 'Not specified'}</Text>
+                </View>
+                
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Ethnicity</Text>
+                  {ethnicityVisible 
+                    ? <Text style={styles.detailValue}>{ethnicity || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+              </View>
             </View>
 
-            {/* Height Section */}
+            {/* Family Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Height</Text>
-              {renderSectionContent(height ? `${height} cm` : 'Not specified')}
+              <Text style={styles.sectionTitle}>Family</Text>
+              <View style={styles.inlineDetailRow}>
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Has Children</Text>
+                  {childrenVisible 
+                    ? <Text style={styles.detailValue}>{currentChildren || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+                
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Wants Children</Text>
+                  {childrenVisible 
+                    ? <Text style={styles.detailValue}>{wantChildren || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+              </View>
             </View>
 
-            {/* Ethnicity Section */}
+            {/* Work & Education */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ethnicity</Text>
-              {renderSectionContent(ethnicity || 'Not specified')}
-            </View>
-
-            {/* Children Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Children</Text>
-              {renderSectionContent(hasChildren || 'Not specified')}
-            </View>
-
-            {/* Profession Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Profession</Text>
-              {renderSectionContent(profile.profession || 'Not specified')}
-            </View>
-
-            {/* Strength Section */}
-            <TouchableOpacity 
-              style={styles.expandableSection}
-              onPress={() => toggleSection('strength')}
-            >
-              <View style={styles.expandableHeader}>
-                <Text style={styles.expandableTitle}>My greatest strength?</Text>
-                <Ionicons 
-                  name={expandedSection === 'strength' ? 'chevron-down' : 'chevron-forward'} 
-                  size={20} 
-                  color="#666" 
-                />
+              <Text style={styles.sectionTitle}>Work & Education</Text>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Workplace</Text>
+                {workplaceVisible 
+                  ? <Text style={styles.detailValue}>{workplace || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
               </View>
               
-              {expandedSection === 'strength' && (
-                <View style={styles.expandedContent}>
-                  {renderSectionContent(strengthPrompt?.answer)}
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Fear Section */}
-            <TouchableOpacity 
-              style={styles.expandableSection}
-              onPress={() => toggleSection('fear')}
-            >
-              <View style={styles.expandableHeader}>
-                <Text style={styles.expandableTitle}>My most irrational fear?</Text>
-                <Ionicons 
-                  name={expandedSection === 'fear' ? 'chevron-down' : 'chevron-forward'} 
-                  size={20} 
-                  color="#666" 
-                />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Job Title</Text>
+                {jobTitleVisible 
+                  ? <Text style={styles.detailValue}>{jobTitle || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
               </View>
               
-              {expandedSection === 'fear' && (
-                <View style={styles.expandedContent}>
-                  {renderSectionContent(fearPrompt?.answer)}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>School</Text>
+                {schoolVisible 
+                  ? <Text style={styles.detailValue}>{school || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Education</Text>
+                {educationVisible 
+                  ? <Text style={styles.detailValue}>{education || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
+              </View>
+            </View>
+
+            {/* Lifestyle Habits */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Lifestyle Habits</Text>
+              
+              <View style={styles.inlineDetailRow}>
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Drinking</Text>
+                  {drinkingVisible 
+                    ? <Text style={styles.detailValue}>{drinking || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
                 </View>
-              )}
-            </TouchableOpacity>
+                
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Smoking</Text>
+                  {smokingVisible 
+                    ? <Text style={styles.detailValue}>{smoking || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Drug Usage</Text>
+                {drugUsageVisible 
+                  ? <Text style={styles.detailValue}>{drugUsage || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
+              </View>
+            </View>
+
+            {/* Beliefs Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Beliefs</Text>
+              
+              <View style={styles.inlineDetailRow}>
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Religious Beliefs</Text>
+                  {religiousBeliefsVisible 
+                    ? <Text style={styles.detailValue}>{religiousBeliefs || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+                
+                <View style={styles.inlineDetail}>
+                  <Text style={styles.detailLabel}>Political Beliefs</Text>
+                  {politicalBeliefsVisible 
+                    ? <Text style={styles.detailValue}>{politicalBeliefs || 'Not specified'}</Text>
+                    : <Text style={styles.hiddenText}>Hidden</Text>}
+                </View>
+              </View>
+            </View>
+
+            {/* Dating Preferences Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Dating Preferences</Text>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Looking for</Text>
+                {datingPreferencesVisible && datingPreferences.length > 0 
+                  ? <Text style={styles.detailValue}>{datingPreferences.join(', ')}</Text>
+                  : <Text style={datingPreferencesVisible ? styles.notSpecifiedText : styles.hiddenText}>
+                      {datingPreferencesVisible ? 'Not specified' : 'Hidden'}
+                    </Text>}
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Relationship Type</Text>
+                {relationshipTypeVisible 
+                  ? <Text style={styles.detailValue}>{relationshipType || 'Not specified'}</Text>
+                  : <Text style={styles.hiddenText}>Hidden</Text>}
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Dating Intentions</Text>
+                {lifestyleVisible && lifestyle 
+                  ? <Text style={styles.detailValue}>{lifestyle}</Text>
+                  : <Text style={lifestyleVisible ? styles.notSpecifiedText : styles.hiddenText}>
+                      {lifestyleVisible ? 'Not specified' : 'Hidden'}
+                    </Text>}
+              </View>
+            </View>
             
-            {/* Dating Section */}
-            <TouchableOpacity 
-              style={styles.expandableSection}
-              onPress={() => toggleSection('dating')}
-            >
-              <View style={styles.expandableHeader}>
-                <Text style={styles.expandableTitle}>Dating me is like?</Text>
-                <Ionicons 
-                  name={expandedSection === 'dating' ? 'chevron-down' : 'chevron-forward'} 
-                  size={20} 
-                  color="#666" 
-                />
-              </View>
+            {/* Prompts Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Profile Prompts</Text>
               
-              {expandedSection === 'dating' && (
-                <View style={styles.expandedContent}>
-                  {renderSectionContent(datingPrompt?.answer)}
-                </View>
+              {/* Strength Prompt */}
+              {strengthPrompt ? (
+                <TouchableOpacity 
+                  style={styles.expandableSection}
+                  onPress={() => toggleSection('strength')}
+                >
+                  <View style={styles.expandableHeader}>
+                    <Text style={styles.expandableTitle}>{strengthPrompt.question}</Text>
+                    <Ionicons 
+                      name={expandedSection === 'strength' ? 'chevron-down' : 'chevron-forward'} 
+                      size={20} 
+                      color="#666" 
+                    />
+                  </View>
+                  
+                  {expandedSection === 'strength' && (
+                    <View style={styles.expandedContent}>
+                      <Text style={styles.promptAnswer}>{strengthPrompt.answer}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+              
+              {/* Fear Prompt */}
+              {fearPrompt ? (
+                <TouchableOpacity 
+                  style={styles.expandableSection}
+                  onPress={() => toggleSection('fear')}
+                >
+                  <View style={styles.expandableHeader}>
+                    <Text style={styles.expandableTitle}>{fearPrompt.question}</Text>
+                    <Ionicons 
+                      name={expandedSection === 'fear' ? 'chevron-down' : 'chevron-forward'} 
+                      size={20} 
+                      color="#666" 
+                    />
+                  </View>
+                  
+                  {expandedSection === 'fear' && (
+                    <View style={styles.expandedContent}>
+                      <Text style={styles.promptAnswer}>{fearPrompt.answer}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+              
+              {/* Dating Prompt */}
+              {datingPrompt ? (
+                <TouchableOpacity 
+                  style={styles.expandableSection}
+                  onPress={() => toggleSection('dating')}
+                >
+                  <View style={styles.expandableHeader}>
+                    <Text style={styles.expandableTitle}>{datingPrompt.question}</Text>
+                    <Ionicons 
+                      name={expandedSection === 'dating' ? 'chevron-down' : 'chevron-forward'} 
+                      size={20} 
+                      color="#666" 
+                    />
+                  </View>
+                  
+                  {expandedSection === 'dating' && (
+                    <View style={styles.expandedContent}>
+                      <Text style={styles.promptAnswer}>{datingPrompt.answer}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+              
+              {/* Show note if no prompts */}
+              {!prompts.length && (
+                <Text style={styles.notSpecifiedText}>No profile prompts available</Text>
               )}
-            </TouchableOpacity>
-            
-            {/* Lifestyle Section */}
-            <View style={styles.sectionNext}>
-              <Text style={styles.sectionTitle}>Expectations and Lifestyle</Text>
-              {renderSectionContent(lifestyle)}
             </View>
             
             {/* Interests Section */}
-            <View style={styles.sectionNext}>
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Interests</Text>
               {interests.length > 0 ? (
                 <View style={styles.interestContainer}>
@@ -313,19 +523,21 @@ export function ProfileDetailsModal(props) {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.notSpecifiedText}>Not specified</Text>
+                <Text style={styles.notSpecifiedText}>No interests specified</Text>
               )}
             </View>
             
             {/* Gallery Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Gallery</Text>
-              {profile.id && (
+              {profile.id ? (
                 <ProfileMediaGallery 
                   userId={profile.id} 
                   profilePhoto={profile.photoURL}
                   key={`gallery-${profile.id}`}
                 />
+              ) : (
+                <Text style={styles.notSpecifiedText}>No gallery photos available</Text>
               )}
             </View>
             
@@ -440,6 +652,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     marginBottom: 5,
+    color: '#333',
   },
   locationRow: {
     flexDirection: 'row',
@@ -450,67 +663,115 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 5,
   },
+  privacyNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#999',
+  },
   section: {
     paddingHorizontal: 20,
     paddingBottom: 15,
-  },
-  sectionNext: {
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    marginTop: 15,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 12,
     color: '#333',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f3f3',
+    paddingBottom: 8,
   },
   sectionContent: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#333',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   notSpecifiedText: {
     fontSize: 16,
     color: '#999',
     fontStyle: 'italic',
   },
+  hiddenText: {
+    fontSize: 14,
+    color: '#888',
+    fontStyle: 'italic',
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  // Inline details style (for side-by-side display)
+  inlineDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 15,
+  },
+  inlineDetail: {
+    width: '48%',
+  },
+  // Regular detail row style
+  detailRow: {
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#333',
+  },
+  // Expandable section styles
   expandableSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   expandableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
   },
   expandableTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
     color: '#333',
+    flex: 1,
   },
   expandedContent: {
-    marginTop: 10,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  promptAnswer: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
   },
   interestContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   interestTag: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F5',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
-    borderColor: '#D0D5DD',
+    borderColor: '#E0E0E0',
     borderWidth: 1,
     marginRight: 10,
     marginBottom: 10,
   },
   interestText: {
-    fontSize: 12,
-    color: '#667185',
+    fontSize: 14,
+    color: '#666',
   },
   actionContainer: {
     flexDirection: 'row',
@@ -581,3 +842,5 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
 });
+
+export default ProfileDetailsModal;

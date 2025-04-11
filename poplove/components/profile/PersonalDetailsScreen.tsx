@@ -770,6 +770,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginHorizontal: 20,
+    borderRadius: 25,
   },
   saveButtonText: {
     color: 'white',
