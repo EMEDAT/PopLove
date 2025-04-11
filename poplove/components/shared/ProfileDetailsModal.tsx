@@ -591,11 +591,11 @@ export function ProfileDetailsModal(props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   header: {
     flexDirection: 'row',
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
     zIndex: 10,
   },
   backButton: {
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   scrollViewContent: {
     paddingBottom: 100,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     fontStyle: 'italic',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F2F1ED',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 4,
@@ -780,15 +780,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     justifyContent: 'space-around',
-    backgroundColor: 'white',
+    backgroundColor: '#F2F1ED',
     paddingVertical: 15,
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 5,
-    borderTopWidth: 1,
+    elevation: 7,
+    borderTopWidth: 3,
     borderTopColor: '#f0f0f0',
     zIndex: 999,
   },  

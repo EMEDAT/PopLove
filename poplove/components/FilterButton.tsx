@@ -1299,10 +1299,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.5,
     shadowRadius: 3,
-    elevation: 2,
+    elevation: 2.5,
     position: 'relative',
   },
   filterCountBadge: {
