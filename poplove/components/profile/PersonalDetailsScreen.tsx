@@ -670,7 +670,7 @@ export default function PersonalDetailsScreen({ onBack }: PersonalDetailsScreenP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   contentContainer: {
     paddingBottom: 40,

@@ -481,7 +481,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
   },
   contentContainer: {
     paddingBottom: 40,
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   section: {
     marginHorizontal: 20,
     marginTop: 25,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F1ED',
     borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
