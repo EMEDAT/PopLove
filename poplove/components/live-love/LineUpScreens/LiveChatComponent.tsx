@@ -15,7 +15,7 @@ import { useAuthContext } from '../../auth/AuthProvider';
 import ChatInputBar from './ChatInputBar';
 
 export default function LiveChatComponent(props: { onClose?: () => void }) {
-  const { messages, sendMessage, loading, currentContestant } = useLineUp();
+  const { messages, sendMessage, loading, currentSpotlight } = useLineUp();
   const { user } = useAuthContext();
   const flatListRef = useRef<FlatList<any>>(null);
   
@@ -79,10 +79,10 @@ export default function LiveChatComponent(props: { onClose?: () => void }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>Live Chat</Text>
-        {currentContestant && (
+        {currentSpotlight && (
           <View style={styles.participantInfo}>
-            <Image source={{ uri: currentContestant.photoURL }} style={styles.participantAvatar} />
-            <Text style={styles.participantName}>{currentContestant.displayName}</Text>
+            <Image source={{ uri: currentSpotlight.photoURL }} style={styles.participantAvatar} />
+            <Text style={styles.participantName}>{currentSpotlight.displayName}</Text>
           </View>
         )}
         <TouchableOpacity onPress={props.onClose} style={styles.closeButton}>

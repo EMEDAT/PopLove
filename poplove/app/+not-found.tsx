@@ -1,5 +1,6 @@
 // poplove\app\+not-found.tsx
-import { Link, Stack } from 'expo-router';
+import { Link } from '../utils/routerHelpers';
+import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';

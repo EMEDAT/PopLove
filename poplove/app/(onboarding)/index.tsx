@@ -1,6 +1,6 @@
 // app/(onboarding)/index.tsx
 import React from 'react';
-import { Redirect } from 'expo-router';
+import { Redirect } from '../../utils/routerHelpers';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 
 export default function OnboardingIndex() {

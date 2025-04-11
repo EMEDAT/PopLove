@@ -11,7 +11,9 @@ import {
   Alert,
   ScrollView
 } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams } from '../../utils/routerHelpers';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';

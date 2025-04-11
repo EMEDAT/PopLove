@@ -28,7 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../../components/auth/AuthProvider';
 import SpeedDatingMode from '../../components/live-love/SpeedDatingMode';
 import LineUpMode from '../../components/live-love/LineUpMode';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from '../../utils/routerHelpers';
 
 // Create a logger function for this component
 const logLiveLove = (message: string, data?: any) => {
