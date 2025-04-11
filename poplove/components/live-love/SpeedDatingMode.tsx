@@ -382,6 +382,14 @@ const findMatches = async () => {
     const userLocation = userData.location || '';
     const userAgeRange = userData.ageRange || '25 to 30';
     
+    // Extract location components for location-based matching
+    const locationParts = userLocation.split(',').map(part => part.trim().toLowerCase());
+    const userCity = locationParts.length > 0 ? locationParts[0] : '';
+    const userState = locationParts.length > 1 ? locationParts[1] : '';
+    const userCountry = locationParts.length > 2 ? locationParts[2] : (locationParts.length > 1 ? locationParts[1] : '');
+    
+    console.log(`User location components - City: ${userCity}, State: ${userState}, Country: ${userCountry}`);
+    
     // Calculate user age midpoint
     const userAgeMatch = userAgeRange.match(/(\d+).*?(\d+)/);
     const userAgeMin = userAgeMatch ? parseInt(userAgeMatch[1]) : 25;

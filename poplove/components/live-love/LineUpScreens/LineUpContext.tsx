@@ -208,6 +208,21 @@ const getGenderFilteredSpotlights = async (): Promise<Contestant[]> => {
     const userGender = userGenderRef.current;
     if (!userGender) return [];
     
+    // Get user location data
+    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+    if (!userDoc.exists()) return [];
+    
+    const userData = userDoc.data();
+    const userLocation = userData.location || '';
+    
+    // Parse location components
+    const locationParts = userLocation.split(',').map(part => part.trim().toLowerCase());
+    const userCity = locationParts.length > 0 ? locationParts[0] : '';
+    const userState = locationParts.length > 1 ? locationParts[1] : '';
+    const userCountry = locationParts.length > 2 ? locationParts[2] : (locationParts.length > 1 ? locationParts[1] : '');
+    
+    debugLog('Location', `User location parsed - City: ${userCity}, State: ${userState}, Country: ${userCountry}`);
+    
     // Determine opposite gender to show
     const oppositeGender = userGender === 'male' ? 'female' : 'male';
     
@@ -215,9 +230,47 @@ const getGenderFilteredSpotlights = async (): Promise<Contestant[]> => {
     const allSpotlights = await LineupService.getSpotlights(sessionId, user.uid);
     
     // Further filter to ensure only opposite gender is shown
-    const filteredSpotlights = allSpotlights.filter(spotlight => 
+    const genderFilteredSpotlights = allSpotlights.filter(spotlight => 
       spotlight.gender === oppositeGender
     );
+    
+    // Filter by location
+    let cityMatches: Contestant[] = [];
+    let stateMatches: Contestant[] = [];
+    let countryMatches: Contestant[] = [];
+    
+    // Categorize by location match
+    genderFilteredSpotlights.forEach(spotlight => {
+      // Get contestant location
+      const contestantLocation = spotlight.location || '';
+      const contestantParts = contestantLocation.split(',').map(part => part.trim().toLowerCase());
+      const contestantCity = contestantParts.length > 0 ? contestantParts[0] : '';
+      const contestantState = contestantParts.length > 1 ? contestantParts[1] : '';
+      const contestantCountry = contestantParts.length > 2 ? contestantParts[2] : (contestantParts.length > 1 ? contestantParts[1] : '');
+      
+      // Prioritize by location
+      if (userCity && contestantCity && userCity === contestantCity) {
+        cityMatches.push(spotlight);
+      } else if (userState && contestantState && userState === contestantState) {
+        stateMatches.push(spotlight);
+      } else if (userCountry && contestantCountry && userCountry === contestantCountry) {
+        countryMatches.push(spotlight);
+      }
+    });
+    
+    // Use location prioritized matches
+    let filteredSpotlights = cityMatches.length > 0 ? cityMatches : 
+                             (stateMatches.length > 0 ? stateMatches : 
+                             (countryMatches.length > 0 ? countryMatches : []));
+    
+    debugLog('Location', `Spotlight filtering results - City: ${cityMatches.length}, State: ${stateMatches.length}, Country: ${countryMatches.length}`);
+    
+    // If no matches in city, state, or country - show no matches screen
+    if (filteredSpotlights.length === 0) {
+      debugLog('Location', 'No matches found in user location - directing to no matches screen');
+      setStep('no-matches');
+      return [];
+    }
     
     // Run match percentage calculation for each spotlight
     const spotlightsWithMatch = await Promise.all(

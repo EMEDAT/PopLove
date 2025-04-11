@@ -326,7 +326,7 @@ const calculateLocationScore = (user1Data: any, user2Data: any): number => {
   const loc1 = parseLocation(user1Data.location);
   const loc2 = parseLocation(user2Data.location);
   
-  // PRIORITY 1: City match - highest priority (12 points)
+  // PRIORITY 1: City match - highest priority (15 points)
   if (loc1.city && loc2.city && loc1.city === loc2.city) {
     return 15; // Full score for matching city
   }
@@ -341,8 +341,8 @@ const calculateLocationScore = (user1Data: any, user2Data: any): number => {
     return 4; // Basic score for matching country
   }
   
-  // Different locations
-  return 1;
+  // Different locations - return 0 instead of 1 to further discourage non-local matches
+  return 0;
 };
 
 // Direct matching by location components with proper prioritization

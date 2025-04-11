@@ -1282,6 +1282,61 @@ export const getRemainingTime = async (sessionId: string, gender: string): Promi
 };
 
 /**
+ * Function to check if there are available contestants in the user's location
+ * @param sessionId Current session ID
+ * @param userId User ID
+ * @returns Promise resolving to boolean indicating if local matches are available
+ */
+export const checkForLocalMatches = async (sessionId: string, userId: string): Promise<boolean> => {
+  try {
+    // Get user data
+    const userDoc = await getDoc(doc(firestore, 'users', userId));
+    if (!userDoc.exists()) return false;
+    
+    const userData = userDoc.data();
+    const userLocation = userData.location || '';
+    const userGender = userData.gender || '';
+    
+    // Parse location
+    const locationParts = userLocation.split(',').map(part => part.trim().toLowerCase());
+    const userCity = locationParts.length > 0 ? locationParts[0] : '';
+    const userState = locationParts.length > 1 ? locationParts[1] : '';
+    const userCountry = locationParts.length > 2 ? locationParts[2] : 
+                      (locationParts.length > 1 ? locationParts[1] : '');
+    
+    // Get opposite gender
+    const oppositeGender = userGender === 'male' ? 'female' : 'male';
+    
+    // Query contestants with location filters
+    const contestants = await getSpotlights(sessionId, userId);
+    
+    // Filter by gender and location
+    const matchingContestants = contestants.filter(contestant => {
+      // First filter by gender
+      if (contestant.gender !== oppositeGender) return false;
+      
+      // Then check location match
+      const contestantLocation = contestant.location || '';
+      const contestantParts = contestantLocation.split(',').map(part => part.trim().toLowerCase());
+      const contestantCity = contestantParts.length > 0 ? contestantParts[0] : '';
+      const contestantState = contestantParts.length > 1 ? contestantParts[1] : '';
+      const contestantCountry = contestantParts.length > 2 ? contestantParts[2] : 
+                             (contestantParts.length > 1 ? contestantParts[1] : '');
+      
+      // Check for any location match
+      return (userCity && contestantCity && userCity === contestantCity) ||
+             (userState && contestantState && userState === contestantState) ||
+             (userCountry && contestantCountry && userCountry === contestantCountry);
+    });
+    
+    return matchingContestants.length > 0;
+  } catch (error) {
+    console.error('Error checking for local matches:', error);
+    return false;
+  }
+};
+
+/**
  * Track profile view for analytics
  * @param sessionId Session ID
  * @param viewerId Viewer user ID
@@ -1394,5 +1449,6 @@ export default {
   requestForcedRotation,
   getOrderedSpotlightsByGender,
   autoSelectContestantForGender,
-  resetContestantStatus
+  resetContestantStatus,
+  checkForLocalMatches 
 };
